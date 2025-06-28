@@ -1,6 +1,10 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'vendor/autoload.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
@@ -37,24 +41,81 @@ if ($action == 'add' && isset($_POST['add_user'])) {
     
     if ($stmt->execute()) {
         $new_user_id = $conn->insert_id;
-        $action_message = "User added successfully!";
+        
+        // Get the user_type based on role_id
+        $user_type = '';
+        switch ($role_id) {
+            case 1: $user_type = 'admin'; break;
+            case 2: $user_type = 'midwife'; break;
+            case 3: $user_type = 'nurse'; break;
+            case 4: $user_type = 'patient'; break;
+        }
+        
+        // Update the user_type
+        $update_stmt = $conn->prepare("UPDATE users SET user_type = ? WHERE id = ?");
+        $update_stmt->bind_param("si", $user_type, $new_user_id);
+        $update_stmt->execute();
+        
+        // Send welcome email to the new user
+        $mail = new PHPMailer(true);
+        try {
+            // Server settings
+            $mail->isSMTP();
+            $mail->Host = SMTP_HOST;
+            $mail->SMTPAuth = true;
+            $mail->Username = SMTP_USER;
+            $mail->Password = SMTP_PASS;
+            $mail->SMTPSecure = SMTP_SECURE;
+            $mail->Port = SMTP_PORT;
+            
+            // Recipients
+            $mail->setFrom(SMTP_USER, APP_NAME);
+            $mail->addAddress($email, $name);
+            
+            // Generate a random password if needed
+            $plainPassword = $_POST['password'];
+            
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = 'Welcome to ' . APP_NAME . ' - Account Created';
+            $mail->Body = '
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
+                    </div>
+                    <h2 style="color: #4285f4;">Welcome to ' . APP_NAME . '!</h2>
+                    <p>Hello ' . $name . ',</p>
+                    <p>Your account has been successfully created by an administrator.</p>
+                    <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <p><strong>Email:</strong> ' . $email . '</p>
+                        <p><strong>Password:</strong> ' . $plainPassword . '</p>
+                        <p><strong>Role:</strong> ' . ucfirst($user_type) . '</p>
+                    </div>
+                    <p>You can now log in to your account using the provided credentials. We recommend changing your password after your first login.</p>
+                    <p>If you have any questions, please contact our support team.</p>
+                    <div style="text-align: center; margin-top: 30px;">
+                        <a href="' . APP_URL . '/login.php" style="background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Your Account</a>
+                    </div>
+                    <p style="margin-top: 30px;">Thank you,<br>' . APP_NAME . ' Team</p>
+                </div>
+            ';
+            
+            $mail->send();
+            $action_message = "User added successfully! A welcome email has been sent to " . $email;
+            
+            // Log the email
+            $log_stmt = $conn->prepare("INSERT INTO email_logs (user_id, email_address, subject, message, status, sent_at, created_at) VALUES (?, ?, ?, ?, 'sent', NOW(), NOW())");
+            $subject = 'Welcome to ' . APP_NAME . ' - Account Created';
+            $log_stmt->bind_param("isss", $new_user_id, $email, $subject, $mail->Body);
+            $log_stmt->execute();
+            
+        } catch (Exception $e) {
+            error_log("Email sending failed: " . $mail->ErrorInfo);
+            $action_message = "User added successfully! However, the welcome email could not be sent.";
+        }
         
         // If the role is "patient" (role_id = 4), redirect to add new patient page
         if ($role_id == 4) {
-            // Get the user_type based on role_id
-            $user_type = '';
-            switch ($role_id) {
-                case 1: $user_type = 'admin'; break;
-                case 2: $user_type = 'midwife'; break;
-                case 3: $user_type = 'nurse'; break;
-                case 4: $user_type = 'patient'; break;
-            }
-            
-            // Update the user_type
-            $update_stmt = $conn->prepare("UPDATE users SET user_type = ? WHERE id = ?");
-            $update_stmt->bind_param("si", $user_type, $new_user_id);
-            $update_stmt->execute();
-            
             header("Location: admin_patients.php?action=add&user_id=$new_user_id");
             exit;
         }
