@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#f5f7fa" rx="15" ry="15" />
+  
+  <!-- Dashboard Header -->
+  <rect x="50" y="50" width="700" height="80" fill="#ffffff" rx="10" ry="10" stroke="#e1e4e8" stroke-width="2" />
+  <circle cx="90" cy="90" r="20" fill="#4285f4" />
+  <text x="125" y="95" font-family="Arial" font-size="18" font-weight="bold" fill="#333333">ImmuCare Dashboard</text>
+  
+  <!-- Navigation Icons -->
+  <rect x="550" y="75" width="30" height="30" fill="#f1f3f5" rx="5" ry="5" />
+  <rect x="600" y="75" width="30" height="30" fill="#f1f3f5" rx="5" ry="5" />
+  <rect x="650" y="75" width="30" height="30" fill="#f1f3f5" rx="5" ry="5" />
+  <rect x="700" y="75" width="30" height="30" fill="#f1f3f5" rx="5" ry="5" />
+  
+  <!-- Main Content Area -->
+  <!-- Left Panel -->
+  <rect x="50" y="150" width="220" height="400" fill="#ffffff" rx="10" ry="10" stroke="#e1e4e8" stroke-width="2" />
+  <text x="70" y="180" font-family="Arial" font-size="16" font-weight="bold" fill="#333333">Upcoming Vaccinations</text>
+  
+  <!-- Calendar Items -->
+  <rect x="70" y="200" width="180" height="60" fill="#f1f8ff" rx="5" ry="5" />
+  <circle cx="90" cy="230" r="10" fill="#4285f4" />
+  <text x="110" y="225" font-family="Arial" font-size="14" fill="#333333">John Smith</text>
+  <text x="110" y="245" font-family="Arial" font-size="12" fill="#666666">Hepatitis B - June 28</text>
+  
+  <rect x="70" y="270" width="180" height="60" fill="#f1f8ff" rx="5" ry="5" />
+  <circle cx="90" cy="300" r="10" fill="#34a853" />
+  <text x="110" y="295" font-family="Arial" font-size="14" fill="#333333">Emma Johnson</text>
+  <text x="110" y="315" font-family="Arial" font-size="12" fill="#666666">MMR - June 30</text>
+  
+  <rect x="70" y="340" width="180" height="60" fill="#f1f8ff" rx="5" ry="5" />
+  <circle cx="90" cy="370" r="10" fill="#fbbc05" />
+  <text x="110" y="365" font-family="Arial" font-size="14" fill="#333333">Michael Brown</text>
+  <text x="110" y="385" font-family="Arial" font-size="12" fill="#666666">DTaP - July 2</text>
+  
+  <rect x="70" y="410" width="180" height="60" fill="#f1f8ff" rx="5" ry="5" />
+  <circle cx="90" cy="440" r="10" fill="#ea4335" />
+  <text x="110" y="435" font-family="Arial" font-size="14" fill="#333333">Sarah Davis</text>
+  <text x="110" y="455" font-family="Arial" font-size="12" fill="#666666">Polio - July 5</text>
+  
+  <!-- Middle Panel -->
+  <rect x="290" y="150" width="220" height="400" fill="#ffffff" rx="10" ry="10" stroke="#e1e4e8" stroke-width="2" />
+  <text x="310" y="180" font-family="Arial" font-size="16" font-weight="bold" fill="#333333">Vaccination Coverage</text>
+  
+  <!-- Chart -->
+  <rect x="310" y="200" width="180" height="180" fill="#ffffff" rx="5" ry="5" stroke="#e1e4e8" stroke-width="1" />
+  
+  <!-- Pie Chart -->
+  <circle cx="400" cy="290" r="80" fill="none" stroke="#e1e4e8" stroke-width="1" />
+  <path d="M400 290 L400 210 A80 80 0 0 1 471 245 Z" fill="#4285f4" />
+  <path d="M400 290 L471 245 A80 80 0 0 1 445 355 Z" fill="#34a853" />
+  <path d="M400 290 L445 355 A80 80 0 0 1 330 340 Z" fill="#fbbc05" />
+  <path d="M400 290 L330 340 A80 80 0 0 1 400 210 Z" fill="#ea4335" />
+  
+  <!-- Legend -->
+  <rect x="310" y="390" width="12" height="12" fill="#4285f4" />
+  <text x="330" y="400" font-family="Arial" font-size="12" fill="#666666">Fully Vaccinated (75%)</text>
+  
+  <rect x="310" y="410" width="12" height="12" fill="#34a853" />
+  <text x="330" y="420" font-family="Arial" font-size="12" fill="#666666">Partially Vaccinated (15%)</text>
+  
+  <rect x="310" y="430" width="12" height="12" fill="#fbbc05" />
+  <text x="330" y="440" font-family="Arial" font-size="12" fill="#666666">Scheduled (7%)</text>
+  
+  <rect x="310" y="450" width="12" height="12" fill="#ea4335" />
+  <text x="330" y="460" font-family="Arial" font-size="12" fill="#666666">Overdue (3%)</text>
+  
+  <!-- Right Panel -->
+  <rect x="530" y="150" width="220" height="400" fill="#ffffff" rx="10" ry="10" stroke="#e1e4e8" stroke-width="2" />
+  <text x="550" y="180" font-family="Arial" font-size="16" font-weight="bold" fill="#333333">Recent Alerts</text>
+  
+  <!-- Alert Items -->
+  <rect x="550" y="200" width="180" height="70" fill="#ffefef" rx="5" ry="5" />
+  <text x="570" y="225" font-family="Arial" font-size="14" font-weight="bold" fill="#ea4335">Overdue Vaccination</text>
+  <text x="570" y="245" font-family="Arial" font-size="12" fill="#666666">Patient: Robert Wilson</text>
+  <text x="570" y="260" font-family="Arial" font-size="12" fill="#666666">Vaccine: Influenza</text>
+  
+  <rect x="550" y="280" width="180" height="70" fill="#fff8e1" rx="5" ry="5" />
+  <text x="570" y="305" font-family="Arial" font-size="14" font-weight="bold" fill="#fbbc05">Upcoming Reminder</text>
+  <text x="570" y="325" font-family="Arial" font-size="12" fill="#666666">Patient: Lisa Thompson</text>
+  <text x="570" y="340" font-family="Arial" font-size="12" fill="#666666">Vaccine: HPV (2nd dose)</text>
+  
+  <rect x="550" y="360" width="180" height="70" fill="#e6f4ea" rx="5" ry="5" />
+  <text x="570" y="385" font-family="Arial" font-size="14" font-weight="bold" fill="#34a853">Vaccination Complete</text>
+  <text x="570" y="405" font-family="Arial" font-size="12" fill="#666666">Patient: David Miller</text>
+  <text x="570" y="420" font-family="Arial" font-size="12" fill="#666666">Series: Hepatitis B</text>
+</svg> 
