@@ -480,7 +480,7 @@ class NotificationSystem {
          
             
            
-            $api_key = 'YOUR_PHILSMS_API_KEY';
+            $api_key = '2100|J9BVGEx9FFOJAbHV0xfn6SMOkKBt80HTLjHb6zZX';
             $sender_id = 'IMMUCARE'; // Your registered sender ID
             
             $url = 'https://api.philsms.com/v1/send';

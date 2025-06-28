@@ -18,6 +18,7 @@ if (isset($_SESSION['user_id'])) {
 // Process login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+    $password = isset($_POST['password']) ? $_POST['password'] : '';
     
     if (empty($email)) {
         $error = 'Please enter your email address';
@@ -30,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         }
         
         // Check if user exists
-        $stmt = $conn->prepare("SELECT id, email, name, user_type FROM users WHERE email = ?");
+        $stmt = $conn->prepare("SELECT id, email, name, user_type, password FROM users WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -38,28 +39,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         if ($result->num_rows === 1) {
             $user = $result->fetch_assoc();
             
-            // Generate OTP
-            $otp = rand(100000, 999999);
-            $otp_expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
-            
-            // Store OTP in database
-            $stmt = $conn->prepare("UPDATE users SET otp = ?, otp_expiry = ? WHERE id = ?");
-            $stmt->bind_param("ssi", $otp, $otp_expiry, $user['id']);
-            $stmt->execute();
-            
-            // Send OTP via email
-            if (sendOTP($user['email'], $user['name'], $otp)) {
-                // Store user data in session
-                $_SESSION['temp_user_id'] = $user['id'];
-                $_SESSION['temp_user_email'] = $user['email'];
-                $_SESSION['temp_user_name'] = $user['name'];
-                $_SESSION['temp_user_type'] = $user['user_type'];
+            // If password is provided and matches, log in directly
+            if (!empty($password) && isset($user['password']) && password_verify($password, $user['password'])) {
+                // Set user session
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_email'] = $user['email'];
+                $_SESSION['user_name'] = $user['name'];
+                $_SESSION['user_type'] = $user['user_type'];
                 
-                // Redirect to OTP verification page
-                header('Location: verify_otp.php');
+                // Redirect to dashboard
+                header('Location: dashboard.php');
                 exit;
+            } 
+            // Otherwise, proceed with OTP login
+            else if (empty($password) || !isset($user['password'])) {
+                // Generate OTP
+                $otp = rand(100000, 999999);
+                $otp_expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+                
+                // Store OTP in database
+                $stmt = $conn->prepare("UPDATE users SET otp = ?, otp_expiry = ? WHERE id = ?");
+                $stmt->bind_param("ssi", $otp, $otp_expiry, $user['id']);
+                $stmt->execute();
+                
+                // Send OTP via email
+                if (sendOTP($user['email'], $user['name'], $otp)) {
+                    // Store user data in session
+                    $_SESSION['temp_user_id'] = $user['id'];
+                    $_SESSION['temp_user_email'] = $user['email'];
+                    $_SESSION['temp_user_name'] = $user['name'];
+                    $_SESSION['temp_user_type'] = $user['user_type'];
+                    
+                    // Redirect to OTP verification page
+                    header('Location: verify_otp.php');
+                    exit;
+                } else {
+                    $error = 'Failed to send OTP. Please try again.';
+                }
             } else {
-                $error = 'Failed to send OTP. Please try again.';
+                $error = 'Invalid password. Please try again or use OTP.';
             }
         } else {
             $error = 'Email not found. Please register first.';
@@ -248,7 +266,12 @@ function sendOTP($email, $name, $otp) {
                 <label for="email">Email Address</label>
                 <input type="email" id="email" name="email" required>
             </div>
-            <button type="submit" name="login" class="btn btn-primary">Send OTP</button>
+            <div class="form-group">
+                <label for="password">Password (Optional)</label>
+                <input type="password" id="password" name="password">
+                <small style="display: block; margin-top: 5px; color: var(--light-text);">Leave blank to receive OTP</small>
+            </div>
+            <button type="submit" name="login" class="btn btn-primary">Login</button>
         </form>
         
         <div class="auth-links">
@@ -265,6 +288,7 @@ function sendOTP($email, $name, $otp) {
                 e.preventDefault();
                 alert('Please enter your email address');
             }
+            // Password is optional, so no validation needed
         });
     </script>
 </body>

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'notification_system.php';
 
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
@@ -13,41 +14,180 @@ $admin_id = $_SESSION['user_id'];
 $admin_name = $_SESSION['user_name'];
 $admin_email = $_SESSION['user_email'];
 
+// Initialize notification system
+$notification_system = new NotificationSystem();
+
+// Initialize arrays for users
+$grouped_users = [
+    'patient' => [],
+    'midwife' => [],
+    'nurse' => []
+];
+
 // Connect to database
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+// Get users query with proper error handling
+try {
+    $users_query = "
+        SELECT 
+            u.id,
+            u.name,
+            u.user_type,
+            CASE 
+                WHEN u.user_type = 'patient' THEN CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))
+                ELSE u.name
+            END as display_name
+        FROM users u
+        LEFT JOIN patients p ON u.id = p.user_id
+        WHERE u.id != ? 
+        AND u.user_type IN ('patient', 'midwife', 'nurse')
+        AND u.is_active = 1
+        ORDER BY u.user_type, display_name";
+
+    if ($users_stmt = $conn->prepare($users_query)) {
+        $users_stmt->bind_param("i", $admin_id);
+        $users_stmt->execute();
+        $users_result = $users_stmt->get_result();
+
+        // Group users by type
+        while ($user = $users_result->fetch_assoc()) {
+            // Ensure display name is not empty
+            if (empty(trim($user['display_name']))) {
+                $user['display_name'] = $user['name'];
+            }
+            
+            // Only add to group if it's a valid user type
+            if (isset($grouped_users[$user['user_type']])) {
+                $grouped_users[$user['user_type']][] = $user;
+            }
+        }
+        
+        $users_stmt->close();
+    } else {
+        throw new Exception("Failed to prepare user query: " . $conn->error);
+    }
+} catch (Exception $e) {
+    // Log the error and initialize empty groups
+    error_log("Error fetching users: " . $e->getMessage());
+    $grouped_users = [
+        'patient' => [],
+        'midwife' => [],
+        'nurse' => []
+    ];
+}
+
 // Process notification actions
 $action_message = '';
+$action_type = 'success';
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 // Send notification
 if ($action == 'send' && isset($_POST['send_notification'])) {
-    $title = $_POST['title'];
-    $message = $_POST['message'];
-    $user_id = $_POST['user_id'] ?? $admin_id; // Default to admin if not specified
-    $type = $_POST['notification_type'];
+    // Validate required fields
+    $required_fields = ['title_type', 'message', 'notification_type'];
+    $errors = [];
     
-    // Create notification record
-    $stmt = $conn->prepare("INSERT INTO notifications (user_id, title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, 0, NOW())");
-    $stmt->bind_param("isss", $user_id, $title, $message, $type);
+    foreach ($required_fields as $field) {
+        if (empty($_POST[$field])) {
+            $errors[] = ucfirst(str_replace('_', ' ', $field)) . ' is required.';
+        }
+    }
     
-    if ($stmt->execute()) {
-        $notification_id = $conn->insert_id;
+    // Validate recipients
+    if (empty($_POST['recipients']) && empty($_POST['recipient_groups'])) {
+        $errors[] = 'Please select at least one recipient or group.';
+    }
+    
+    // Validate title based on title type
+    if ($_POST['title_type'] === 'custom' && empty($_POST['title'])) {
+        $errors[] = 'Custom title is required when selecting Custom Title option.';
+    }
+    
+    if (empty($errors)) {
+        $title = $_POST['title_type'] === 'custom' ? trim($_POST['title']) : trim($_POST['title_type']);
+        $message = trim($_POST['message']);
+        $type = $_POST['notification_type'];
         
-        // In a real application, this would trigger a background job to send notifications
-        // For demonstration, we'll simulate successful delivery after a delay
-        $delivery_time = date('Y-m-d H:i:s', strtotime('+2 minutes'));
-        $stmt = $conn->prepare("UPDATE notifications SET sent_at = ? WHERE id = ?");
-        $stmt->bind_param("si", $delivery_time, $notification_id);
-        $stmt->execute();
+        // Get all selected recipients
+        $recipients = [];
         
-        $action_message = "Notification queued for delivery.";
-        $action = ''; // Return to list view
+        // Individual recipients
+        if (!empty($_POST['recipients'])) {
+            $recipients = array_merge($recipients, $_POST['recipients']);
+        }
+        
+        // Group recipients
+        if (!empty($_POST['recipient_groups'])) {
+            foreach ($_POST['recipient_groups'] as $group) {
+                foreach ($grouped_users[$group] as $user) {
+                    $recipients[] = $user['id'];
+                }
+            }
+        }
+        
+        // Remove duplicates
+        $recipients = array_unique($recipients);
+        
+        // Send to all recipients
+        $success_count = 0;
+        $failed_count = 0;
+        $email_sent = 0;
+        $sms_sent = 0;
+        
+        foreach ($recipients as $recipient_id) {
+            if ($type === 'email_sms') {
+                // Send both email and SMS
+                $result_email = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'email');
+                $result_sms = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'sms');
+                
+                if ($result_email['email_sent']) {
+                    $email_sent++;
+                }
+                if ($result_sms['sms_sent']) {
+                    $sms_sent++;
+                }
+                
+                if ($result_email['email_sent'] || $result_sms['sms_sent']) {
+                    $success_count++;
+                } else {
+                    $failed_count++;
+                }
+            } else {
+                $result = $notification_system->sendCustomNotification($recipient_id, $title, $message, $type);
+                
+                if (($type === 'email' && $result['email_sent']) || 
+                    ($type === 'sms' && $result['sms_sent']) || 
+                    ($type === 'system')) {
+                    $success_count++;
+                } else {
+                    $failed_count++;
+                }
+            }
+        }
+        
+        if ($success_count > 0) {
+            $action_message = "Notification sent successfully to {$success_count} recipient(s).";
+            if ($type === 'email_sms') {
+                $action_message .= " (Email: {$email_sent}, SMS: {$sms_sent})";
+            }
+            if ($failed_count > 0) {
+                $action_message .= " Failed to send to {$failed_count} recipient(s).";
+                $action_type = 'warning';
+            } else {
+                $action_type = 'success';
+            }
+            $action = ''; // Return to list view
+        } else {
+            $action_message = "Error sending notifications. Please try again.";
+            $action_type = 'error';
+        }
     } else {
-        $action_message = "Error creating notification: " . $conn->error;
+        $action_message = implode('<br>', $errors);
+        $action_type = 'error';
     }
 }
 
@@ -80,15 +220,28 @@ while ($center = $health_centers->fetch_assoc()) {
     $health_centers_array[$center['id']] = $center['name'];
 }
 
-// Get recent notifications
-$notifications_query = "SELECT n.*, u.name as user_name
+// Get recent notifications with user information
+$notifications_query = "SELECT n.*, u.name as user_name, u.email as user_email,
+                              CASE 
+                                WHEN n.type = 'email' THEN el.status
+                                WHEN n.type = 'sms' THEN sl.status
+                                ELSE NULL
+                              END as delivery_status
                        FROM notifications n 
                        LEFT JOIN users u ON n.user_id = u.id 
+                       LEFT JOIN email_logs el ON el.user_id = n.user_id AND el.created_at = n.created_at
+                       LEFT JOIN sms_logs sl ON sl.patient_id = (SELECT id FROM patients WHERE user_id = n.user_id) AND sl.created_at = n.created_at
                        ORDER BY n.created_at DESC
                        LIMIT 50";
 $notifications_result = $conn->query($notifications_query);
 
+// Close database connection after all queries
 $conn->close();
+
+// Function to safely count group members
+function getGroupCount($group, $grouped_users) {
+    return isset($grouped_users[$group]) ? count($grouped_users[$group]) : 0;
+}
 ?>
 
 <!DOCTYPE html>
@@ -102,6 +255,19 @@ $conn->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #4285f4;
+            --secondary-color: #34a853;
+            --accent-color: #fbbc05;
+            --text-color: #333;
+            --light-text: #666;
+            --bg-light: #f9f9f9;
+            --bg-white: #ffffff;
+            --shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+            --transition: all 0.3s ease;
+        }
+
         .dashboard-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -274,10 +440,33 @@ $conn->close();
         }
         
         .notification-form {
-            background-color: #f8f9fa;
+            background-color: #fff;
             border-radius: var(--border-radius);
-            padding: 25px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             margin-bottom: 30px;
+        }
+        
+        .form-section {
+            padding: 25px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .form-section:last-child {
+            border-bottom: none;
+        }
+        
+        .form-section-title {
+            color: var(--primary-color);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .form-section-title i {
+            margin-right: 10px;
+            font-size: 1.2rem;
         }
         
         .form-grid {
@@ -287,24 +476,38 @@ $conn->close();
         }
         
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group:last-child {
+            margin-bottom: 0;
         }
         
         .form-group label {
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
+            color: var(--text-color);
         }
         
         .form-group input,
         .form-group select,
         .form-group textarea {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 1px solid #ddd;
             border-radius: var(--border-radius);
             font-family: inherit;
-            font-size: 1rem;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+            outline: none;
         }
         
         .form-group textarea {
@@ -312,41 +515,152 @@ $conn->close();
             resize: vertical;
         }
         
+        .recipients-container {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: var(--border-radius);
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        .recipient-section {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .recipient-section:last-child {
+            border-bottom: none;
+        }
+        
+        .recipient-section-title {
+            font-size: 1rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+        
+        .recipient-section-title i {
+            margin-right: 8px;
+        }
+        
+        .group-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .group-checkbox {
+            background-color: white;
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            border: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .group-checkbox:hover {
+            border-color: var(--primary-color);
+            background-color: #f8f9fa;
+        }
+        
+        .group-checkbox input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        
+        .individual-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+        }
+        
+        .recipient-group {
+            background-color: white;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            border: 1px solid #e9ecef;
+        }
+        
+        .recipient-group h5 {
+            color: var(--text-color);
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .recipient-checkbox {
+            padding: 6px 0;
+        }
+        
+        .recipient-checkbox label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .recipient-checkbox input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        
         .form-buttons {
-            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .btn-submit,
+        .btn-cancel {
+            padding: 12px 24px;
+            border-radius: var(--border-radius);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
         }
         
         .btn-submit {
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: var(--border-radius);
-            font-family: inherit;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: var(--transition);
         }
         
         .btn-submit:hover {
             background-color: #3367d6;
         }
         
+        .btn-submit i {
+            margin-right: 8px;
+        }
+        
         .btn-cancel {
-            background-color: #f1f3f5;
+            background-color: #e9ecef;
             color: var(--text-color);
             border: none;
-            padding: 10px 20px;
-            border-radius: var(--border-radius);
-            font-family: inherit;
-            font-size: 1rem;
-            cursor: pointer;
-            margin-left: 10px;
-            transition: var(--transition);
         }
         
         .btn-cancel:hover {
-            background-color: #e9ecef;
+            background-color: #dee2e6;
+        }
+        
+        .recipient-count {
+            background-color: #e8f0fe;
+            color: var(--primary-color);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-left: 8px;
         }
         
         .notifications-table {
@@ -405,6 +719,24 @@ $conn->close();
         .status-unread {
             background-color: #fff8e1;
             color: #f57c00;
+        }
+        
+        .delivery-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .status-delivered {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .status-failed {
+            background-color: #ffebee;
+            color: #c62828;
         }
         
         .action-buttons {
@@ -472,6 +804,61 @@ $conn->close();
                 flex-direction: column;
             }
         }
+        
+        select optgroup {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        select option {
+            font-weight: normal;
+            color: var(--text-color);
+            padding: 8px;
+        }
+        
+        select {
+            padding: 10px;
+            border-radius: var(--border-radius);
+            border: 1px solid #ddd;
+            font-family: inherit;
+            font-size: 1rem;
+            width: 100%;
+            background-color: white;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.1);
+        }
+        
+        .alert-warning {
+            background-color: #fff3e0;
+            color: #ef6c00;
+            border: 1px solid #ffe0b2;
+        }
+        
+        .delivery-info {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background-color: #e8f0fe;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--primary-color);
+        }
+        
+        .info-icon {
+            color: var(--primary-color);
+            font-size: 1rem;
+        }
+        
+        .info-text {
+            flex: 1;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -516,58 +903,130 @@ $conn->close();
                 </div>
                 
                 <?php if (!empty($action_message)): ?>
-                    <div class="alert alert-success">
+                    <div class="alert alert-<?php echo $action_type; ?>">
                         <?php echo $action_message; ?>
                     </div>
                 <?php endif; ?>
                 
                 <?php if ($action == 'send'): ?>
                     <div class="notification-form">
-                        <form method="POST" action="?action=send">
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label for="title">Notification Title</label>
-                                    <input type="text" id="title" name="title" required>
+                        <form method="POST" action="?action=send" class="notification-form">
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="fas fa-envelope"></i> Notification Details
                                 </div>
-                                
-                                <div class="form-group">
-                                    <label for="notification_type">Notification Type</label>
-                                    <select id="notification_type" name="notification_type" required>
-                                        <option value="">-- Select Type --</option>
-                                        <option value="email">Email</option>
-                                        <option value="sms">SMS</option>
-                                        <option value="system">System</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="user_id">Recipient</label>
-                                    <select id="user_id" name="user_id">
-                                        <option value="<?php echo $admin_id; ?>">Me (<?php echo htmlspecialchars($admin_name); ?>)</option>
-                                        <?php 
-                                        // In a real application, fetch users from database
-                                        $users_query = "SELECT id, name FROM users WHERE id != $admin_id ORDER BY name";
-                                        $users_result = $conn->query($users_query);
-                                        while ($users_result && $user = $users_result->fetch_assoc()): 
-                                        ?>
-                                            <option value="<?php echo $user['id']; ?>">
-                                                <?php echo htmlspecialchars($user['name']); ?>
-                                            </option>
-                                        <?php endwhile; ?>
-                                    </select>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="title_type">Notification Type</label>
+                                        <select id="title_type" name="title_type" onchange="toggleCustomTitle()" required>
+                                            <option value="">-- Select Type --</option>
+                                            <option value="Appointment Reminder">Appointment Reminder</option>
+                                            <option value="Vaccination Due">Vaccination Due</option>
+                                            <option value="Health Check Reminder">Health Check Reminder</option>
+                                            <option value="Test Results Available">Test Results Available</option>
+                                            <option value="Medication Reminder">Medication Reminder</option>
+                                            <option value="Schedule Change">Schedule Change</option>
+                                            <option value="System Update">System Update</option>
+                                            <option value="custom">Custom Title...</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group" id="custom_title_group" style="display: none;">
+                                        <label for="title">Custom Title</label>
+                                        <input type="text" id="title" name="title" placeholder="Enter custom title">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="notification_type">Delivery Method</label>
+                                        <select id="notification_type" name="notification_type" required>
+                                            <option value="">-- Select Method --</option>
+                                            <option value="email">Email Only</option>
+                                            <option value="sms">SMS Only</option>
+                                            <option value="email_sms">Email & SMS</option>
+                                            <option value="system">System</option>
+                                        </select>
+                                        <div class="delivery-info" id="delivery_info" style="display: none;">
+                                            <div class="info-icon">
+                                                <i class="fas fa-info-circle"></i>
+                                            </div>
+                                            <div class="info-text"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div class="form-group">
-                                <label for="message">Message</label>
-                                <textarea id="message" name="message" required></textarea>
+
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="fas fa-users"></i> Recipients
+                                </div>
+                                <div class="recipients-container">
+                                    <div class="recipient-section">
+                                        <div class="recipient-section-title">
+                                            <i class="fas fa-layer-group"></i> Select Groups
+                                        </div>
+                                        <div class="group-list">
+                                            <?php foreach (['patient', 'midwife', 'nurse'] as $group): ?>
+                                                <?php $count = getGroupCount($group, $grouped_users); ?>
+                                                <?php if ($count > 0): ?>
+                                                    <div class="group-checkbox">
+                                                        <input type="checkbox" 
+                                                               id="group_<?php echo $group; ?>" 
+                                                               name="recipient_groups[]" 
+                                                               value="<?php echo $group; ?>"
+                                                               onchange="toggleGroup('<?php echo $group; ?>')">
+                                                        <label for="group_<?php echo $group; ?>">
+                                                            All <?php echo ucfirst($group); ?>s
+                                                            <span class="recipient-count"><?php echo $count; ?></span>
+                                                        </label>
+                                                    </div>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+
+                                    <div class="recipient-section">
+                                        <div class="recipient-section-title">
+                                            <i class="fas fa-user"></i> Select Individual Recipients
+                                        </div>
+                                        <div class="individual-list">
+                                            <?php foreach (['patient', 'midwife', 'nurse'] as $group): ?>
+                                                <?php if (!empty($grouped_users[$group])): ?>
+                                                    <div class="recipient-group">
+                                                        <h5><?php echo ucfirst($group); ?>s</h5>
+                                                        <?php foreach ($grouped_users[$group] as $user): ?>
+                                                            <div class="recipient-checkbox">
+                                                                <label>
+                                                                    <input type="checkbox" 
+                                                                           id="recipient_<?php echo $user['id']; ?>" 
+                                                                           name="recipients[]" 
+                                                                           value="<?php echo $user['id']; ?>"
+                                                                           class="<?php echo $group; ?>-checkbox">
+                                                                    <?php echo htmlspecialchars($user['display_name']); ?>
+                                                                </label>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            
+
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="fas fa-comment-alt"></i> Message
+                                </div>
+                                <div class="form-group">
+                                    <textarea id="message" name="message" placeholder="Enter your message here..." required></textarea>
+                                </div>
+                            </div>
+
                             <div class="form-buttons">
+                                <a href="admin_notifications.php" class="btn-cancel">Cancel</a>
                                 <button type="submit" name="send_notification" class="btn-submit">
                                     <i class="fas fa-paper-plane"></i> Send Notification
                                 </button>
-                                <a href="admin_notifications.php" class="btn-cancel">Cancel</a>
                             </div>
                         </form>
                     </div>
@@ -582,6 +1041,7 @@ $conn->close();
                                     <th>Type</th>
                                     <th>Created</th>
                                     <th>Status</th>
+                                    <th>Delivery Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -600,6 +1060,13 @@ $conn->close();
                                                 <span class="notification-status <?php echo $notification['is_read'] ? 'status-read' : 'status-unread'; ?>">
                                                     <?php echo $notification['is_read'] ? 'Read' : 'Unread'; ?>
                                                 </span>
+                                            </td>
+                                            <td>
+                                                <?php if ($notification['delivery_status']): ?>
+                                                    <span class="delivery-status <?php echo $notification['delivery_status'] === 'sent' ? 'status-delivered' : 'status-failed'; ?>">
+                                                        <?php echo ucfirst($notification['delivery_status']); ?>
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
                                             <td class="action-buttons">
                                                 <a href="#" class="btn-view" onclick="viewNotification('<?php echo htmlspecialchars($notification['title'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($notification['message'], ENT_QUOTES); ?>')">
@@ -654,6 +1121,67 @@ $conn->close();
                     } else {
                         healthCenterSelect.style.display = 'none';
                         document.getElementById('health_center_id').removeAttribute('required');
+                    }
+                });
+            }
+            
+            // Add form submit handler
+            const notificationForm = document.querySelector('.notification-form');
+            if (notificationForm) {
+                notificationForm.addEventListener('submit', function(e) {
+                    const titleType = document.getElementById('title_type');
+                    const customTitleInput = document.getElementById('title');
+                    
+                    // Set the actual title value before submitting
+                    if (titleType.value !== 'custom') {
+                        customTitleInput.value = titleType.value;
+                    }
+                });
+            }
+            
+            const groups = ['patient', 'midwife', 'nurse'];
+            groups.forEach(group => {
+                const individualCheckboxes = document.querySelectorAll(`.${group}-checkbox`);
+                const groupCheckbox = document.getElementById(`group_${group}`);
+                
+                if (groupCheckbox && individualCheckboxes.length > 0) {
+                    // Update group checkbox when all individuals are selected
+                    individualCheckboxes.forEach(checkbox => {
+                        checkbox.addEventListener('change', () => {
+                            const allChecked = Array.from(individualCheckboxes).every(cb => cb.checked);
+                            groupCheckbox.checked = allChecked;
+                        });
+                    });
+                }
+            });
+            
+            // Handle delivery method selection
+            const deliveryMethodSelect = document.getElementById('notification_type');
+            const deliveryInfo = document.getElementById('delivery_info');
+            
+            if (deliveryMethodSelect && deliveryInfo) {
+                deliveryMethodSelect.addEventListener('change', function() {
+                    const infoText = deliveryInfo.querySelector('.info-text');
+                    
+                    switch (this.value) {
+                        case 'email_sms':
+                            infoText.textContent = 'Recipients will receive both email and SMS notifications. Make sure they have both contact methods set up.';
+                            deliveryInfo.style.display = 'flex';
+                            break;
+                        case 'email':
+                            infoText.textContent = 'Recipients will receive notifications via email only.';
+                            deliveryInfo.style.display = 'flex';
+                            break;
+                        case 'sms':
+                            infoText.textContent = 'Recipients will receive notifications via SMS only.';
+                            deliveryInfo.style.display = 'flex';
+                            break;
+                        case 'system':
+                            infoText.textContent = 'Recipients will receive notifications in their system inbox only.';
+                            deliveryInfo.style.display = 'flex';
+                            break;
+                        default:
+                            deliveryInfo.style.display = 'none';
                     }
                 });
             }
@@ -714,6 +1242,31 @@ $conn->close();
                     document.body.removeChild(modal);
                 }
             };
+        }
+        
+        function toggleCustomTitle() {
+            const titleType = document.getElementById('title_type');
+            const customTitleGroup = document.getElementById('custom_title_group');
+            const customTitleInput = document.getElementById('title');
+            
+            if (titleType.value === 'custom') {
+                customTitleGroup.style.display = 'block';
+                customTitleInput.setAttribute('required', 'required');
+            } else {
+                customTitleGroup.style.display = 'none';
+                customTitleInput.removeAttribute('required');
+                customTitleInput.value = '';
+            }
+        }
+        
+        function toggleGroup(group) {
+            const groupCheckbox = document.getElementById(`group_${group}`);
+            const individualCheckboxes = document.querySelectorAll(`.${group}-checkbox`);
+            
+            individualCheckboxes.forEach(checkbox => {
+                checkbox.checked = groupCheckbox.checked;
+                checkbox.disabled = groupCheckbox.checked;
+            });
         }
     </script>
 </body>

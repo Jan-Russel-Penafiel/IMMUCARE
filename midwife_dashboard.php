@@ -330,11 +330,11 @@ $conn->close();
             <div class="sidebar">
                 <ul class="sidebar-menu">
                     <li><a href="midwife_dashboard.php" class="active"><i class="fas fa-home"></i> Dashboard</a></li>
-                    <li><a href="patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
-                    <li><a href="appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
-                    <li><a href="immunization_records.php"><i class="fas fa-syringe"></i> Immunization Records</a></li>
-                    <li><a href="notifications.php"><i class="fas fa-bell"></i> Notifications</a></li>
-                    <li><a href="profile.php"><i class="fas fa-user"></i> Profile</a></li>
+                    <li><a href="midwife_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
+                    <li><a href="midwife_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
+                    <li><a href="midwife_immunization_records.php"><i class="fas fa-syringe"></i> Immunization Records</a></li>
+                    <li><a href="midwife_notifications.php"><i class="fas fa-bell"></i> Notifications</a></li>
+                    <li><a href="midwife_profile.php"><i class="fas fa-user"></i> Profile</a></li>
                 </ul>
             </div>
             

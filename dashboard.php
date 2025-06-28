@@ -15,6 +15,7 @@ $user_email = $_SESSION['user_email'];
 $user_type = $_SESSION['user_type'];
 
 // Redirect users based on their type
+
 if ($user_type === 'admin') {
     header('Location: admin_dashboard.php');
     exit;
@@ -23,6 +24,8 @@ if ($user_type === 'admin') {
     exit;
 } else if ($user_type === 'nurse') {
     header('Location: nurse_dashboard.php');
+} else if ($user_type === 'patient') {
+    header('Location: patient_dashboard.php');
     exit;
 }
 

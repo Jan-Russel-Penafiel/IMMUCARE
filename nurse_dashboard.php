@@ -379,12 +379,12 @@ $conn->close();
             <div class="sidebar">
                 <ul class="sidebar-menu">
                     <li><a href="nurse_dashboard.php" class="active"><i class="fas fa-home"></i> Dashboard</a></li>
-                    <li><a href="immunizations.php"><i class="fas fa-syringe"></i> Immunizations</a></li>
-                    <li><a href="vaccine_inventory.php"><i class="fas fa-vials"></i> Vaccine Inventory</a></li>
-                    <li><a href="appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
-                    <li><a href="patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
-                    <li><a href="reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
-                    <li><a href="profile.php"><i class="fas fa-user"></i> Profile</a></li>
+                    <li><a href="nurse_immunizations.php"><i class="fas fa-syringe"></i> Immunizations</a></li>
+                    <li><a href="nurse_vaccine_inventory.php"><i class="fas fa-vials"></i> Vaccine Inventory</a></li>
+                    <li><a href="nurse_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
+                    <li><a href="nurse_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
+                    <li><a href="nurse_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                    <li><a href="nurse_profile.php"><i class="fas fa-user"></i> Profile</a></li>
                 </ul>
             </div>
             

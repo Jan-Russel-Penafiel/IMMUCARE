@@ -15,4 +15,6 @@ define('SMTP_PORT', 587);  // 587 for TLS, 465 for SSL
 // Application Settings
 define('APP_URL', 'http://localhost/mic_new');  // Change to your application URL
 define('APP_NAME', 'ImmuCare');
+
+
 ?> 

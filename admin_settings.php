@@ -1,9 +1,8 @@
 <?php
 session_start();
 require 'config.php';
-
 // Check if user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
     header('Location: login.php');
     exit;
 }

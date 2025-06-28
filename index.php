@@ -8,6 +8,99 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Book Appointment Section */
+        .book-appointment {
+            background-color: #f8f9fa;
+            padding: 80px 0;
+        }
+        
+        .appointment-form-container {
+            background-color: #ffffff;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / span 2;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e1e4e8;
+            border-radius: var(--border-radius);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            margin-top: 10px;
+        }
+        
+        .checkbox-group input {
+            width: auto;
+            margin-right: 10px;
+            margin-top: 4px;
+        }
+        
+        .form-buttons {
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .form-buttons .btn {
+            padding: 12px 30px;
+            font-size: 1rem;
+        }
+        
+        @media screen and (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-group.full-width {
+                grid-column: 1;
+            }
+            
+            .appointment-form-container {
+                padding: 25px;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -21,6 +114,7 @@
                     <li><a href="#features">Features</a></li>
                     <li><a href="#how-it-works">How It Works</a></li>
                     <li><a href="#benefits">Benefits</a></li>
+                    <li><a href="#book-appointment">Book Appointment</a></li>
                     <li><a href="#contact">Contact</a></li>
                     <li><a href="login.php" class="btn btn-secondary">Login</a></li>
                 </ul>
@@ -36,7 +130,7 @@
                 <h1>Smart Immunization Registry with Automated Scheduling</h1>
                 <p>Simplify vaccination management with our comprehensive platform that helps track, schedule, and remind patients about their immunizations.</p>
                 <div class="hero-buttons">
-                    <a href="#" class="btn btn-primary">Get Started</a>
+                    <a href="#book-appointment" class="btn btn-primary">Get Started</a>
                     <a href="#how-it-works" class="btn btn-outline">Learn More</a>
                 </div>
             </div>
@@ -181,7 +275,7 @@
         <div class="container">
             <h2>Ready to Transform Your Immunization Management?</h2>
             <p>Join thousands of healthcare providers who are already using ImmuCare to improve vaccination rates.</p>
-            <a href="#" class="btn btn-primary">Get Started Today</a>
+            <a href="#book-appointment" class="btn btn-primary">Book an Appointment Today</a>
         </div>
     </section>
 
@@ -234,6 +328,98 @@
                         <button type="submit" class="btn btn-primary">Send Message</button>
                     </form>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="book-appointment" class="book-appointment">
+        <div class="container">
+            <h2 class="section-title">Book an Appointment</h2>
+            <div class="appointment-form-container">
+                <form id="appointment-form" action="process_appointment.php" method="POST">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="first_name">First Name*</label>
+                            <input type="text" id="first_name" name="first_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="last_name">Last Name*</label>
+                            <input type="text" id="last_name" name="last_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email Address*</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone">Phone Number*</label>
+                            <input type="tel" id="phone" name="phone" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="date_of_birth">Date of Birth*</label>
+                            <input type="date" id="date_of_birth" name="date_of_birth" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="gender">Gender*</label>
+                            <select id="gender" name="gender" required>
+                                <option value="">-- Select Gender --</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="address">Address*</label>
+                            <input type="text" id="address" name="address" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="city">City*</label>
+                            <input type="text" id="city" name="city" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="province">Province*</label>
+                            <input type="text" id="province" name="province" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="postal_code">Postal Code</label>
+                            <input type="text" id="postal_code" name="postal_code">
+                        </div>
+                        <div class="form-group">
+                            <label for="appointment_date">Preferred Date*</label>
+                            <input type="date" id="appointment_date" name="appointment_date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="appointment_time">Preferred Time*</label>
+                            <input type="time" id="appointment_time" name="appointment_time" required>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="purpose">Purpose of Visit*</label>
+                            <select id="purpose" name="purpose" required>
+                                <option value="">-- Select Purpose --</option>
+                                <option value="Vaccination">Vaccination</option>
+                                <option value="Prenatal Checkup">Prenatal Checkup</option>
+                                <option value="Postnatal Checkup">Postnatal Checkup</option>
+                                <option value="Child Health Checkup">Child Health Checkup</option>
+                                <option value="Consultation">Consultation</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="additional_info">Additional Information</label>
+                            <textarea id="additional_info" name="additional_info" rows="4"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="create_account" name="create_account" checked>
+                        <label for="create_account">Create an account to manage your appointments and records</label>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="consent" name="consent" required>
+                        <label for="consent">I consent to the collection and processing of my personal data for healthcare purposes*</label>
+                    </div>
+                    <div class="form-buttons">
+                        <button type="submit" class="btn btn-primary">Book Appointment</button>
+                    </div>
+                </form>
             </div>
         </div>
     </section>
