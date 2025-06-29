@@ -107,6 +107,19 @@ $conn->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #4285f4;
+            --secondary-color: #34a853;
+            --accent-color: #fbbc05;
+            --text-color: #333;
+            --light-text: #666;
+            --bg-light: #f9f9f9;
+            --bg-white: #ffffff;
+            --shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+            --transition: all 0.3s ease;
+        }
+
         .dashboard-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -173,6 +186,9 @@ $conn->close();
             font-size: 0.9rem;
             transition: var(--transition);
             text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .logout-btn:hover {
@@ -238,94 +254,21 @@ $conn->close();
         }
         
         .page-title {
-            font-size: 1.8rem;
+            font-size: 1.875rem;
             color: var(--primary-color);
-            margin-bottom: 20px;
-        }
-        
-        .settings-form {
-            max-width: 800px;
-        }
-        
-        .settings-section {
             margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
         }
-        
-        .settings-section h3 {
-            font-size: 1.3rem;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-        
-        .form-group input[type="text"],
-        .form-group input[type="number"],
-        .form-group input[type="password"],
-        .form-group select {
-            width: 100%;
-            padding: 10px 15px;
-            border: 1px solid #ddd;
-            border-radius: var(--border-radius);
-            font-family: inherit;
-            font-size: 1rem;
-        }
-        
-        .form-group input[type="text"]:focus,
-        .form-group input[type="number"]:focus,
-        .form-group input[type="password"]:focus,
-        .form-group select:focus {
-            border-color: var(--primary-color);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.2);
-        }
-        
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-        }
-        
-        .checkbox-group input[type="checkbox"] {
-            margin-right: 10px;
-        }
-        
-        .form-hint {
-            font-size: 0.9rem;
-            color: var(--light-text);
-            margin-top: 5px;
-        }
-        
-        .submit-btn {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: var(--border-radius);
-            font-family: inherit;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        
-        .submit-btn:hover {
-            background-color: #3367d6;
-        }
-        
+
         .alert {
             padding: 15px;
             border-radius: var(--border-radius);
             margin-bottom: 20px;
             font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
         .alert-success {
@@ -339,15 +282,99 @@ $conn->close();
             color: #c62828;
             border: 1px solid #ef9a9a;
         }
-        
-        .conditional-field {
-            margin-left: 20px;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed #eee;
+
+        .settings-section {
+            background: #fff;
+            border-radius: var(--border-radius);
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid #eee;
         }
-        
-        @media screen and (max-width: 992px) {
+
+        .settings-section h3 {
+            color: var(--primary-color);
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+            outline: none;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary-color);
+        }
+
+        .form-hint {
+            font-size: 0.9rem;
+            color: var(--light-text);
+            margin-top: 5px;
+        }
+
+        .conditional-field {
+            margin-left: 25px;
+            padding: 15px 0;
+            border-left: 2px solid #eee;
+            margin-top: 15px;
+            padding-left: 20px;
+        }
+
+        .submit-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: var(--border-radius);
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .submit-btn:hover {
+            background: #3367d6;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 992px) {
             .dashboard-content {
                 grid-template-columns: 1fr;
             }
@@ -356,17 +383,51 @@ $conn->close();
                 margin-bottom: 20px;
             }
         }
-        
-        @media screen and (max-width: 768px) {
+
+        @media (max-width: 768px) {
             .dashboard-header {
                 flex-direction: column;
-                align-items: flex-start;
+                gap: 20px;
+                text-align: center;
             }
-            
+
             .user-menu {
-                margin-top: 20px;
-                align-self: flex-end;
+                flex-direction: column;
+                gap: 15px;
             }
+
+            .user-info {
+                text-align: center;
+                margin-right: 0;
+            }
+
+            .main-content {
+                padding: 20px;
+            }
+        }
+
+        .close-alert {
+            margin-left: auto;
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: inherit;
+            cursor: pointer;
+            opacity: 0.7;
+            padding: 0 5px;
+        }
+
+        .close-alert:hover {
+            opacity: 1;
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        .alert.fade-out {
+            animation: fadeOut 0.5s ease-out forwards;
         }
     </style>
 </head>
@@ -384,7 +445,8 @@ $conn->close();
                     <div class="user-email"><?php echo htmlspecialchars($admin_email); ?></div>
                 </div>
                 <a href="?logout=1" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
                 </a>
             </div>
         </div>
@@ -404,96 +466,127 @@ $conn->close();
             </div>
             
             <div class="main-content">
-                <h2 class="page-title">System Settings</h2>
+                <div class="page-title">
+                    <h2>System Settings</h2>
+                </div>
                 
                 <?php if (!empty($success_message)): ?>
-                    <div class="alert alert-success">
+                    <div class="alert alert-success" id="settings-alert">
+                        <i class="fas fa-check-circle"></i>
                         <?php echo $success_message; ?>
+                        <button type="button" class="close-alert" onclick="this.parentElement.style.display='none';">×</button>
                     </div>
                 <?php endif; ?>
                 
                 <?php if (!empty($error_message)): ?>
-                    <div class="alert alert-error">
+                    <div class="alert alert-error" id="settings-alert">
+                        <i class="fas fa-exclamation-circle"></i>
                         <?php echo $error_message; ?>
+                        <button type="button" class="close-alert" onclick="this.parentElement.style.display='none';">×</button>
                     </div>
                 <?php endif; ?>
                 
                 <form class="settings-form" method="POST" action="">
                     <div class="settings-section">
-                        <h3>Notification Settings</h3>
+                        <h3>
+                            <i class="fas fa-bell"></i>
+                            Notification Settings
+                        </h3>
                         
                         <div class="form-group checkbox-group">
-                            <input type="checkbox" id="email_enabled" name="email_enabled" <?php echo (isset($settings['email_enabled']) && $settings['email_enabled'] === 'true') ? 'checked' : ''; ?>>
+                            <input type="checkbox" id="email_enabled" name="email_enabled" 
+                                <?php echo (isset($settings['email_enabled']) && $settings['email_enabled'] === 'true') ? 'checked' : ''; ?>>
                             <label for="email_enabled">Enable Email Notifications</label>
                         </div>
                         
                         <div class="form-group checkbox-group">
-                            <input type="checkbox" id="sms_enabled" name="sms_enabled" <?php echo (isset($settings['sms_enabled']) && $settings['sms_enabled'] === 'true') ? 'checked' : ''; ?>>
+                            <input type="checkbox" id="sms_enabled" name="sms_enabled"
+                                <?php echo (isset($settings['sms_enabled']) && $settings['sms_enabled'] === 'true') ? 'checked' : ''; ?>>
                             <label for="sms_enabled">Enable SMS Notifications</label>
                         </div>
                         
                         <div class="form-group">
                             <label for="appointment_reminder_days">Send Appointment Reminders (days before)</label>
-                            <input type="number" id="appointment_reminder_days" name="appointment_reminder_days" min="1" max="14" value="<?php echo isset($settings['appointment_reminder_days']) ? $settings['appointment_reminder_days'] : 2; ?>">
+                            <input type="number" id="appointment_reminder_days" name="appointment_reminder_days" 
+                                class="form-control" min="1" max="14" 
+                                value="<?php echo isset($settings['appointment_reminder_days']) ? $settings['appointment_reminder_days'] : 2; ?>">
                             <div class="form-hint">Number of days before an appointment to send a reminder</div>
                         </div>
                     </div>
                     
                     <div class="settings-section">
-                        <h3>SMS Provider Settings</h3>
+                        <h3>
+                            <i class="fas fa-comment-dots"></i>
+                            SMS Provider Settings
+                        </h3>
                         
                         <div class="form-group">
                             <label for="sms_provider">SMS Provider</label>
-                            <select id="sms_provider" name="sms_provider">
+                            <select id="sms_provider" name="sms_provider" class="form-control">
                                 <option value="philsms" <?php echo (isset($settings['sms_provider']) && $settings['sms_provider'] === 'philsms') ? 'selected' : ''; ?>>PhilSMS</option>
                                 <option value="twilio" <?php echo (isset($settings['sms_provider']) && $settings['sms_provider'] === 'twilio') ? 'selected' : ''; ?>>Twilio</option>
                             </select>
                         </div>
                         
-                        <div id="philsms_settings" class="conditional-field" style="display: <?php echo (isset($settings['sms_provider']) && $settings['sms_provider'] === 'philsms') ? 'block' : 'none'; ?>;">
+                        <div id="philsms_settings" class="conditional-field">
                             <div class="form-group">
                                 <label for="philsms_api_key">PhilSMS API Key</label>
-                                <input type="password" id="philsms_api_key" name="philsms_api_key" value="<?php echo isset($settings['philsms_api_key']) ? $settings['philsms_api_key'] : ''; ?>">
+                                <input type="password" id="philsms_api_key" name="philsms_api_key" 
+                                    class="form-control"
+                                    value="<?php echo isset($settings['philsms_api_key']) ? $settings['philsms_api_key'] : ''; ?>">
                                 <div class="form-hint">Enter your PhilSMS API key</div>
                             </div>
                             
                             <div class="form-group">
                                 <label for="philsms_sender_id">PhilSMS Sender ID</label>
-                                <input type="text" id="philsms_sender_id" name="philsms_sender_id" value="<?php echo isset($settings['philsms_sender_id']) ? $settings['philsms_sender_id'] : 'IMMUCARE'; ?>">
+                                <input type="text" id="philsms_sender_id" name="philsms_sender_id" 
+                                    class="form-control"
+                                    value="<?php echo isset($settings['philsms_sender_id']) ? $settings['philsms_sender_id'] : 'IMMUCARE'; ?>">
                                 <div class="form-hint">Your registered sender ID with PhilSMS</div>
                             </div>
                         </div>
                         
-                        <div id="twilio_settings" class="conditional-field" style="display: <?php echo (isset($settings['sms_provider']) && $settings['sms_provider'] === 'twilio') ? 'block' : 'none'; ?>;">
+                        <div id="twilio_settings" class="conditional-field">
                             <div class="form-group">
                                 <label for="twilio_account_sid">Twilio Account SID</label>
-                                <input type="password" id="twilio_account_sid" name="twilio_account_sid" value="<?php echo isset($settings['twilio_account_sid']) ? $settings['twilio_account_sid'] : ''; ?>">
+                                <input type="password" id="twilio_account_sid" name="twilio_account_sid" 
+                                    class="form-control"
+                                    value="<?php echo isset($settings['twilio_account_sid']) ? $settings['twilio_account_sid'] : ''; ?>">
                             </div>
                             
                             <div class="form-group">
                                 <label for="twilio_auth_token">Twilio Auth Token</label>
-                                <input type="password" id="twilio_auth_token" name="twilio_auth_token" value="<?php echo isset($settings['twilio_auth_token']) ? $settings['twilio_auth_token'] : ''; ?>">
+                                <input type="password" id="twilio_auth_token" name="twilio_auth_token" 
+                                    class="form-control"
+                                    value="<?php echo isset($settings['twilio_auth_token']) ? $settings['twilio_auth_token'] : ''; ?>">
                             </div>
                             
                             <div class="form-group">
                                 <label for="twilio_phone_number">Twilio Phone Number</label>
-                                <input type="text" id="twilio_phone_number" name="twilio_phone_number" value="<?php echo isset($settings['twilio_phone_number']) ? $settings['twilio_phone_number'] : ''; ?>">
+                                <input type="text" id="twilio_phone_number" name="twilio_phone_number" 
+                                    class="form-control"
+                                    value="<?php echo isset($settings['twilio_phone_number']) ? $settings['twilio_phone_number'] : ''; ?>">
                             </div>
                         </div>
                     </div>
                     
                     <div class="settings-section">
-                        <h3>Data Transfer Settings</h3>
+                        <h3>
+                            <i class="fas fa-sync-alt"></i>
+                            Data Transfer Settings
+                        </h3>
                         
                         <div class="form-group checkbox-group">
-                            <input type="checkbox" id="auto_sync_mhc" name="auto_sync_mhc" <?php echo (isset($settings['auto_sync_mhc']) && $settings['auto_sync_mhc'] === 'true') ? 'checked' : ''; ?>>
+                            <input type="checkbox" id="auto_sync_mhc" name="auto_sync_mhc"
+                                <?php echo (isset($settings['auto_sync_mhc']) && $settings['auto_sync_mhc'] === 'true') ? 'checked' : ''; ?>>
                             <label for="auto_sync_mhc">Enable Automatic Sync with Municipal Health Centers</label>
                             <div class="form-hint">When enabled, data will be automatically synced daily</div>
                         </div>
                     </div>
                     
                     <button type="submit" class="submit-btn">
-                        <i class="fas fa-save"></i> Save Settings
+                        <i class="fas fa-save"></i>
+                        <span>Save Settings</span>
                     </button>
                 </form>
             </div>
@@ -507,25 +600,40 @@ $conn->close();
             const philsmsSettings = document.getElementById('philsms_settings');
             const twilioSettings = document.getElementById('twilio_settings');
             
-            smsProviderSelect.addEventListener('change', function() {
-                if (this.value === 'philsms') {
+            function toggleSmsProviderSettings() {
+                if (smsProviderSelect.value === 'philsms') {
                     philsmsSettings.style.display = 'block';
                     twilioSettings.style.display = 'none';
-                } else if (this.value === 'twilio') {
+                } else if (smsProviderSelect.value === 'twilio') {
                     philsmsSettings.style.display = 'none';
                     twilioSettings.style.display = 'block';
                 }
-            });
+            }
             
-            // Highlight the active menu item
+            // Initial toggle
+            toggleSmsProviderSettings();
+            
+            // Listen for changes
+            smsProviderSelect.addEventListener('change', toggleSmsProviderSettings);
+            
+            // Auto-hide success messages after 5 seconds
+            const alert = document.getElementById('settings-alert');
+            if (alert && alert.classList.contains('alert-success')) {
+                setTimeout(function() {
+                    alert.classList.add('fade-out');
+                    setTimeout(function() {
+                        alert.style.display = 'none';
+                    }, 500);
+                }, 5000);
+            }
+            
+            // Highlight active menu item
             const currentPath = window.location.pathname;
             const menuItems = document.querySelectorAll('.sidebar-menu a');
             
             menuItems.forEach(item => {
-                if (item.getAttribute('href') === currentPath) {
+                if (item.getAttribute('href') === currentPath.split('/').pop()) {
                     item.classList.add('active');
-                } else if (item.classList.contains('active') && item.getAttribute('href') !== '#') {
-                    item.classList.remove('active');
                 }
             });
         });

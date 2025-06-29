@@ -44,14 +44,13 @@ CREATE TABLE IF NOT EXISTS patients (
     last_name VARCHAR(50) NOT NULL,
     date_of_birth DATE NOT NULL,
     gender ENUM('male', 'female', 'other') NOT NULL,
-    blood_type VARCHAR(5),
-    address TEXT NOT NULL,
+
+    purok TEXT NOT NULL,
     city VARCHAR(100) NOT NULL,
     province VARCHAR(100) NOT NULL,
     postal_code VARCHAR(20),
     phone_number VARCHAR(20),
-    emergency_contact_name VARCHAR(100),
-    emergency_contact_phone VARCHAR(20),
+
     medical_history TEXT,
     allergies TEXT,
     created_at DATETIME NOT NULL,
@@ -84,7 +83,7 @@ CREATE TABLE IF NOT EXISTS immunizations (
     administered_date DATETIME NOT NULL,
     next_dose_date DATE,
     location VARCHAR(100),
-    notes TEXT,
+    diagnosis TEXT,
     created_at DATETIME NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
@@ -100,7 +99,6 @@ CREATE TABLE IF NOT EXISTS appointments (
     appointment_date DATETIME NOT NULL,
     vaccine_id INT,
     purpose VARCHAR(255) NOT NULL,
-    location VARCHAR(255),
     status ENUM('requested', 'confirmed', 'completed', 'cancelled', 'no_show') DEFAULT 'requested',
     notes TEXT,
     created_at DATETIME NOT NULL,
@@ -214,8 +212,8 @@ INSERT INTO users (role_id, user_type, name, email, phone, created_at) VALUES
 (4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '+1234567893', NOW());
 
 -- Insert sample patient record
-INSERT INTO patients (user_id, first_name, middle_name, last_name, date_of_birth, gender, address, city, province, postal_code, phone_number, created_at) VALUES
-(4, 'Test', 'P', 'Patient', '1990-01-01', 'male', '123 Main St', 'Anytown', 'Province', '12345', '+1234567893', NOW());
+INSERT INTO patients (user_id, first_name, middle_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, created_at) VALUES
+(4, 'Test', 'P', 'Patient', '1990-01-01', 'male', 'Purok 1', 'Anytown', 'Province', '12345', '+1234567893', NOW());
 
 -- Insert sample vaccines
 INSERT INTO vaccines (name, manufacturer, description, recommended_age, doses_required, days_between_doses, created_at) VALUES
@@ -227,7 +225,7 @@ INSERT INTO vaccines (name, manufacturer, description, recommended_age, doses_re
 
 -- Insert sample health center
 INSERT INTO health_centers (name, address, city, province, postal_code, phone, email, contact_person, created_at) VALUES
-('Municipal Health Center', '456 Health Ave', 'Anytown', 'Province', '12345', '+1234567899', 'health@municipality.gov', 'Dr. Health Director', NOW());
+('Municipal Health Center', '456 Health Ave', 'Anytown', 'Province', '12345', '+1234567899', 'artiedastephany@gmail.com', 'Dr. Health Director', NOW());
 
 -- Insert system settings
 INSERT INTO system_settings (setting_key, setting_value, description, created_at) VALUES

@@ -3,6 +3,11 @@ session_start();
 require 'config.php';
 require_once 'notification_system.php';
 
+// Generate or get notification form token
+if (!isset($_SESSION['notification_form_token'])) {
+    $_SESSION['notification_form_token'] = bin2hex(random_bytes(32));
+}
+
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
     header('Location: login.php');
@@ -85,109 +90,129 @@ $action_message = '';
 $action_type = 'success';
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
+// Check for flash messages
+if (isset($_SESSION['notification_message'])) {
+    $action_message = $_SESSION['notification_message'];
+    $action_type = $_SESSION['notification_type'] ?? 'success';
+    unset($_SESSION['notification_message'], $_SESSION['notification_type']);
+}
+
 // Send notification
 if ($action == 'send' && isset($_POST['send_notification'])) {
-    // Validate required fields
-    $required_fields = ['title_type', 'message', 'notification_type'];
-    $errors = [];
-    
-    foreach ($required_fields as $field) {
-        if (empty($_POST[$field])) {
-            $errors[] = ucfirst(str_replace('_', ' ', $field)) . ' is required.';
-        }
-    }
-    
-    // Validate recipients
-    if (empty($_POST['recipients']) && empty($_POST['recipient_groups'])) {
-        $errors[] = 'Please select at least one recipient or group.';
-    }
-    
-    // Validate title based on title type
-    if ($_POST['title_type'] === 'custom' && empty($_POST['title'])) {
-        $errors[] = 'Custom title is required when selecting Custom Title option.';
-    }
-    
-    if (empty($errors)) {
-        $title = $_POST['title_type'] === 'custom' ? trim($_POST['title']) : trim($_POST['title_type']);
-        $message = trim($_POST['message']);
-        $type = $_POST['notification_type'];
+    // Verify form token
+    if (!isset($_POST['form_token']) || $_POST['form_token'] !== $_SESSION['notification_form_token']) {
+        $action_message = "Invalid form submission.";
+        $action_type = 'error';
+    } else {
+        // Validate required fields
+        $required_fields = ['title_type', 'message', 'notification_type'];
+        $errors = [];
         
-        // Get all selected recipients
-        $recipients = [];
-        
-        // Individual recipients
-        if (!empty($_POST['recipients'])) {
-            $recipients = array_merge($recipients, $_POST['recipients']);
-        }
-        
-        // Group recipients
-        if (!empty($_POST['recipient_groups'])) {
-            foreach ($_POST['recipient_groups'] as $group) {
-                foreach ($grouped_users[$group] as $user) {
-                    $recipients[] = $user['id'];
-                }
+        foreach ($required_fields as $field) {
+            if (empty($_POST[$field])) {
+                $errors[] = ucfirst(str_replace('_', ' ', $field)) . ' is required.';
             }
         }
         
-        // Remove duplicates
-        $recipients = array_unique($recipients);
+        // Validate recipients
+        if (empty($_POST['recipients']) && empty($_POST['recipient_groups'])) {
+            $errors[] = 'Please select at least one recipient or group.';
+        }
         
-        // Send to all recipients
-        $success_count = 0;
-        $failed_count = 0;
-        $email_sent = 0;
-        $sms_sent = 0;
+        // Validate title based on title type
+        if ($_POST['title_type'] === 'custom' && empty($_POST['title'])) {
+            $errors[] = 'Custom title is required when selecting Custom Title option.';
+        }
         
-        foreach ($recipients as $recipient_id) {
-            if ($type === 'email_sms') {
-                // Send both email and SMS
-                $result_email = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'email');
-                $result_sms = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'sms');
-                
-                if ($result_email['email_sent']) {
-                    $email_sent++;
+        if (empty($errors)) {
+            $title = $_POST['title_type'] === 'custom' ? trim($_POST['title']) : trim($_POST['title_type']);
+            $message = trim($_POST['message']);
+            $type = $_POST['notification_type'];
+            
+            // Get all selected recipients
+            $recipients = [];
+            
+            // Individual recipients
+            if (!empty($_POST['recipients'])) {
+                $recipients = array_merge($recipients, $_POST['recipients']);
+            }
+            
+            // Group recipients
+            if (!empty($_POST['recipient_groups'])) {
+                foreach ($_POST['recipient_groups'] as $group) {
+                    foreach ($grouped_users[$group] as $user) {
+                        $recipients[] = $user['id'];
+                    }
                 }
-                if ($result_sms['sms_sent']) {
-                    $sms_sent++;
-                }
-                
-                if ($result_email['email_sent'] || $result_sms['sms_sent']) {
-                    $success_count++;
+            }
+            
+            // Remove duplicates
+            $recipients = array_unique($recipients);
+            
+            // Send to all recipients
+            $success_count = 0;
+            $failed_count = 0;
+            $email_sent = 0;
+            $sms_sent = 0;
+            
+            foreach ($recipients as $recipient_id) {
+                if ($type === 'email_sms') {
+                    // Send both email and SMS
+                    $result_email = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'email');
+                    $result_sms = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'sms');
+                    
+                    if ($result_email['email_sent']) {
+                        $email_sent++;
+                    }
+                    if ($result_sms['sms_sent']) {
+                        $sms_sent++;
+                    }
+                    
+                    if ($result_email['email_sent'] || $result_sms['sms_sent']) {
+                        $success_count++;
+                    } else {
+                        $failed_count++;
+                    }
                 } else {
-                    $failed_count++;
+                    $result = $notification_system->sendCustomNotification($recipient_id, $title, $message, $type);
+                    
+                    if (($type === 'email' && $result['email_sent']) || 
+                        ($type === 'sms' && $result['sms_sent']) || 
+                        ($type === 'system')) {
+                        $success_count++;
+                    } else {
+                        $failed_count++;
+                    }
                 }
-            } else {
-                $result = $notification_system->sendCustomNotification($recipient_id, $title, $message, $type);
+            }
+            
+            if ($success_count > 0) {
+                // Generate new token for next submission
+                $_SESSION['notification_form_token'] = bin2hex(random_bytes(32));
                 
-                if (($type === 'email' && $result['email_sent']) || 
-                    ($type === 'sms' && $result['sms_sent']) || 
-                    ($type === 'system')) {
-                    $success_count++;
-                } else {
-                    $failed_count++;
+                // Store success message in session
+                $_SESSION['notification_message'] = "Notification sent successfully to {$success_count} recipient(s).";
+                if ($type === 'email_sms') {
+                    $_SESSION['notification_message'] .= " (Email: {$email_sent}, SMS: {$sms_sent})";
                 }
-            }
-        }
-        
-        if ($success_count > 0) {
-            $action_message = "Notification sent successfully to {$success_count} recipient(s).";
-            if ($type === 'email_sms') {
-                $action_message .= " (Email: {$email_sent}, SMS: {$sms_sent})";
-            }
-            if ($failed_count > 0) {
-                $action_message .= " Failed to send to {$failed_count} recipient(s).";
-                $action_type = 'warning';
+                if ($failed_count > 0) {
+                    $_SESSION['notification_message'] .= " Failed to send to {$failed_count} recipient(s).";
+                    $_SESSION['notification_type'] = 'warning';
+                } else {
+                    $_SESSION['notification_type'] = 'success';
+                }
+                
+                // Redirect to prevent resubmission
+                header('Location: admin_notifications.php');
+                exit;
             } else {
-                $action_type = 'success';
+                $action_message = "Error sending notifications. Please try again.";
+                $action_type = 'error';
             }
-            $action = ''; // Return to list view
         } else {
-            $action_message = "Error sending notifications. Please try again.";
+            $action_message = implode('<br>', $errors);
             $action_type = 'error';
         }
-    } else {
-        $action_message = implode('<br>', $errors);
-        $action_type = 'error';
     }
 }
 
@@ -859,6 +884,168 @@ function getGroupCount($group, $grouped_users) {
             flex: 1;
             line-height: 1.4;
         }
+        
+        /* Add these styles for the combined notification content */
+        .notification-content-cell {
+            max-width: 500px;
+            padding: 15px !important;
+        }
+
+        .notification-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 1rem;
+        }
+
+        .notification-message {
+            color: var(--text-color);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .notification-recipient {
+            color: var(--light-text);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .notification-recipient i {
+            margin-right: 5px;
+            font-size: 0.9rem;
+        }
+
+        .notification-meta {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 0.9rem;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            color: var(--light-text);
+        }
+
+        .meta-item i {
+            margin-right: 5px;
+            font-size: 0.9rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-unread {
+            background-color: #fff8e1;
+            color: #f57c00;
+        }
+
+        .status-read {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-sent {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn i {
+            margin-right: 4px;
+        }
+
+        .btn-view {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .btn-view:hover {
+            background-color: #bbdefb;
+        }
+
+        .btn-delete {
+            background-color: #ffebee;
+            color: #d32f2f;
+        }
+
+        .btn-delete:hover {
+            background-color: #ffcdd2;
+        }
+
+        .notifications-table th {
+            background-color: #f8f9fa;
+            padding: 12px 15px;
+            font-weight: 600;
+            color: var(--primary-color);
+            text-align: left;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .notifications-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: top;
+        }
+
+        .alert {
+            position: relative;
+            padding-right: 35px;
+        }
+
+        .close-alert {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: inherit;
+            opacity: 0.7;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+
+        .close-alert:hover {
+            opacity: 1;
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        .alert.fade-out {
+            animation: fadeOut 0.5s ease-out forwards;
+        }
     </style>
 </head>
 <body>
@@ -903,14 +1090,16 @@ function getGroupCount($group, $grouped_users) {
                 </div>
                 
                 <?php if (!empty($action_message)): ?>
-                    <div class="alert alert-<?php echo $action_type; ?>">
+                    <div class="alert alert-<?php echo $action_type; ?>" id="notification-alert">
                         <?php echo $action_message; ?>
+                        <button type="button" class="close-alert" onclick="this.parentElement.style.display='none';">×</button>
                     </div>
                 <?php endif; ?>
                 
                 <?php if ($action == 'send'): ?>
                     <div class="notification-form">
                         <form method="POST" action="?action=send" class="notification-form">
+                            <input type="hidden" name="form_token" value="<?php echo htmlspecialchars($_SESSION['notification_form_token']); ?>">
                             <div class="form-section">
                                 <div class="form-section-title">
                                     <i class="fas fa-envelope"></i> Notification Details
@@ -1035,13 +1224,9 @@ function getGroupCount($group, $grouped_users) {
                         <table class="notifications-table">
                             <thead>
                                 <tr>
-                                    <th>Title</th>
-                                    <th>Message</th>
-                                    <th>Recipients</th>
+                                    <th>Notification</th>
                                     <th>Type</th>
-                                    <th>Created</th>
                                     <th>Status</th>
-                                    <th>Delivery Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1049,40 +1234,74 @@ function getGroupCount($group, $grouped_users) {
                                 <?php if ($notifications_result->num_rows > 0): ?>
                                     <?php while ($notification = $notifications_result->fetch_assoc()): ?>
                                         <tr>
-                                            <td class="notification-title"><?php echo htmlspecialchars($notification['title']); ?></td>
-                                            <td class="notification-message"><?php echo htmlspecialchars($notification['message']); ?></td>
-                                            <td>
-                                                <?php echo htmlspecialchars($notification['user_name']); ?>
+                                            <td class="notification-content-cell">
+                                                <div class="notification-title">
+                                                    <?php echo htmlspecialchars($notification['title']); ?>
+                                                </div>
+                                                <div class="notification-message">
+                                                    <?php echo htmlspecialchars($notification['message']); ?>
+                                                </div>
+                                                <div class="notification-recipient">
+                                                    <i class="fas fa-user"></i>
+                                                    <?php echo htmlspecialchars($notification['user_name']); ?>
+                                                </div>
+                                                <div class="notification-meta">
+                                                    <div class="meta-item">
+                                                        <i class="fas fa-calendar"></i>
+                                                        <?php echo date('M d, Y', strtotime($notification['created_at'])); ?>
+                                                    </div>
+                                                    <div class="meta-item">
+                                                        <i class="fas fa-clock"></i>
+                                                        <?php echo date('h:i A', strtotime($notification['created_at'])); ?>
+                                                    </div>
+                                                </div>
                                             </td>
-                                            <td><?php echo ucfirst($notification['type']); ?></td>
-                                            <td><?php echo date('M d, Y h:i A', strtotime($notification['created_at'])); ?></td>
                                             <td>
-                                                <span class="notification-status <?php echo $notification['is_read'] ? 'status-read' : 'status-unread'; ?>">
+                                                <div class="meta-item">
+                                                    <?php 
+                                                    $type_icon = '';
+                                                    switch ($notification['type']) {
+                                                        case 'email':
+                                                            $type_icon = 'fa-envelope';
+                                                            break;
+                                                        case 'sms':
+                                                            $type_icon = 'fa-comment-sms';
+                                                            break;
+                                                        default:
+                                                            $type_icon = 'fa-bell';
+                                                    }
+                                                    ?>
+                                                    <i class="fas <?php echo $type_icon; ?>"></i>
+                                                    <?php echo ucfirst($notification['type']); ?>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="status-badge <?php echo $notification['is_read'] ? 'status-read' : 'status-unread'; ?>">
                                                     <?php echo $notification['is_read'] ? 'Read' : 'Unread'; ?>
                                                 </span>
-                                            </td>
-                                            <td>
                                                 <?php if ($notification['delivery_status']): ?>
-                                                    <span class="delivery-status <?php echo $notification['delivery_status'] === 'sent' ? 'status-delivered' : 'status-failed'; ?>">
+                                                    <span class="status-badge <?php echo $notification['delivery_status'] === 'sent' ? 'status-sent' : 'status-failed'; ?>">
                                                         <?php echo ucfirst($notification['delivery_status']); ?>
                                                     </span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td class="action-buttons">
-                                                <a href="#" class="btn-view" onclick="viewNotification('<?php echo htmlspecialchars($notification['title'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($notification['message'], ENT_QUOTES); ?>')">
-                                                    <i class="fas fa-eye"></i> View
-                                                </a>
-                                                <?php if (!$notification['is_read']): ?>
-                                                    <a href="?action=delete&id=<?php echo $notification['id']; ?>" class="btn-delete" onclick="return confirm('Are you sure you want to delete this notification?');">
-                                                        <i class="fas fa-trash"></i> Delete
+                                            <td>
+                                                <div class="action-buttons">
+                                                    <a href="#" class="action-btn btn-view" onclick="viewNotification('<?php echo htmlspecialchars($notification['title'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($notification['message'], ENT_QUOTES); ?>')">
+                                                        <i class="fas fa-eye"></i> View
                                                     </a>
-                                                <?php endif; ?>
+                                                    <?php if (!$notification['is_read']): ?>
+                                                        <a href="?action=delete&id=<?php echo $notification['id']; ?>" class="action-btn btn-delete" onclick="return confirm('Are you sure you want to delete this notification?');">
+                                                            <i class="fas fa-trash"></i> Delete
+                                                        </a>
+                                                    <?php endif; ?>
+                                                </div>
                                             </td>
                                         </tr>
                                     <?php endwhile; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="7" style="text-align: center;">No notifications found.</td>
+                                        <td colspan="4" style="text-align: center; padding: 30px;">No notifications found.</td>
                                     </tr>
                                 <?php endif; ?>
                             </tbody>
@@ -1184,6 +1403,22 @@ function getGroupCount($group, $grouped_users) {
                             deliveryInfo.style.display = 'none';
                     }
                 });
+            }
+            
+            // Auto-hide success messages after 5 seconds
+            const alert = document.getElementById('notification-alert');
+            if (alert && alert.classList.contains('alert-success')) {
+                setTimeout(function() {
+                    alert.classList.add('fade-out');
+                    setTimeout(function() {
+                        alert.style.display = 'none';
+                    }, 500);
+                }, 5000);
+            }
+            
+            // Prevent form resubmission on page reload
+            if (window.history.replaceState) {
+                window.history.replaceState(null, null, window.location.href);
             }
         });
         

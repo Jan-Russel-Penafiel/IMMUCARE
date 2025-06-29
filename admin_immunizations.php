@@ -57,11 +57,11 @@ if ($action == 'add' && isset($_POST['add_immunization'])) {
     $administered_date = $_POST['administered_date'];
     $next_dose_date = !empty($_POST['next_dose_date']) ? $_POST['next_dose_date'] : null;
     $location = $_POST['location'];
-    $notes = isset($_POST['notes']) ? $_POST['notes'] : null;
+    $diagnosis = isset($_POST['diagnosis']) ? $_POST['diagnosis'] : null;
 
     // Insert new immunization record
-    $stmt = $conn->prepare("INSERT INTO immunizations (patient_id, vaccine_id, administered_by, dose_number, batch_number, expiration_date, administered_date, next_dose_date, location, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-    $stmt->bind_param("iiiissssss", $patient_id, $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $notes);
+    $stmt = $conn->prepare("INSERT INTO immunizations (patient_id, vaccine_id, administered_by, dose_number, batch_number, expiration_date, administered_date, next_dose_date, location, diagnosis, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+    $stmt->bind_param("iiiissssss", $patient_id, $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $diagnosis);
 
     if ($stmt->execute()) {
         // Send notification email to patient if they have an account
@@ -161,11 +161,11 @@ if ($action == 'edit' && isset($_POST['edit_immunization'])) {
     $administered_date = $_POST['administered_date'];
     $next_dose_date = !empty($_POST['next_dose_date']) ? $_POST['next_dose_date'] : null;
     $location = $_POST['location'];
-    $notes = isset($_POST['notes']) ? $_POST['notes'] : null;
+    $diagnosis = isset($_POST['diagnosis']) ? $_POST['diagnosis'] : null;
 
     // Update immunization record
-    $stmt = $conn->prepare("UPDATE immunizations SET vaccine_id = ?, administered_by = ?, dose_number = ?, batch_number = ?, expiration_date = ?, administered_date = ?, next_dose_date = ?, location = ?, notes = ? WHERE id = ? AND patient_id = ?");
-    $stmt->bind_param("iiiisssssis", $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $notes, $immunization_id, $patient_id);
+    $stmt = $conn->prepare("UPDATE immunizations SET vaccine_id = ?, administered_by = ?, dose_number = ?, batch_number = ?, expiration_date = ?, administered_date = ?, next_dose_date = ?, location = ?, diagnosis = ? WHERE id = ? AND patient_id = ?");
+    $stmt->bind_param("iiiisssssis", $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $diagnosis, $immunization_id, $patient_id);
 
     if ($stmt->execute()) {
         // Send notification email to patient if they have an account
@@ -1086,8 +1086,8 @@ $conn->close();
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="notes">Notes (Optional)</label>
-                                    <textarea id="notes" name="notes"></textarea>
+                                    <label for="diagnosis">Diagnosis (Optional)</label>
+                                    <textarea id="diagnosis" name="diagnosis"></textarea>
                                 </div>
                                 
                                 <div class="form-buttons">
@@ -1163,8 +1163,8 @@ $conn->close();
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="notes">Notes (Optional)</label>
-                                    <textarea id="notes" name="notes"><?php echo htmlspecialchars($edit_immunization['notes']); ?></textarea>
+                                    <label for="diagnosis">Diagnosis (Optional)</label>
+                                    <textarea id="diagnosis" name="diagnosis"><?php echo htmlspecialchars($edit_immunization['diagnosis']); ?></textarea>
                                 </div>
                                 
                                 <div class="form-buttons">
@@ -1240,11 +1240,11 @@ $conn->close();
                                     </div>
                                 </div>
                                 
-                                <?php if ($view_immunization['notes']): ?>
+                                <?php if ($view_immunization['diagnosis']): ?>
                                     <div class="detail-group full-width">
-                                        <div class="detail-label">Notes</div>
+                                        <div class="detail-label">Diagnosis</div>
                                         <div class="detail-value">
-                                            <?php echo nl2br(htmlspecialchars($view_immunization['notes'])); ?>
+                                            <?php echo nl2br(htmlspecialchars($view_immunization['diagnosis'])); ?>
                                         </div>
                                     </div>
                                 <?php endif; ?>

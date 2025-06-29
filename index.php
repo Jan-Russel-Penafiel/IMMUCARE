@@ -368,8 +368,8 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="address">Address*</label>
-                            <input type="text" id="address" name="address" required>
+                            <label for="purok">Purok*</label>
+                            <input type="text" id="purok" name="purok" required>
                         </div>
                         <div class="form-group">
                             <label for="city">City*</label>

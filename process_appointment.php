@@ -31,7 +31,7 @@ $email = $_POST['email'];
 $phone = $_POST['phone'];
 $date_of_birth = $_POST['date_of_birth'];
 $gender = $_POST['gender'];
-$address = $_POST['address'];
+$purok = $_POST['purok'];
 $city = $_POST['city'];
 $province = $_POST['province'];
 $postal_code = isset($_POST['postal_code']) ? $_POST['postal_code'] : '';
@@ -65,8 +65,8 @@ if ($email_result->num_rows > 0) {
         $patient_id = $patient_result->fetch_assoc()['id'];
     } else {
         // Create new patient record for existing user
-        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, last_name, date_of_birth, gender, address, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        $stmt->bind_param("isssssssss", $user_id, $first_name, $last_name, $date_of_birth, $gender, $address, $city, $province, $postal_code, $phone);
+        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->bind_param("isssssssss", $user_id, $first_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone);
         
         if ($stmt->execute()) {
             $patient_id = $conn->insert_id;
@@ -87,8 +87,8 @@ if ($email_result->num_rows > 0) {
         $user_id = $conn->insert_id;
         
         // Create patient record
-        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, last_name, date_of_birth, gender, address, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        $stmt->bind_param("isssssssss", $user_id, $first_name, $last_name, $date_of_birth, $gender, $address, $city, $province, $postal_code, $phone);
+        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->bind_param("isssssssss", $user_id, $first_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone);
         
         if ($stmt->execute()) {
             $patient_id = $conn->insert_id;
@@ -103,8 +103,8 @@ if ($email_result->num_rows > 0) {
     }
 } else {
     // Create patient record without user account
-    $stmt = $conn->prepare("INSERT INTO patients (first_name, last_name, date_of_birth, gender, address, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-    $stmt->bind_param("sssssssss", $first_name, $last_name, $date_of_birth, $gender, $address, $city, $province, $postal_code, $phone);
+    $stmt = $conn->prepare("INSERT INTO patients (first_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+    $stmt->bind_param("sssssssss", $first_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone);
     
     if ($stmt->execute()) {
         $patient_id = $conn->insert_id;

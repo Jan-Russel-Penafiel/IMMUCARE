@@ -60,12 +60,12 @@ $total_immunizations = $result->fetch_assoc()['count'];
 $total_pages = ceil($total_immunizations / $records_per_page);
 
 // Get immunizations with pagination
-$stmt = $conn->prepare("SELECT i.*, p.first_name, p.last_name, v.name as vaccine_name 
+$stmt = $conn->prepare("SELECT i.*, p.first_name, p.last_name, v.name as vaccine_name, v.doses_required 
                         FROM immunizations i 
                         JOIN patients p ON i.patient_id = p.id 
-                        JOIN vaccines v ON i.vaccine_id = v.id 
+                        JOIN vaccines v ON i.vaccine_id = v.id
                         WHERE i.administered_by = ? $search_condition $date_condition $vaccine_condition
-                        ORDER BY i.administered_date DESC 
+                        ORDER BY i.administered_date DESC
                         LIMIT ?, ?");
 $stmt->bind_param("iii", $user_id, $offset, $records_per_page);
 $stmt->execute();
@@ -446,6 +446,120 @@ $conn->close();
             color: white;
         }
         
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            margin: 50px auto;
+            width: 90%;
+            max-width: 600px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .close {
+            font-size: 24px;
+            font-weight: bold;
+            color: #666;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .close:hover {
+            color: #333;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #e1e4e8;
+            border-radius: var(--border-radius);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.9rem;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn-primary {
+            padding: 10px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        .btn-secondary {
+            padding: 10px 20px;
+            background-color: #f1f3f5;
+            color: var(--text-color);
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #e9ecef;
+        }
+        
         @media screen and (max-width: 992px) {
             .dashboard-content {
                 grid-template-columns: 1fr;
@@ -523,9 +637,71 @@ $conn->close();
                         <a href="nurse_immunizations.php" class="btn-sm">Reset</a>
                     </form>
                     
-                    <a href="add_immunization.php" class="add-btn">
+                    <a href="#" class="add-btn" onclick="openImmunizationModal()">
                         <i class="fas fa-plus"></i> Record New Immunization
                     </a>
+                </div>
+                
+                <!-- Add Immunization Modal -->
+                <div id="immunizationModal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Record New Immunization</h3>
+                            <span class="close" onclick="closeImmunizationModal()">&times;</span>
+                        </div>
+                        <div class="modal-body">
+                            <form id="immunizationForm" method="POST" action="process_immunization.php">
+                                <div class="form-group">
+                                    <label for="patient">Patient</label>
+                                    <select name="patient_id" id="patient" required>
+                                        <option value="">Select Patient</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="vaccine">Vaccine</label>
+                                    <select name="vaccine_id" id="vaccine" required>
+                                        <option value="">Select Vaccine</option>
+                                        <?php while ($vaccine = $vaccines->fetch_assoc()): ?>
+                                            <option value="<?php echo $vaccine['id']; ?>">
+                                                <?php echo htmlspecialchars($vaccine['name']); ?>
+                                            </option>
+                                        <?php endwhile; ?>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="administered_date">Date Administered</label>
+                                    <input type="date" name="administered_date" id="administered_date" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="dose_number">Dose Number</label>
+                                    <input type="number" name="dose_number" id="dose_number" min="1" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="batch_number">Batch Number</label>
+                                    <input type="text" name="batch_number" id="batch_number" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="next_dose_date">Next Dose Date</label>
+                                    <input type="date" name="next_dose_date" id="next_dose_date">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="notes">Notes</label>
+                                    <textarea name="notes" id="notes" rows="3"></textarea>
+                                </div>
+                                
+                                <div class="form-actions">
+                                    <button type="button" onclick="closeImmunizationModal()" class="btn-secondary">Cancel</button>
+                                    <button type="submit" class="btn-primary">Save Immunization</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
                 
                 <table class="immunization-table">
@@ -607,5 +783,67 @@ $conn->close();
             </div>
         </div>
     </div>
+    <script>
+        // Function to open the immunization modal
+        function openImmunizationModal() {
+            document.getElementById('immunizationModal').style.display = 'block';
+            // Load patients list via AJAX
+            loadPatients();
+        }
+        
+        // Function to close the immunization modal
+        function closeImmunizationModal() {
+            document.getElementById('immunizationModal').style.display = 'none';
+            document.getElementById('immunizationForm').reset();
+        }
+        
+        // Function to load patients list via AJAX
+        function loadPatients() {
+            fetch('get_patients.php')
+                .then(response => response.json())
+                .then(data => {
+                    const patientSelect = document.getElementById('patient');
+                    patientSelect.innerHTML = '<option value="">Select Patient</option>';
+                    data.forEach(patient => {
+                        patientSelect.innerHTML += `<option value="${patient.id}">${patient.first_name} ${patient.last_name}</option>`;
+                    });
+                })
+                .catch(error => console.error('Error loading patients:', error));
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('immunizationModal');
+            if (event.target == modal) {
+                closeImmunizationModal();
+            }
+        }
+        
+        // Handle form submission
+        document.getElementById('immunizationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('process_immunization.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeImmunizationModal();
+                    // Reload the page to show new immunization
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Error saving immunization record');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving immunization record');
+            });
+        });
+    </script>
 </body>
 </html> 

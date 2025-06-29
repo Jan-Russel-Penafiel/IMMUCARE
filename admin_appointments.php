@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'notification_system.php';
 
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
@@ -23,19 +24,88 @@ if ($conn->connect_error) {
 $action_message = '';
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
+// Initialize session message if not exists
+if (!isset($_SESSION['action_message'])) {
+    $_SESSION['action_message'] = '';
+}
+
+// Get message from session if exists
+if (!empty($_SESSION['action_message'])) {
+    $action_message = $_SESSION['action_message'];
+    // Clear the message after displaying
+    $_SESSION['action_message'] = '';
+}
+
 // Update appointment status
 if (isset($_POST['update_status'])) {
     $appointment_id = $_POST['appointment_id'];
     $status = $_POST['status'];
     $notes = isset($_POST['notes']) ? $_POST['notes'] : '';
     
+    // Get appointment and patient details
+    $stmt = $conn->prepare("
+        SELECT a.*, 
+               p.first_name, 
+               p.last_name, 
+               p.phone_number,
+               u.email,
+               u.id as user_id,
+               v.name as vaccine_name
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        JOIN users u ON p.user_id = u.id
+        LEFT JOIN vaccines v ON a.vaccine_id = v.id
+        WHERE a.id = ?
+    ");
+    $stmt->bind_param("i", $appointment_id);
+    $stmt->execute();
+    $appointment_result = $stmt->get_result();
+    $appointment_data = $appointment_result->fetch_assoc();
+    
+    // Update appointment status
     $stmt = $conn->prepare("UPDATE appointments SET status = ?, notes = ?, updated_at = NOW() WHERE id = ?");
     $stmt->bind_param("ssi", $status, $notes, $appointment_id);
     
     if ($stmt->execute()) {
-        $action_message = "Appointment status updated successfully!";
+        // Initialize notification system
+        $notification = new NotificationSystem();
+        
+        // Prepare notification content
+        $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
+        $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
+        $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
+        $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
+        
+        // Prepare notification title and message
+        $title = "Appointment Status Update";
+        $message = "Your appointment for {$purpose} scheduled on {$appointment_date} at {$appointment_time} has been updated to: " . ucfirst($status);
+        if (!empty($notes)) {
+            $message .= "\n\nNotes: {$notes}";
+        }
+        
+        // Send notification
+        $notification_result = $notification->sendCustomNotification(
+            $appointment_data['user_id'],
+            $title,
+            $message,
+            'both' // Send both email and SMS
+        );
+        
+        $_SESSION['action_message'] = "Appointment status updated successfully!";
+        if ($notification_result['email_sent']) {
+            $_SESSION['action_message'] .= " Email notification sent.";
+        }
+        if ($notification_result['sms_sent']) {
+            $_SESSION['action_message'] .= " SMS notification sent.";
+        }
+        
+        // Redirect to prevent form resubmission
+        header('Location: ' . $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET));
+        exit;
     } else {
-        $action_message = "Error updating appointment status: " . $conn->error;
+        $_SESSION['action_message'] = "Error updating appointment status: " . $conn->error;
+        header('Location: ' . $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET));
+        exit;
     }
 }
 
@@ -48,10 +118,14 @@ if (isset($_POST['assign_staff'])) {
     $stmt->bind_param("ii", $staff_id, $appointment_id);
     
     if ($stmt->execute()) {
-        $action_message = "Staff assigned to appointment successfully!";
+        $_SESSION['action_message'] = "Staff assigned to appointment successfully!";
     } else {
-        $action_message = "Error assigning staff: " . $conn->error;
+        $_SESSION['action_message'] = "Error assigning staff: " . $conn->error;
     }
+    
+    // Redirect to prevent form resubmission
+    header('Location: ' . $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET));
+    exit;
 }
 
 // Delete appointment
@@ -62,10 +136,14 @@ if ($action == 'delete' && isset($_GET['id'])) {
     $stmt->bind_param("i", $appointment_id);
     
     if ($stmt->execute()) {
-        $action_message = "Appointment deleted successfully!";
+        $_SESSION['action_message'] = "Appointment deleted successfully!";
     } else {
-        $action_message = "Error deleting appointment: " . $conn->error;
+        $_SESSION['action_message'] = "Error deleting appointment: " . $conn->error;
     }
+    
+    // Redirect to prevent form resubmission
+    header('Location: ' . $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET));
+    exit;
 }
 
 // Filter appointments
@@ -73,37 +151,51 @@ $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 $date_filter = isset($_GET['date']) ? $_GET['date'] : '';
 $staff_filter = isset($_GET['staff']) ? $_GET['staff'] : '';
 
+// Initialize params array for prepared statement
+$params = array();
+
 $query = "SELECT a.*, 
-         CONCAT(p.first_name, ' ', p.last_name) as patient_name, 
-         CONCAT(u.name) as staff_name,
+         CONCAT(p.first_name, ' ', p.last_name) as patient_name,
+         p.phone_number as patient_phone,
+         u.name as staff_name,
+         u.user_type as staff_type,
          v.name as vaccine_name 
          FROM appointments a 
-         JOIN patients p ON a.patient_id = p.id 
+         LEFT JOIN patients p ON a.patient_id = p.id 
          LEFT JOIN users u ON a.staff_id = u.id
          LEFT JOIN vaccines v ON a.vaccine_id = v.id 
          WHERE 1=1";
 
 // Apply filters
 if (!empty($status_filter)) {
-    $query .= " AND a.status = '$status_filter'";
+    $query .= " AND a.status = ?";
+    $params[] = $status_filter;
 }
 
 if (!empty($date_filter)) {
-    $query .= " AND DATE(a.appointment_date) = '$date_filter'";
+    $query .= " AND DATE(a.appointment_date) = ?";
+    $params[] = $date_filter;
 }
 
 if (!empty($staff_filter)) {
     if ($staff_filter === 'unassigned') {
         $query .= " AND a.staff_id IS NULL";
     } else {
-        $query .= " AND a.staff_id = '$staff_filter'";
+        $query .= " AND a.staff_id = ?";
+        $params[] = $staff_filter;
     }
 }
 
 $query .= " ORDER BY a.appointment_date DESC";
-$appointments_result = $conn->query($query);
 
-$conn->close();
+// Prepare and execute the query with parameters
+$stmt = $conn->prepare($query);
+if (!empty($params)) {
+    $types = str_repeat('s', count($params));
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
+$appointments_result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -253,16 +345,13 @@ $conn->close();
                             <option value="unassigned">Unassigned</option>
                             <?php
                             // Fetch staff options
-                            $staff_options = [];
-                            $staff_query = "SELECT id, name FROM users WHERE user_type = 'staff'";
+                            $staff_query = "SELECT id, name FROM users WHERE user_type IN ('midwife', 'nurse') ORDER BY name";
                             $staff_result = $conn->query($staff_query);
                             if ($staff_result && $staff_result->num_rows > 0) {
                                 while ($staff = $staff_result->fetch_assoc()) {
-                                    $staff_options[$staff['id']] = $staff['name'];
+                                    $selected = ($staff_filter == $staff['id']) ? 'selected' : '';
+                                    echo "<option value=\"{$staff['id']}\" {$selected}>" . htmlspecialchars($staff['name']) . "</option>";
                                 }
-                            }
-                            foreach ($staff_options as $id => $name) {
-                                echo "<option value=\"$id\">$name</option>";
                             }
                             ?>
                         </select>
@@ -281,7 +370,6 @@ $conn->close();
                                 <th>Staff</th>
                                 <th>Date & Time</th>
                                 <th>Purpose</th>
-                                <th>Location</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -295,7 +383,6 @@ $conn->close();
                                         <td><?php echo htmlspecialchars($appointment['staff_name'] ?? 'Not Assigned'); ?></td>
                                         <td><?php echo date('M d, Y h:i A', strtotime($appointment['appointment_date'])); ?></td>
                                         <td><?php echo htmlspecialchars($appointment['purpose']); ?></td>
-                                        <td><?php echo htmlspecialchars($appointment['location'] ?? 'Not Specified'); ?></td>
                                         <td>
                                             <span class="appointment-status status-<?php echo $appointment['status']; ?>">
                                                 <?php echo ucfirst($appointment['status']); ?>
@@ -456,5 +543,6 @@ $conn->close();
             });
         });
     </script>
+    <?php $conn->close(); ?>
 </body>
 </html> 

@@ -382,6 +382,126 @@ $conn->close();
                 width: 100%;
             }
         }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            position: relative;
+            background-color: #fff;
+            margin: 50px auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 800px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e1e4e8;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .close-modal {
+            font-size: 1.5rem;
+            color: var(--light-text);
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+
+        .close-modal:hover {
+            color: var(--text-color);
+        }
+
+        .modal-body {
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #e1e4e8;
+            border-radius: 4px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .modal-footer {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e1e4e8;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .modal-btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .modal-btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .modal-btn-secondary {
+            background-color: #f1f3f5;
+            color: var(--text-color);
+            border: none;
+        }
+
+        .modal-btn-secondary:hover {
+            background-color: #e9ecef;
+        }
     </style>
 </head>
 <body>
@@ -425,7 +545,7 @@ $conn->close();
                         <button type="submit"><i class="fas fa-search"></i></button>
                     </form>
                     
-                    <a href="add_patient.php" class="add-btn">
+                    <a href="javascript:void(0)" class="add-btn" onclick="openModal('addPatientModal')">
                         <i class="fas fa-plus"></i> Add New Patient
                     </a>
                 </div>
@@ -456,7 +576,10 @@ $conn->close();
                                         <?php echo ucfirst(htmlspecialchars($patient['gender'])); ?>
                                     </td>
                                     <td>
-                                        <?php echo htmlspecialchars($patient['phone_number']); ?>
+                                        <div><?php echo htmlspecialchars($patient['phone_number']); ?></div>
+                                        <div class="patient-info">
+                                            <?php echo htmlspecialchars($patient['purok'] . ', ' . $patient['city'] . ', ' . $patient['province']); ?>
+                                        </div>
                                     </td>
                                     <td>
                                         <?php echo $patient['immunization_count']; ?>
@@ -465,9 +588,9 @@ $conn->close();
                                         <?php echo $patient['appointment_count']; ?>
                                     </td>
                                     <td class="action-buttons">
-                                        <a href="view_patient.php?id=<?php echo $patient['id']; ?>" class="view-btn">View</a>
-                                        <a href="edit_patient.php?id=<?php echo $patient['id']; ?>" class="edit-btn">Edit</a>
-                                        <a href="patient_immunization_history.php?id=<?php echo $patient['id']; ?>" class="view-btn">
+                                        <a href="javascript:void(0)" class="view-btn" data-id="<?php echo $patient['id']; ?>" onclick="loadPatientDetails(this.getAttribute('data-id'))">View</a>
+                                        <a href="javascript:void(0)" class="edit-btn" data-id="<?php echo $patient['id']; ?>" onclick="loadPatientForEdit(this.getAttribute('data-id'))">Edit</a>
+                                        <a href="javascript:void(0)" class="immunization-btn" data-id="<?php echo $patient['id']; ?>" onclick="loadImmunizationHistory(this.getAttribute('data-id'))">
                                             <i class="fas fa-syringe"></i>
                                         </a>
                                     </td>
@@ -503,5 +626,313 @@ $conn->close();
             </div>
         </div>
     </div>
+
+    <!-- Add Patient Modal -->
+    <div id="addPatientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Patient</h3>
+                <button class="close-modal" onclick="closeModal('addPatientModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addPatientForm" method="POST" action="api/add_patient.php">
+                    <h4>Account Information</h4>
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm Password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" required>
+                    </div>
+
+                    <h4>Personal Information</h4>
+                    <div class="form-group">
+                        <label for="first_name">First Name</label>
+                        <input type="text" id="first_name" name="first_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="middle_name">Middle Name</label>
+                        <input type="text" id="middle_name" name="middle_name">
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" name="last_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="date_of_birth">Date of Birth</label>
+                        <input type="date" id="date_of_birth" name="date_of_birth" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="gender">Gender</label>
+                        <select id="gender" name="gender" required>
+                            <option value="">Select Gender</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone_number">Phone Number</label>
+                        <input type="tel" id="phone_number" name="phone_number" required>
+                    </div>
+
+                    <h4>Address Information</h4>
+                    <div class="form-group">
+                        <label for="purok">Purok</label>
+                        <input type="text" id="purok" name="purok" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="city">City</label>
+                        <input type="text" id="city" name="city" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="province">Province</label>
+                        <input type="text" id="province" name="province" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="postal_code">Postal Code</label>
+                        <input type="text" id="postal_code" name="postal_code">
+                    </div>
+
+                    <h4>Medical Information</h4>
+                    <div class="form-group">
+                        <label for="medical_history">Medical History</label>
+                        <textarea id="medical_history" name="medical_history" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="allergies">Allergies</label>
+                        <textarea id="allergies" name="allergies" rows="3"></textarea>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn modal-btn-secondary" onclick="closeModal('addPatientModal')">Cancel</button>
+                        <button type="submit" class="modal-btn modal-btn-primary">Add Patient</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Patient Modal -->
+    <div id="viewPatientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Patient Details</h3>
+                <button class="close-modal" onclick="closeModal('viewPatientModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="viewPatientContent">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Patient Modal -->
+    <div id="editPatientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Patient</h3>
+                <button class="close-modal" onclick="closeModal('editPatientModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editPatientForm" method="POST" action="api/update_patient.php">
+                    <input type="hidden" id="edit_patient_id" name="patient_id">
+                    <div class="form-group">
+                        <label for="edit_first_name">First Name</label>
+                        <input type="text" id="edit_first_name" name="first_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_last_name">Last Name</label>
+                        <input type="text" id="edit_last_name" name="last_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_date_of_birth">Date of Birth</label>
+                        <input type="date" id="edit_date_of_birth" name="date_of_birth" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_gender">Gender</label>
+                        <select id="edit_gender" name="gender" required>
+                            <option value="">Select Gender</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_phone_number">Phone Number</label>
+                        <input type="tel" id="edit_phone_number" name="phone_number" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_purok">Purok</label>
+                        <input type="text" id="edit_purok" name="purok" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_city">City</label>
+                        <input type="text" id="edit_city" name="city" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_province">Province</label>
+                        <input type="text" id="edit_province" name="province" required>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn modal-btn-secondary" onclick="closeModal('editPatientModal')">Cancel</button>
+                        <button type="submit" class="modal-btn modal-btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Immunization History Modal -->
+    <div id="immunizationHistoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Immunization History</h3>
+                <button class="close-modal" onclick="closeModal('immunizationHistoryModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="immunizationHistoryContent">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to open modal
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Function to close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        // Function to load patient details
+        async function loadPatientDetails(patientId) {
+            try {
+                const response = await fetch(`api/get_patient.php?id=${patientId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('viewPatientContent').innerHTML = `
+                        <div class="patient-details">
+                            <p><strong>Name:</strong> ${data.patient.first_name} ${data.patient.last_name}</p>
+                            <p><strong>Date of Birth:</strong> ${data.patient.date_of_birth}</p>
+                            <p><strong>Gender:</strong> ${data.patient.gender}</p>
+                            <p><strong>Phone:</strong> ${data.patient.phone_number}</p>
+                            <p><strong>Address:</strong> ${data.patient.purok}, ${data.patient.city}, ${data.patient.province}</p>
+                        </div>
+                    `;
+                    openModal('viewPatientModal');
+                }
+            } catch (error) {
+                console.error('Error loading patient details:', error);
+            }
+        }
+
+        // Function to load patient data for editing
+        async function loadPatientForEdit(patientId) {
+            try {
+                const response = await fetch(`api/get_patient.php?id=${patientId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const patient = data.patient;
+                    document.getElementById('edit_patient_id').value = patient.id;
+                    document.getElementById('edit_first_name').value = patient.first_name;
+                    document.getElementById('edit_last_name').value = patient.last_name;
+                    document.getElementById('edit_date_of_birth').value = patient.date_of_birth;
+                    document.getElementById('edit_gender').value = patient.gender;
+                    document.getElementById('edit_phone_number').value = patient.phone_number;
+                    document.getElementById('edit_purok').value = patient.purok;
+                    document.getElementById('edit_city').value = patient.city;
+                    document.getElementById('edit_province').value = patient.province;
+                    
+                    openModal('editPatientModal');
+                }
+            } catch (error) {
+                console.error('Error loading patient for edit:', error);
+            }
+        }
+
+        // Function to load immunization history
+        async function loadImmunizationHistory(patientId) {
+            try {
+                const response = await fetch(`api/get_immunization_history.php?patient_id=${patientId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    let historyHtml = '<div class="immunization-history">';
+                    if (data.immunizations.length > 0) {
+                        historyHtml += '<table class="patient-table"><thead><tr>' +
+                            '<th>Vaccine</th>' +
+                            '<th>Date</th>' +
+                            '<th>Status</th>' +
+                            '</tr></thead><tbody>';
+                        
+                        data.immunizations.forEach(immunization => {
+                            historyHtml += `<tr>
+                                <td>${immunization.vaccine_name}</td>
+                                <td>${immunization.date}</td>
+                                <td>${immunization.status}</td>
+                            </tr>`;
+                        });
+                        
+                        historyHtml += '</tbody></table>';
+                    } else {
+                        historyHtml += '<p>No immunization records found.</p>';
+                    }
+                    historyHtml += '</div>';
+                    
+                    document.getElementById('immunizationHistoryContent').innerHTML = historyHtml;
+                    openModal('immunizationHistoryModal');
+                }
+            } catch (error) {
+                console.error('Error loading immunization history:', error);
+            }
+        }
+
+        // Update the action buttons to use modal functions
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update Add Patient button
+            const addPatientBtn = document.querySelector('.add-btn');
+            addPatientBtn.href = 'javascript:void(0)';
+            addPatientBtn.onclick = () => openModal('addPatientModal');
+            
+            // Update table action buttons
+            document.querySelectorAll('.patient-table').forEach(table => {
+                table.addEventListener('click', function(e) {
+                    const target = e.target;
+                    if (target.classList.contains('view-btn')) {
+                        e.preventDefault();
+                        const patientId = target.getAttribute('data-id');
+                        loadPatientDetails(patientId);
+                    } else if (target.classList.contains('edit-btn')) {
+                        e.preventDefault();
+                        const patientId = target.getAttribute('data-id');
+                        loadPatientForEdit(patientId);
+                    } else if (target.classList.contains('immunization-btn')) {
+                        e.preventDefault();
+                        const patientId = target.getAttribute('data-id');
+                        loadImmunizationHistory(patientId);
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html> 

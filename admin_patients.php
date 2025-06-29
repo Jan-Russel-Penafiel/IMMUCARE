@@ -34,7 +34,7 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
     $last_name = $_POST['last_name'];
     $date_of_birth = $_POST['date_of_birth'];
     $gender = $_POST['gender'];
-    $address = $_POST['address'];
+    $purok = $_POST['purok'];
     $city = $_POST['city'];
     $province = $_POST['province'];
     $postal_code = $_POST['postal_code'] ?? null;
@@ -151,8 +151,8 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
     
     // If no errors occurred with user account creation, proceed with patient creation
     if (empty($action_message)) {
-        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, middle_name, last_name, date_of_birth, gender, address, city, province, postal_code, phone_number, medical_history, allergies, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        $stmt->bind_param("issssssssssss", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $address, $city, $province, $postal_code, $phone_number, $medical_history, $allergies);
+        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, middle_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, medical_history, allergies, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->bind_param("issssssssssss", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone_number, $medical_history, $allergies);
     
         if ($stmt->execute()) {
             $patient_id = $conn->insert_id;
@@ -230,7 +230,7 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
     $last_name = $_POST['last_name'];
     $date_of_birth = $_POST['date_of_birth'];
     $gender = $_POST['gender'];
-    $address = $_POST['address'];
+    $purok = $_POST['purok'];
     $city = $_POST['city'];
     $province = $_POST['province'];
     $postal_code = $_POST['postal_code'] ?? null;
@@ -357,9 +357,9 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
 
     // If no errors occurred with user account creation, proceed with patient update
     if (empty($action_message)) {
-        $query = "UPDATE patients SET user_id = ?, first_name = ?, middle_name = ?, last_name = ?, date_of_birth = ?, gender = ?, address = ?, city = ?, province = ?, postal_code = ?, phone_number = ?, medical_history = ?, allergies = ? WHERE id = ?";
+        $query = "UPDATE patients SET user_id = ?, first_name = ?, middle_name = ?, last_name = ?, date_of_birth = ?, gender = ?, purok = ?, city = ?, province = ?, postal_code = ?, phone_number = ?, medical_history = ?, allergies = ? WHERE id = ?";
         $stmt = $conn->prepare($query);
-        $stmt->bind_param("isssssssssssi", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $address, $city, $province, $postal_code, $phone_number, $medical_history, $allergies, $patient_id);
+        $stmt->bind_param("isssssssssssi", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone_number, $medical_history, $allergies, $patient_id);
     
         if ($stmt->execute()) {
             // If we have a user email but haven't sent an email yet (for existing user accounts)
@@ -1030,8 +1030,8 @@ $conn->close();
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="address">Address</label>
-                                    <input type="text" id="address" name="address" value="<?php echo $action == 'edit' ? htmlspecialchars($edit_patient['address']) : ''; ?>" required>
+                                    <label for="purok">Purok</label>
+                                    <input type="text" id="purok" name="purok" value="<?php echo $action == 'edit' ? htmlspecialchars($edit_patient['purok']) : ''; ?>" required>
                                 </div>
                                 
                                 <div class="form-group">

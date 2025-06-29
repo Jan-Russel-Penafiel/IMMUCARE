@@ -429,7 +429,7 @@ $conn->close();
                                     <td>
                                         <div><?php echo htmlspecialchars($patient['phone_number']); ?></div>
                                         <div class="patient-info">
-                                            <?php echo htmlspecialchars($patient['city'] . ', ' . $patient['province']); ?>
+                                            <?php echo htmlspecialchars($patient['purok'] . ', ' . $patient['city'] . ', ' . $patient['province']); ?>
                                         </div>
                                     </td>
                                     <td>

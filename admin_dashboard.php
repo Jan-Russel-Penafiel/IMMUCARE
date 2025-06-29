@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require 'includes/file_transfer.php';
 
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
@@ -20,35 +21,68 @@ if ($conn->connect_error) {
 }
 
 // Process data transfer request
-$transfer_message = '';
 if (isset($_POST['transfer_data'])) {
     $health_center_id = $_POST['health_center_id'];
-    $transfer_type = $_POST['transfer_type'];
     
     // Get health center details
-    $stmt = $conn->prepare("SELECT name FROM health_centers WHERE id = ?");
+    $stmt = $conn->prepare("SELECT name, email FROM health_centers WHERE id = ?");
     $stmt->bind_param("i", $health_center_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $health_center = $result->fetch_assoc();
     
-    // Log the transfer request
-    $stmt = $conn->prepare("INSERT INTO data_transfers (initiated_by, destination, transfer_type, status, started_at, created_at) VALUES (?, ?, ?, 'pending', NOW(), NOW())");
-    $stmt->bind_param("iss", $admin_id, $health_center['name'], $transfer_type);
+    // Get data for transfer
+    $stmt = $conn->prepare("
+        SELECT 
+            p.id as patient_id,
+            CONCAT(p.first_name, ' ', p.last_name) as name,
+            TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) as age,
+            p.gender,
+            v.name as vaccine,
+            i.administered_date as date,
+            CASE 
+                WHEN i.next_dose_date IS NOT NULL AND i.next_dose_date > CURDATE() THEN 'Pending Next Dose'
+                WHEN i.next_dose_date IS NOT NULL AND i.next_dose_date <= CURDATE() THEN 'Due for Next Dose'
+                ELSE 'Completed'
+            END as status
+        FROM immunizations i
+        JOIN patients p ON i.patient_id = p.id
+        JOIN vaccines v ON i.vaccine_id = v.id
+        WHERE i.administered_by = ?
+        ORDER BY i.administered_date DESC
+    ");
+    $stmt->bind_param("i", $health_center_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $data = $result->fetch_all(MYSQLI_ASSOC);
     
-    if ($stmt->execute()) {
-        $transfer_id = $conn->insert_id;
-        
-        // In a real application, this would trigger a background job to perform the actual data transfer
-        // For demonstration, we'll simulate a successful transfer
-        $stmt = $conn->prepare("UPDATE data_transfers SET status = 'completed', record_count = 150, completed_at = NOW(), status_message = 'Data successfully transferred' WHERE id = ?");
-        $stmt->bind_param("i", $transfer_id);
-        $stmt->execute();
-        
-        $transfer_message = "Data transfer to " . $health_center['name'] . " initiated successfully.";
+    // Initialize file transfer
+    $transfer = new FileTransfer();
+    if ($transfer->sendToGoogleDrive($data, $health_center['email'])) {
+        $_SESSION['transfer_message'] = [
+            'type' => 'success',
+            'text' => "Data transfer to " . $health_center['name'] . " completed successfully. Files have been sent to " . $health_center['email']
+        ];
     } else {
-        $transfer_message = "Error initiating data transfer. Please try again.";
+        $_SESSION['transfer_message'] = [
+            'type' => 'error',
+            'text' => "Error during data transfer. Please check the logs and try again."
+        ];
     }
+    
+    // Redirect to prevent form resubmission
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
+}
+
+// Get transfer message from session if exists
+$transfer_message = '';
+$transfer_message_type = '';
+if (isset($_SESSION['transfer_message'])) {
+    $transfer_message = $_SESSION['transfer_message']['text'];
+    $transfer_message_type = $_SESSION['transfer_message']['type'];
+    // Clear the message from session
+    unset($_SESSION['transfer_message']);
 }
 
 // Fetch system statistics
@@ -102,7 +136,6 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
-$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -181,6 +214,10 @@ $conn->close();
             border-radius: 5px;
             font-size: 0.9rem;
             transition: var(--transition);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .logout-btn:hover {
@@ -198,6 +235,7 @@ $conn->close();
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
             padding: 20px;
+            height: fit-content;
         }
         
         .sidebar-menu {
@@ -249,85 +287,116 @@ $conn->close();
             font-size: 1.8rem;
             color: var(--primary-color);
             margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
         
         .stat-card {
-            background-color: #f8f9fa;
+            background-color: white;
             border-radius: var(--border-radius);
-            padding: 20px;
+            padding: 25px;
             text-align: center;
             transition: var(--transition);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
         }
         
         .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
         }
         
         .stat-icon {
-            font-size: 2rem;
+            font-size: 2.2rem;
             color: var(--primary-color);
-            margin-bottom: 10px;
+            background: #f1f8ff;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin-bottom: 5px;
         }
         
         .stat-value {
-            font-size: 1.8rem;
+            font-size: 2rem;
             font-weight: 700;
             color: var(--text-color);
-            margin-bottom: 5px;
+            line-height: 1;
         }
         
         .stat-label {
             color: var(--light-text);
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            font-weight: 500;
         }
         
         .admin-sections {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
             gap: 30px;
-            margin-top: 30px;
         }
         
         .admin-section {
-            background-color: #fff;
+            background-color: white;
             border-radius: var(--border-radius);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            box-shadow: var(--shadow);
             padding: 25px;
         }
         
         .admin-section h3 {
-            font-size: 1.3rem;
-            color: var(--primary-color);
-            margin-top: 0;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
+            font-size: 1.4rem;
+            color: var(--text-color);
+            margin: 0 0 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e1e4e8;
         }
         
-        .data-transfer-form {
+        .alert {
+            padding: 15px;
+            border-radius: var(--border-radius);
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .alert-success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        
+        .alert-error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
         }
         
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         
         .form-group label {
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
+            color: var(--text-color);
         }
         
-        .form-group select,
-        .form-group input {
+        .form-control {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
@@ -337,28 +406,33 @@ $conn->close();
         }
         
         .transfer-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 10px 15px;
             border-radius: var(--border-radius);
-            cursor: pointer;
             font-family: inherit;
             font-size: 1rem;
-            transition: var(--transition);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            gap: 10px;
+            text-decoration: none;
         }
         
         .transfer-btn:hover {
             background-color: #3367d6;
-        }
-        
-        .transfer-history {
-            margin-top: 20px;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.2);
         }
         
         .transfer-table {
             width: 100%;
             border-collapse: collapse;
+            margin-top: 20px;
         }
         
         .transfer-table th,
@@ -375,10 +449,11 @@ $conn->close();
         }
         
         .transfer-status {
-            padding: 5px 10px;
+            padding: 6px 12px;
             border-radius: 20px;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 500;
+            display: inline-block;
         }
         
         .status-completed {
@@ -396,29 +471,34 @@ $conn->close();
             color: #c62828;
         }
         
-        .alert {
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
             padding: 15px;
             border-radius: var(--border-radius);
-            margin-bottom: 20px;
-            font-size: 0.95rem;
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+            text-align: center;
+            color: white;
         }
         
-        .alert-success {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #a5d6a7;
+        .btn-primary {
+            background-color: var(--primary-color);
         }
         
-        .alert-error {
-            background-color: #ffebee;
-            color: #c62828;
-            border: 1px solid #ef9a9a;
-        }
-        
-        @media screen and (max-width: 1200px) {
-            .admin-sections {
-                grid-template-columns: 1fr;
-            }
+        .btn-primary:hover {
+            background-color: #3367d6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(66, 133, 244, 0.2);
         }
         
         @media screen and (max-width: 992px) {
@@ -428,6 +508,10 @@ $conn->close();
             
             .sidebar {
                 margin-bottom: 20px;
+            }
+            
+            .admin-sections {
+                grid-template-columns: 1fr;
             }
         }
         
@@ -443,12 +527,10 @@ $conn->close();
             }
             
             .stats-grid {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             }
-        }
-        
-        @media screen and (max-width: 576px) {
-            .stats-grid {
+            
+            .quick-actions {
                 grid-template-columns: 1fr;
             }
         }
@@ -540,32 +622,57 @@ $conn->close();
                         <h3>Data Transfer to Municipal Health Center</h3>
                         
                         <?php if (!empty($transfer_message)): ?>
-                            <div class="alert alert-success">
-                                <?php echo $transfer_message; ?>
+                            <div class="alert alert-<?php echo $transfer_message_type; ?>" id="transferAlert">
+                                <?php echo htmlspecialchars($transfer_message); ?>
+                                <button type="button" class="alert-close" onclick="this.parentElement.style.display='none';">&times;</button>
                             </div>
                         <?php endif; ?>
                         
                         <form class="data-transfer-form" method="POST" action="">
                             <div class="form-group">
-                                <label for="health_center_id">Select Health Center</label>
-                                <select id="health_center_id" name="health_center_id" required>
+                                <label for="health_center_id">Select Health Center:</label>
+                                <?php
+                                // Debug information
+                                error_reporting(E_ALL);
+                                ini_set('display_errors', 1);
+                                
+                                // Test database connection
+                                if ($conn->connect_error) {
+                                    echo "Connection failed: " . $conn->connect_error;
+                                }
+                                
+                                // Get health centers for transfer dropdown
+                                $query = "SELECT id, name, email FROM health_centers WHERE is_active = 1 ORDER BY name";
+                                $result = $conn->query($query);
+                                
+                                if (!$result) {
+                                    echo "Query failed: " . $conn->error;
+                                }
+                                ?>
+                                
+                                <select name="health_center_id" id="health_center_id" required class="form-control">
                                     <option value="">-- Select Health Center --</option>
-                                    <?php while ($center = $health_centers->fetch_assoc()): ?>
-                                        <option value="<?php echo $center['id']; ?>"><?php echo htmlspecialchars($center['name']); ?></option>
-                                    <?php endwhile; ?>
+                                    <?php
+                                    if ($result && $result->num_rows > 0) {
+                                        while ($center = $result->fetch_assoc()) {
+                                            echo '<option value="' . htmlspecialchars($center['id']) . '">' 
+                                                . htmlspecialchars($center['name']) 
+                                                . ' (' . htmlspecialchars($center['email']) . ')'
+                                                . '</option>';
+                                        }
+                                    } else {
+                                        echo '<option value="" disabled>No health centers found. Please check the database.</option>';
+                                    }
+                                    ?>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label for="transfer_type">Transfer Type</label>
-                                <select id="transfer_type" name="transfer_type" required>
-                                    <option value="manual">Manual Transfer</option>
-                                    <option value="scheduled">Schedule Recurring Transfer</option>
-                                    <option value="api">API Transfer</option>
-                                </select>
+                            
+                            <div class="form-group button-group">
+                                <button type="submit" name="transfer_data" class="transfer-btn" id="transferBtn">
+                                    <i class="fas fa-sync-alt"></i>
+                                    <span>Transfer Data</span>
+                                </button>
                             </div>
-                            <button type="submit" name="transfer_data" class="transfer-btn">
-                                <i class="fas fa-exchange-alt"></i> Transfer Data
-                            </button>
                         </form>
                         
                         <div class="transfer-history">
@@ -648,6 +755,67 @@ $conn->close();
                 }
             });
         });
+
+        document.getElementById('transferBtn').addEventListener('click', function(e) {
+            if (document.getElementById('health_center_id').value) {
+                this.classList.add('loading');
+                this.disabled = true;
+            }
+        });
+
+        // Auto-hide alert after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alert = document.getElementById('transferAlert');
+            if (alert) {
+                setTimeout(function() {
+                    alert.style.opacity = '0';
+                    setTimeout(function() {
+                        alert.style.display = 'none';
+                    }, 300);
+                }, 5000);
+            }
+        });
+
+        // Form submission handling
+        document.querySelector('.data-transfer-form').addEventListener('submit', function(e) {
+            const healthCenterId = document.getElementById('health_center_id').value;
+            const submitBtn = document.getElementById('transferBtn');
+            
+            if (!healthCenterId) {
+                e.preventDefault();
+                alert('Please select a health center');
+                return;
+            }
+            
+            // Disable form resubmission
+            if (submitBtn.classList.contains('loading')) {
+                e.preventDefault();
+                return;
+            }
+            
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+            
+            // Store submission timestamp
+            localStorage.setItem('lastTransferSubmission', Date.now());
+        });
+
+        // Check for recent submission on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const lastSubmission = localStorage.getItem('lastTransferSubmission');
+            if (lastSubmission) {
+                const timeSinceSubmission = Date.now() - parseInt(lastSubmission);
+                // Clear if more than 5 minutes have passed
+                if (timeSinceSubmission > 300000) {
+                    localStorage.removeItem('lastTransferSubmission');
+                }
+            }
+        });
     </script>
 </body>
-</html> 
+</html>
+
+<?php
+// Close the database connection at the very end of the file
+$conn->close();
+?> 

@@ -434,6 +434,25 @@ if (isset($_GET['logout'])) {
                 flex-direction: column;
             }
         }
+        
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+        
+        .alert-info {
+            color: #0c5460;
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
+        
+        .alert ul {
+            margin-top: 10px;
+            margin-bottom: 0;
+            padding-left: 20px;
+        }
     </style>
 </head>
 <body>
@@ -457,17 +476,19 @@ if (isset($_GET['logout'])) {
         <div class="dashboard-content">
             <div class="sidebar">
                 <ul class="sidebar-menu">
-                    <li><a href="patient_dashboard.php" class="active"><i class="fas fa-home"></i> Dashboard</a></li>
-                    <li><a href="patient_profile.php"><i class="fas fa-user"></i> My Profile</a></li>
-                    <li><a href="patient_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
-                    <li><a href="patient_immunizations.php"><i class="fas fa-syringe"></i> Immunization Records</a></li>
-                    <li><a href="patient_notifications.php"><i class="fas fa-bell"></i> Notifications</a></li>
+                    <li><a href="#dashboard" class="nav-link active" data-section="dashboard"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li><a href="#profile" class="nav-link" data-section="profile"><i class="fas fa-user"></i> My Profile</a></li>
+                    <li><a href="#appointments" class="nav-link" data-section="appointments"><i class="fas fa-calendar-check"></i> Appointments</a></li>
+                    <li><a href="#immunizations" class="nav-link" data-section="immunizations"><i class="fas fa-syringe"></i> Immunization Records</a></li>
+                    <li><a href="#notifications" class="nav-link" data-section="notifications"><i class="fas fa-bell"></i> Notifications</a></li>
                 </ul>
             </div>
             
             <div class="main-content">
+                <!-- Dashboard Section -->
+                <div class="content-section active" id="dashboard-section">
                 <div class="welcome-section">
-                    <h2>Welcome, <?php echo htmlspecialchars($patient['first_name']); ?>!</h2>
+                        <h2>Welcome, <?php echo htmlspecialchars($patient ? $patient['first_name'] : $user_name); ?>!</h2>
                     <p>Here's an overview of your health information and upcoming appointments.</p>
                 </div>
                 
@@ -516,14 +537,117 @@ if (isset($_GET['logout'])) {
                         <div class="stat-value"><?php echo $notification_count; ?></div>
                         <div class="stat-label">Unread Notifications</div>
                     </div>
+                    </div>
                 </div>
-                
-                <div class="section">
+
+                <!-- Profile Section -->
+                <div class="content-section" id="profile-section">
                     <div class="section-header">
-                        <h3>Upcoming Appointments</h3>
-                        <a href="patient_appointments.php" class="view-all">View All</a>
+                        <h3>My Profile</h3>
+                        <?php if (!$patient): ?>
+                            <button id="create-profile-btn" class="btn btn-primary">Create Profile</button>
+                        <?php else: ?>
+                            <button id="edit-profile-btn" class="btn btn-primary">Edit Profile</button>
+                        <?php endif; ?>
                     </div>
                     
+                    <?php if ($patient): ?>
+                    <div class="profile-info">
+                        <div class="info-group">
+                            <div class="info-label">Full Name</div>
+                            <div class="info-value">
+                                <?php 
+                                    echo htmlspecialchars($patient['first_name'] . ' ' . 
+                                        ($patient['middle_name'] ? $patient['middle_name'] . ' ' : '') . 
+                                        $patient['last_name']); 
+                                ?>
+                            </div>
+                        </div>
+                        
+                        <div class="info-group">
+                            <div class="info-label">Date of Birth</div>
+                            <div class="info-value">
+                                <?php echo date('F j, Y', strtotime($patient['date_of_birth'])); ?>
+                                (<?php 
+                                    $dob = new DateTime($patient['date_of_birth']);
+                                    $now = new DateTime();
+                                    echo $now->diff($dob)->y . ' years old';
+                                ?>)
+                            </div>
+                        </div>
+                        
+                        <div class="info-group">
+                            <div class="info-label">Gender</div>
+                            <div class="info-value"><?php echo ucfirst($patient['gender']); ?></div>
+                        </div>
+                        
+                        <div class="info-group">
+                            <div class="info-label">Contact Information</div>
+                            <div class="info-value">
+                                <div><?php echo htmlspecialchars($patient['phone_number']); ?></div>
+                                <div><?php echo htmlspecialchars($user_email); ?></div>
+                            </div>
+                        </div>
+                        
+                        <div class="info-group">
+                            <div class="info-label">Address</div>
+                            <div class="info-value">
+                                <?php 
+                                    $address_parts = array_filter([
+                                        $patient['purok'],
+                                        $patient['city'],
+                                        $patient['province'],
+                                        $patient['postal_code']
+                                    ]);
+                                    echo htmlspecialchars(implode(', ', $address_parts));
+                                ?>
+                            </div>
+                        </div>
+                        
+                        <?php if (!empty($patient['medical_history'])): ?>
+                        <div class="info-group">
+                            <div class="info-label">Medical History</div>
+                            <div class="info-value"><?php echo nl2br(htmlspecialchars($patient['medical_history'])); ?></div>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($patient['allergies'])): ?>
+                        <div class="info-group">
+                            <div class="info-label">Allergies</div>
+                            <div class="info-value"><?php echo nl2br(htmlspecialchars($patient['allergies'])); ?></div>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php else: ?>
+                    <div class="profile-info">
+                        <div class="alert alert-info">
+                            <p>Your patient profile has not been created yet. Please click the "Create Profile" button above to set up your profile.</p>
+                            <p>This will allow you to:</p>
+                            <ul>
+                                <li>Schedule appointments</li>
+                                <li>Track your immunizations</li>
+                                <li>Receive important health notifications</li>
+                            </ul>
+                        </div>
+                        <div class="info-group">
+                            <div class="info-label">Account Information</div>
+                            <div class="info-value">
+                                <div>Name: <?php echo htmlspecialchars($user_name); ?></div>
+                                <div>Email: <?php echo htmlspecialchars($user_email); ?></div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                
+                <!-- Appointments Section -->
+                <div class="content-section" id="appointments-section">
+                    <div class="section-header">
+                        <h3>My Appointments</h3>
+                        <button id="new-appointment-btn" class="btn btn-primary">Schedule New Appointment</button>
+                    </div>
+                    
+                    <div class="appointments-list">
                     <?php if ($upcoming_appointments->num_rows > 0): ?>
                         <?php while ($appointment = $upcoming_appointments->fetch_assoc()): ?>
                             <div class="appointment-card">
@@ -546,25 +670,26 @@ if (isset($_GET['logout'])) {
                                         <i class="fas fa-user-md"></i> 
                                         <?php echo $appointment['staff_name'] ? htmlspecialchars($appointment['staff_name']) : 'Not assigned'; ?>
                                     </span>
-                                    <span>
                                         <span class="badge badge-<?php echo strtolower($appointment['status']); ?>">
                                             <?php echo ucfirst($appointment['status']); ?>
-                                        </span>
                                     </span>
                                 </div>
                             </div>
                         <?php endwhile; ?>
                     <?php else: ?>
-                        <p>No upcoming appointments scheduled. <a href="patient_appointments.php?action=new">Schedule an appointment</a>.</p>
+                            <p>No upcoming appointments scheduled.</p>
                     <?php endif; ?>
+                    </div>
                 </div>
                 
-                <div class="section">
+                <!-- Immunizations Section -->
+                <div class="content-section" id="immunizations-section">
                     <div class="section-header">
-                        <h3>Recent Immunizations</h3>
-                        <a href="patient_immunizations.php" class="view-all">View All</a>
+                        <h3>Immunization Records</h3>
                     </div>
                     
+                    <div class="immunizations-content">
+                        <h4>Recent Immunizations</h4>
                     <?php if ($recent_immunizations->num_rows > 0): ?>
                         <table class="immunization-table">
                             <thead>
@@ -589,13 +714,8 @@ if (isset($_GET['logout'])) {
                     <?php else: ?>
                         <p>No immunization records found.</p>
                     <?php endif; ?>
-                </div>
-                
-                <div class="section">
-                    <div class="section-header">
-                        <h3>Due Immunizations</h3>
-                    </div>
-                    
+
+                        <h4>Due Immunizations</h4>
                     <?php if ($due_immunizations->num_rows > 0): ?>
                         <table class="immunization-table">
                             <thead>
@@ -615,9 +735,9 @@ if (isset($_GET['logout'])) {
                                         <td><?php echo $vaccine['doses_required']; ?></td>
                                         <td><?php echo $vaccine['doses_received']; ?></td>
                                         <td>
-                                            <a href="patient_appointments.php?action=new&vaccine_id=<?php echo $vaccine['id']; ?>" class="view-all">
+                                                <button class="schedule-btn" data-vaccine-id="<?php echo $vaccine['id']; ?>">
                                                 Schedule
-                                            </a>
+                                                </button>
                                         </td>
                                     </tr>
                                 <?php endwhile; ?>
@@ -626,32 +746,321 @@ if (isset($_GET['logout'])) {
                     <?php else: ?>
                         <p>You are up to date with all recommended immunizations.</p>
                     <?php endif; ?>
+                    </div>
                 </div>
                 
-                <div class="section">
+                <!-- Notifications Section -->
+                <div class="content-section" id="notifications-section">
                     <div class="section-header">
-                        <h3>Recent Notifications</h3>
-                        <a href="patient_notifications.php" class="view-all">View All</a>
+                        <h3>Notifications</h3>
+                        <button id="mark-all-read-btn" class="btn btn-secondary">Mark All as Read</button>
                     </div>
                     
                     <?php if ($notifications->num_rows > 0): ?>
                         <ul class="notification-list">
                             <?php while ($notification = $notifications->fetch_assoc()): ?>
-                                <li class="notification-item">
+                                <li class="notification-item <?php echo $notification['is_read'] ? 'read' : 'unread'; ?>">
                                     <div class="notification-title"><?php echo htmlspecialchars($notification['title']); ?></div>
                                     <div class="notification-message"><?php echo htmlspecialchars($notification['message']); ?></div>
-                                    <div class="notification-time"><?php echo date('M j, Y g:i A', strtotime($notification['created_at'])); ?></div>
+                                    <div class="notification-time">
+                                        <?php echo date('M j, Y g:i A', strtotime($notification['created_at'])); ?>
+                                    </div>
                                 </li>
                             <?php endwhile; ?>
                         </ul>
                     <?php else: ?>
-                        <p>No unread notifications.</p>
+                        <p>No notifications to display.</p>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
     
-    <script src="script.js"></script>
+    <!-- Create Profile Modal -->
+    <div id="createProfileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create Patient Profile</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="createProfileForm" method="post" action="process_profile.php">
+                    <div class="form-group">
+                        <label for="first_name">First Name *</label>
+                        <input type="text" id="first_name" name="first_name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="middle_name">Middle Name</label>
+                        <input type="text" id="middle_name" name="middle_name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="last_name">Last Name *</label>
+                        <input type="text" id="last_name" name="last_name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date_of_birth">Date of Birth *</label>
+                        <input type="date" id="date_of_birth" name="date_of_birth" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="gender">Gender *</label>
+                        <select id="gender" name="gender" required>
+                            <option value="">Select Gender</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="blood_type">Blood Type</label>
+                        <select id="blood_type" name="blood_type">
+                            <option value="">Select Blood Type</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="purok">Purok/Street Address *</label>
+                        <input type="text" id="purok" name="purok" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="city">City *</label>
+                        <input type="text" id="city" name="city" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="province">Province *</label>
+                        <input type="text" id="province" name="province" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="postal_code">Postal Code</label>
+                        <input type="text" id="postal_code" name="postal_code">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone_number">Phone Number *</label>
+                        <input type="tel" id="phone_number" name="phone_number" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="medical_history">Medical History</label>
+                        <textarea id="medical_history" name="medical_history" rows="4"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="allergies">Allergies</label>
+                        <textarea id="allergies" name="allergies" rows="4"></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create Profile</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Existing styles ... */
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 30px auto;
+            padding: 0;
+            border-radius: 8px;
+            max-width: 700px;
+            width: 90%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #555;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .form-actions {
+            margin-top: 30px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        /* Make modal scrollable on mobile */
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 0;
+                min-height: 100vh;
+                border-radius: 0;
+            }
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Existing script...
+
+            // Modal functionality
+            const modal = document.getElementById('createProfileModal');
+            const createProfileBtn = document.getElementById('create-profile-btn');
+            const closeBtn = document.querySelector('.close');
+            const createProfileForm = document.getElementById('createProfileForm');
+
+            function openModal() {
+                modal.style.display = 'block';
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            }
+
+            function closeModal() {
+                modal.style.display = 'none';
+                document.body.style.overflow = ''; // Restore scrolling
+            }
+
+            if (createProfileBtn) {
+                createProfileBtn.addEventListener('click', openModal);
+            }
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeModal);
+            }
+
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            // Handle form submission
+            if (createProfileForm) {
+                createProfileForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+
+                    try {
+                        const formData = new FormData(this);
+                        const response = await fetch('process_profile.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            // Reload the page to show the new profile
+                            window.location.reload();
+                        } else {
+                            alert(result.message || 'Error creating profile. Please try again.');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        alert('An error occurred. Please try again.');
+                    }
+                });
+            }
+
+            // Form validation
+            const requiredFields = createProfileForm.querySelectorAll('[required]');
+            requiredFields.forEach(field => {
+                field.addEventListener('invalid', function(e) {
+                    e.preventDefault();
+                    this.classList.add('invalid');
+                });
+
+                field.addEventListener('input', function() {
+                    this.classList.remove('invalid');
+                });
+            });
+        });
+
+        // Add this to your existing script
+        function closeModal() {
+            const modal = document.getElementById('createProfileModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    </script>
 </body>
 </html> 
