@@ -6,6 +6,85 @@ require_once 'vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
+// Check if user is logged in and has appropriate role
+$allowed_user_types = ['midwife', 'nurse', 'admin'];
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || !in_array($_SESSION['user_type'], $allowed_user_types)) {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+    exit;
+}
+
+// Handle POST request for rescheduling
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Get the data from the form
+    $appointmentId = $_POST['appointmentId'] ?? '';
+    $newDate = $_POST['newDate'] ?? '';
+    $reason = $_POST['reason'] ?? '';
+    $staff_id = $_SESSION['user_id'];
+
+    // Validate inputs
+    if (empty($appointmentId) || empty($newDate) || empty($reason)) {
+        echo json_encode(['success' => false, 'message' => 'All fields are required']);
+        exit;
+    }
+
+    // Connect to database
+    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+    if ($conn->connect_error) {
+        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+        exit;
+    }
+
+    try {
+        // Start transaction
+        $conn->begin_transaction();
+
+        // Update the appointment
+        $stmt = $conn->prepare("UPDATE appointments SET 
+            appointment_date = ?, 
+            last_updated = NOW(),
+            updated_by = ?,
+            reschedule_reason = ?
+            WHERE id = ? AND staff_id = ?");
+        
+        $stmt->bind_param("sisii", $newDate, $staff_id, $reason, $appointmentId, $staff_id);
+        
+        if ($stmt->execute()) {
+            // Get patient information for notification
+            $stmt = $conn->prepare("SELECT p.id, p.first_name, p.last_name, p.email 
+                                  FROM appointments a 
+                                  JOIN patients p ON a.patient_id = p.id 
+                                  WHERE a.id = ?");
+            $stmt->bind_param("i", $appointmentId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $patient = $result->fetch_assoc();
+
+            // Create notification
+            if ($patient) {
+                $notification_message = "Your appointment has been rescheduled to " . date('F j, Y - g:i A', strtotime($newDate));
+                $stmt = $conn->prepare("INSERT INTO notifications (user_id, message, type, created_at) VALUES (?, ?, 'appointment_reschedule', NOW())");
+                $stmt->bind_param("is", $patient['id'], $notification_message);
+                $stmt->execute();
+            }
+
+            // Commit transaction
+            $conn->commit();
+            
+            echo json_encode(['success' => true, 'message' => 'Appointment rescheduled successfully']);
+        } else {
+            throw new Exception('Failed to update appointment');
+        }
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+
+    $conn->close();
+} else {
+    echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+}
+
 // Check if form is submitted
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.php');

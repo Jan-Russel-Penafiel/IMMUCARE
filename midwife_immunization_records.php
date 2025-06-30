@@ -66,6 +66,9 @@ $immunizations = $stmt->get_result();
 // Get all vaccines for filter dropdown
 $vaccines = $conn->query("SELECT id, name FROM vaccines ORDER BY name");
 
+// Get all patients for the modal dropdown
+$patients = $conn->query("SELECT id, first_name, last_name FROM patients ORDER BY last_name, first_name");
+
 // Process logout
 if (isset($_GET['logout'])) {
     // Clear all session variables
@@ -79,7 +82,8 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
-$conn->close();
+// Don't close the connection here as we need it for the modal dropdowns
+// $conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -413,7 +417,291 @@ $conn->close();
         .pagination a:hover:not(.active) {
             background-color: #e9ecef;
         }
+
+        .cancel-btn:hover {
+            background-color: #dee2e6;
+        }
+
+        /* Alert Styles */
+        .alert {
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert i {
+            font-size: 1.2em;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-10%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 3% auto;
+            padding: 25px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e1e4e8;
+        }
+
+        .modal-header h2 {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            padding: 5px;
+            line-height: 20px;
+            border-radius: 50%;
+        }
+
+        .close:hover {
+            color: var(--primary-color);
+            background-color: #f0f0f0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            background-color: #fff;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+        }
+
+        .form-group select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23666' viewBox='0 0 16 16'%3E%3Cpath d='M8 11.5l-5-5h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 35px;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-group input[type="date"],
+        .form-group input[type="datetime-local"] {
+            padding: 8px 12px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e1e4e8;
+        }
+
+        .submit-btn,
+        .cancel-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 100px;
+        }
+
+        .submit-btn {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .submit-btn:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .cancel-btn {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+
+        .cancel-btn:hover {
+            background-color: #dee2e6;
+            transform: translateY(-1px);
+        }
+
+        /* Required field indicator */
+        .form-group label::after {
+            content: "*";
+            color: #dc3545;
+            margin-left: 4px;
+            display: inline-block;
+        }
+
+        .form-group label[for="next_dose_date"]::after,
+        .form-group label[for="diagnosis"]::after {
+            display: none;
+        }
+
+        /* Field validation styles */
+        .form-group input:invalid,
+        .form-group select:invalid {
+            border-color: #dc3545;
+        }
+
+        .form-group input:invalid:focus,
+        .form-group select:invalid:focus {
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 0;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+                width: 100%;
+            }
+
+            .form-actions {
+                position: sticky;
+                bottom: 0;
+                background: #fff;
+                padding: 15px 0;
+                margin-bottom: 0;
+            }
+        }
     </style>
+    <script>
+        function openAddImmunizationModal() {
+            document.getElementById('addImmunizationModal').style.display = 'block';
+        }
+
+        function closeAddImmunizationModal() {
+            document.getElementById('addImmunizationModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            var modal = document.getElementById('addImmunizationModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Form validation and submission
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('addImmunizationForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Add any additional client-side validation here
+                
+                // Submit the form
+                this.submit();
+            });
+        });
+    </script>
 </head>
 <body>
     <div class="dashboard-container">
@@ -449,6 +737,20 @@ $conn->close();
             <div class="main-content">
                 <h2 class="page-title">Immunization Records</h2>
                 
+                <?php if (isset($_GET['success'])): ?>
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i>
+                        Immunization record added successfully!
+                    </div>
+                <?php endif; ?>
+
+                <?php if (isset($_GET['error'])): ?>
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <?php echo htmlspecialchars($_GET['error']); ?>
+                    </div>
+                <?php endif; ?>
+                
                 <div class="action-bar">
                     <form class="search-form" method="GET" action="">
                         <?php if (!empty($vaccine_filter)): ?>
@@ -476,7 +778,7 @@ $conn->close();
                         <?php endif; ?>
                     </form>
                     
-                    <a href="add_immunization.php" class="add-btn">
+                    <a href="#" class="add-btn" onclick="openAddImmunizationModal()">
                         <i class="fas fa-plus"></i> Add New Record
                     </a>
                 </div>
@@ -575,5 +877,86 @@ $conn->close();
             </div>
         </div>
     </div>
+    
+    <!-- Add Immunization Modal -->
+    <div id="addImmunizationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Immunization Record</h2>
+                <span class="close" onclick="closeAddImmunizationModal()">&times;</span>
+            </div>
+            <form id="addImmunizationForm" method="POST" action="midwife_process_immunization.php">
+                <div class="form-group">
+                    <label for="patient">Patient</label>
+                    <select name="patient_id" id="patient" required>
+                        <option value="">Select Patient</option>
+                        <?php while ($patient = $patients->fetch_assoc()): ?>
+                            <option value="<?php echo $patient['id']; ?>">
+                                <?php echo htmlspecialchars($patient['last_name'] . ", " . $patient['first_name']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="vaccine">Vaccine</label>
+                    <select name="vaccine_id" id="vaccine" required>
+                        <option value="">Select Vaccine</option>
+                        <?php
+                        $vaccines->data_seek(0);
+                        while ($vaccine = $vaccines->fetch_assoc()): ?>
+                            <option value="<?php echo $vaccine['id']; ?>">
+                                <?php echo htmlspecialchars($vaccine['name']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="dose_number">Dose Number</label>
+                    <input type="number" name="dose_number" id="dose_number" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="batch_number">Batch Number</label>
+                    <input type="text" name="batch_number" id="batch_number" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="expiration_date">Expiration Date</label>
+                    <input type="date" name="expiration_date" id="expiration_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="administered_date">Administered Date</label>
+                    <input type="datetime-local" name="administered_date" id="administered_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="next_dose_date">Next Dose Date</label>
+                    <input type="date" name="next_dose_date" id="next_dose_date">
+                </div>
+                
+                <div class="form-group">
+                    <label for="location">Location</label>
+                    <input type="text" name="location" id="location" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="diagnosis">Diagnosis/Notes</label>
+                    <textarea name="diagnosis" id="diagnosis" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn">Save Record</button>
+                    <button type="button" class="cancel-btn" onclick="closeAddImmunizationModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
-</html> 
+</html>
+<?php
+// Close the database connection at the end of the file
+$conn->close();
+?> 

@@ -9,6 +9,36 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Logo Styling */
+        .logo img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 10px;
+        }
+
+        .hero img {
+            width: 400px;
+            height: 400px;
+            border-radius: 400px;
+            object-fit: cover;
+            margin: 10px auto;
+            display: block;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border: 5px solid white;
+            padding: 5px;
+            background-color: white;
+        }
+
+        .footer-logo img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 15px;
+        }
+
         /* Book Appointment Section */
         .book-appointment {
             background-color: #f8f9fa;
@@ -134,9 +164,9 @@
                     <a href="#how-it-works" class="btn btn-outline">Learn More</a>
                 </div>
             </div>
-            <div class="hero-image">
-                <img src="images/hero-image.svg" alt="ImmuCare Dashboard">
-            </div>
+            
+                <img src="images/barangay.jpg" alt="ImmuCare Dashboard">
+            
         </div>
     </header>
 
@@ -239,37 +269,6 @@
         </div>
     </section>
 
-    <section class="testimonials">
-        <div class="container">
-            <h2 class="section-title">What Our Users Say</h2>
-            <div class="testimonial-slider">
-                <div class="testimonial">
-                    <div class="testimonial-content">
-                        <p>"ImmuCare has revolutionized how we manage vaccinations in our clinic. The automated scheduling and reminders have significantly improved our vaccination rates."</p>
-                    </div>
-                    <div class="testimonial-author">
-                        <img src="images/doctor.svg" alt="Dr. Sarah Johnson">
-                        <div>
-                            <h4>Dr. Sarah Johnson</h4>
-                            <p>Pediatrician, City Health Clinic</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="testimonial">
-                    <div class="testimonial-content">
-                        <p>"As a parent of three, keeping track of my children's vaccination schedules was always challenging. ImmuCare makes it so simple with timely reminders and easy access to their records."</p>
-                    </div>
-                    <div class="testimonial-author">
-                        <img src="images/parent.svg" alt="Michael Rodriguez">
-                        <div>
-                            <h4>Michael Rodriguez</h4>
-                            <p>Parent</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
     <section class="cta">
         <div class="container">

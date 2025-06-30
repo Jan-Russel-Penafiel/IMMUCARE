@@ -14,6 +14,9 @@ $admin_id = $_SESSION['user_id'];
 $admin_name = $_SESSION['user_name'];
 $admin_email = $_SESSION['user_email'];
 
+// Initialize notification system
+$notification_system = new NotificationSystem();
+
 // Connect to database
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 if ($conn->connect_error) {
@@ -67,37 +70,30 @@ if (isset($_POST['update_status'])) {
     $stmt->bind_param("ssi", $status, $notes, $appointment_id);
     
     if ($stmt->execute()) {
-        // Initialize notification system
-        $notification = new NotificationSystem();
-        
-        // Prepare notification content
+        // Send notification using the notification system
         $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
         $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
         $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
         $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
         
-        // Prepare notification title and message
-        $title = "Appointment Status Update";
-        $message = "Your appointment for {$purpose} scheduled on {$appointment_date} at {$appointment_time} has been updated to: " . ucfirst($status);
-        if (!empty($notes)) {
-            $message .= "\n\nNotes: {$notes}";
-        }
+        $status_message = "Your appointment status has been updated.\n\n" .
+                         "Appointment Details:\n" .
+                         "- Purpose: " . $purpose . "\n" .
+                         "- Date: " . $appointment_date . "\n" .
+                         "- Time: " . $appointment_time . "\n" .
+                         "- New Status: " . ucfirst($status) . "\n\n" .
+                         $this->getStatusSpecificMessage($status) . "\n" .
+                         (!empty($notes) ? "\nAdditional Notes: " . $notes . "\n" : "") .
+                         "\nIf you have any questions or need to make changes, please contact us.";
         
-        // Send notification
-        $notification_result = $notification->sendCustomNotification(
+        $notification_system->sendCustomNotification(
             $appointment_data['user_id'],
-            $title,
-            $message,
-            'both' // Send both email and SMS
+            "Appointment Status Update: " . ucfirst($status),
+            $status_message,
+            'both'
         );
         
-        $_SESSION['action_message'] = "Appointment status updated successfully!";
-        if ($notification_result['email_sent']) {
-            $_SESSION['action_message'] .= " Email notification sent.";
-        }
-        if ($notification_result['sms_sent']) {
-            $_SESSION['action_message'] .= " SMS notification sent.";
-        }
+        $_SESSION['action_message'] = "Appointment status updated successfully! Notifications sent via Email and SMS.";
         
         // Redirect to prevent form resubmission
         header('Location: ' . $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET));
@@ -114,11 +110,53 @@ if (isset($_POST['assign_staff'])) {
     $appointment_id = $_POST['appointment_id'];
     $staff_id = $_POST['staff_id'];
     
+    // Get appointment details before update
+    $stmt = $conn->prepare("
+        SELECT a.*, 
+               p.first_name, 
+               p.last_name,
+               u.id as user_id,
+               s.name as staff_name,
+               v.name as vaccine_name
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        JOIN users u ON p.user_id = u.id
+        LEFT JOIN users s ON s.id = ?
+        LEFT JOIN vaccines v ON a.vaccine_id = v.id
+        WHERE a.id = ?
+    ");
+    $stmt->bind_param("ii", $staff_id, $appointment_id);
+    $stmt->execute();
+    $appointment_data = $stmt->get_result()->fetch_assoc();
+    
     $stmt = $conn->prepare("UPDATE appointments SET staff_id = ?, updated_at = NOW() WHERE id = ?");
     $stmt->bind_param("ii", $staff_id, $appointment_id);
     
     if ($stmt->execute()) {
-        $_SESSION['action_message'] = "Staff assigned to appointment successfully!";
+        // Send notification about staff assignment
+        $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
+        $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
+        $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
+        $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
+        
+        $assign_message = "A healthcare provider has been assigned to your appointment.\n\n" .
+                         "Appointment Details:\n" .
+                         "- Purpose: " . $purpose . "\n" .
+                         "- Date: " . $appointment_date . "\n" .
+                         "- Time: " . $appointment_time . "\n" .
+                         "- Healthcare Provider: " . $appointment_data['staff_name'] . "\n" .
+                         "- Provider Role: " . ucfirst($appointment_data['staff_type']) . "\n\n" .
+                         "Your provider has been notified and will be prepared for your visit. " .
+                         "If you need to reschedule or have any questions, please contact us.";
+        
+        $notification_system->sendCustomNotification(
+            $appointment_data['user_id'],
+            "Healthcare Provider Assigned to Your Appointment",
+            $assign_message,
+            'both'
+        );
+        
+        $_SESSION['action_message'] = "Staff assigned successfully! Notifications sent via Email and SMS.";
     } else {
         $_SESSION['action_message'] = "Error assigning staff: " . $conn->error;
     }
@@ -132,11 +170,60 @@ if (isset($_POST['assign_staff'])) {
 if ($action == 'delete' && isset($_GET['id'])) {
     $appointment_id = $_GET['id'];
     
+    // Get appointment details before deletion
+    $stmt = $conn->prepare("
+        SELECT a.*, 
+               p.first_name, 
+               p.last_name,
+               u.id as user_id,
+               v.name as vaccine_name
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        JOIN users u ON p.user_id = u.id
+        LEFT JOIN vaccines v ON a.vaccine_id = v.id
+        WHERE a.id = ?
+    ");
+    $stmt->bind_param("i", $appointment_id);
+    $stmt->execute();
+    $appointment_data = $stmt->get_result()->fetch_assoc();
+    
+    // Send cancellation notification before deleting
+    if ($appointment_data) {
+        $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
+        $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
+        $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
+        $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
+        
+        $cancel_message = "Important Notice: Your appointment has been cancelled.\n\n" .
+                         "Cancelled Appointment Details:\n" .
+                         "- Purpose: " . $purpose . "\n" .
+                         "- Date: " . $appointment_date . "\n" .
+                         "- Time: " . $appointment_time . "\n\n" .
+                         "This means:\n" .
+                         "- Your scheduled slot has been released\n" .
+                         "- Any preparations for this appointment should be discontinued\n" .
+                         "- You will need to schedule a new appointment if needed\n\n" .
+                         "If you need to reschedule or believe this was done in error, " .
+                         "please contact our scheduling team at " . SCHEDULING_PHONE . " " .
+                         "or visit our online scheduling portal.";
+        
+        $notification_system->sendCustomNotification(
+            $appointment_data['user_id'],
+            "Appointment Cancellation Notice",
+            $cancel_message,
+            'both'
+        );
+    }
+    
     $stmt = $conn->prepare("DELETE FROM appointments WHERE id = ?");
     $stmt->bind_param("i", $appointment_id);
     
     if ($stmt->execute()) {
-        $_SESSION['action_message'] = "Appointment deleted successfully!";
+        if ($appointment_data) {
+            $_SESSION['action_message'] = "Appointment deleted successfully! Notifications sent via Email and SMS.";
+        } else {
+            $_SESSION['action_message'] = "Appointment deleted successfully! (Notifications failed)";
+        }
     } else {
         $_SESSION['action_message'] = "Error deleting appointment: " . $conn->error;
     }

@@ -2,6 +2,7 @@
 session_start();
 require 'config.php';
 require_once 'vendor/autoload.php';
+require_once 'notification_system.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -17,6 +18,9 @@ $admin_id = $_SESSION['user_id'];
 $admin_name = $_SESSION['user_name'];
 $admin_email = $_SESSION['user_email'];
 
+// Initialize notification system
+$notification_system = new NotificationSystem();
+
 // Connect to database
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 if ($conn->connect_error) {
@@ -31,7 +35,7 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 if ($action == 'add' && isset($_POST['add_user'])) {
     $name = $_POST['name'];
     $email = $_POST['email'];
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    $password = !empty($_POST['password']) ? $_POST['password'] : null;
     $role_id = $_POST['role_id'];
     $phone = $_POST['phone'];
     $is_active = isset($_POST['is_active']) ? 1 : 0;
@@ -56,6 +60,19 @@ if ($action == 'add' && isset($_POST['add_user'])) {
         $update_stmt->bind_param("si", $user_type, $new_user_id);
         $update_stmt->execute();
         
+        // Send welcome notification via both SMS and Email
+        $welcome_message = "Welcome to ImmuCare! Your account has been created as a " . ucfirst($user_type) . ". " .
+                          "You can now access our system using your email (" . $email . ") and the provided password. " .
+                          "For security reasons, please change your password after your first login. " .
+                          "If you need any assistance, please contact our support team.";
+        
+        $notification_system->sendCustomNotification(
+            $new_user_id,
+            "Welcome to ImmuCare - Account Created",
+            $welcome_message,
+            'both'
+        );
+        
         // Send welcome email to the new user
         $mail = new PHPMailer(true);
         try {
@@ -73,7 +90,7 @@ if ($action == 'add' && isset($_POST['add_user'])) {
             $mail->addAddress($email, $name);
             
             // Generate a random password if needed
-            $plainPassword = $_POST['password'];
+            $plainPassword = $password;
             
             // Content
             $mail->isHTML(true);
@@ -148,6 +165,23 @@ if ($action == 'edit' && isset($_POST['edit_user'])) {
             $stmt->execute();
         }
         
+        // Send update notification via both SMS and Email
+        $update_message = "Your ImmuCare account information has been updated by an administrator.\n\n" .
+                         "Updated Information:\n" .
+                         "- Name: " . $name . "\n" .
+                         "- Email: " . $email . "\n" .
+                         "- Role: " . ucfirst($role_id == 1 ? 'Admin' : ($role_id == 2 ? 'Midwife' : ($role_id == 3 ? 'Nurse' : 'Patient'))) . "\n" .
+                         "- Status: " . ($is_active ? 'Active' : 'Inactive') . "\n\n" .
+                         (!empty($_POST['password']) ? "Your password has also been updated. " : "") .
+                         "If you did not request these changes or notice any discrepancies, please contact our support team immediately.";
+        
+        $notification_system->sendCustomNotification(
+            $user_id,
+            "Account Information Updated",
+            $update_message,
+            'both'
+        );
+        
         $action_message = "User updated successfully!";
         $action = ''; // Return to list view
     } else {
@@ -163,6 +197,32 @@ if ($action == 'delete' && isset($_GET['id'])) {
     if ($user_id == $admin_id) {
         $action_message = "You cannot delete your own account!";
     } else {
+        // Get user email and phone before deletion for notification
+        $get_user = $conn->prepare("SELECT email, phone, name, user_type FROM users WHERE id = ?");
+        $get_user->bind_param("i", $user_id);
+        $get_user->execute();
+        $user_result = $get_user->get_result();
+        $user_data = $user_result->fetch_assoc();
+        
+        // Send deletion notification via both SMS and Email before deleting
+        if ($user_data) {
+            $delete_message = "Important Notice: Your ImmuCare account has been deactivated.\n\n" .
+                             "This means you will no longer have access to the ImmuCare system. " .
+                             "If you believe this was done in error, please contact our support team immediately at " . SUPPORT_EMAIL . ".\n\n" .
+                             "Account Details:\n" .
+                             "- Name: " . $user_data['name'] . "\n" .
+                             "- Email: " . $user_data['email'] . "\n" .
+                             "- Account Type: " . ucfirst($user_data['user_type']) . "\n\n" .
+                             "Thank you for using ImmuCare.";
+            
+            $notification_system->sendCustomNotification(
+                $user_id,
+                "Account Deactivation Notice",
+                $delete_message,
+                'both'
+            );
+        }
+        
         $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
         $stmt->bind_param("i", $user_id);
         
@@ -625,8 +685,8 @@ $conn->close();
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="password">Password <?php echo $action == 'edit' ? '(Leave blank to keep current password)' : ''; ?></label>
-                                    <input type="password" id="password" name="password" <?php echo $action == 'add' ? 'required' : ''; ?>>
+                                    <label for="password">Password <?php echo $action == 'edit' ? '(Leave blank to keep current password)' : '(Optional)'; ?></label>
+                                    <input type="password" id="password" name="password">
                                 </div>
                                 
                                 <div class="form-group">

@@ -524,7 +524,6 @@ $conn->close();
                             <label for="sms_provider">SMS Provider</label>
                             <select id="sms_provider" name="sms_provider" class="form-control">
                                 <option value="philsms" <?php echo (isset($settings['sms_provider']) && $settings['sms_provider'] === 'philsms') ? 'selected' : ''; ?>>PhilSMS</option>
-                                <option value="twilio" <?php echo (isset($settings['sms_provider']) && $settings['sms_provider'] === 'twilio') ? 'selected' : ''; ?>>Twilio</option>
                             </select>
                         </div>
                         
@@ -543,29 +542,6 @@ $conn->close();
                                     class="form-control"
                                     value="<?php echo isset($settings['philsms_sender_id']) ? $settings['philsms_sender_id'] : 'IMMUCARE'; ?>">
                                 <div class="form-hint">Your registered sender ID with PhilSMS</div>
-                            </div>
-                        </div>
-                        
-                        <div id="twilio_settings" class="conditional-field">
-                            <div class="form-group">
-                                <label for="twilio_account_sid">Twilio Account SID</label>
-                                <input type="password" id="twilio_account_sid" name="twilio_account_sid" 
-                                    class="form-control"
-                                    value="<?php echo isset($settings['twilio_account_sid']) ? $settings['twilio_account_sid'] : ''; ?>">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="twilio_auth_token">Twilio Auth Token</label>
-                                <input type="password" id="twilio_auth_token" name="twilio_auth_token" 
-                                    class="form-control"
-                                    value="<?php echo isset($settings['twilio_auth_token']) ? $settings['twilio_auth_token'] : ''; ?>">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="twilio_phone_number">Twilio Phone Number</label>
-                                <input type="text" id="twilio_phone_number" name="twilio_phone_number" 
-                                    class="form-control"
-                                    value="<?php echo isset($settings['twilio_phone_number']) ? $settings['twilio_phone_number'] : ''; ?>">
                             </div>
                         </div>
                     </div>
@@ -595,26 +571,9 @@ $conn->close();
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Toggle SMS provider settings
-            const smsProviderSelect = document.getElementById('sms_provider');
+            // PhilSMS settings are always shown since it's the only provider
             const philsmsSettings = document.getElementById('philsms_settings');
-            const twilioSettings = document.getElementById('twilio_settings');
-            
-            function toggleSmsProviderSettings() {
-                if (smsProviderSelect.value === 'philsms') {
-                    philsmsSettings.style.display = 'block';
-                    twilioSettings.style.display = 'none';
-                } else if (smsProviderSelect.value === 'twilio') {
-                    philsmsSettings.style.display = 'none';
-                    twilioSettings.style.display = 'block';
-                }
-            }
-            
-            // Initial toggle
-            toggleSmsProviderSettings();
-            
-            // Listen for changes
-            smsProviderSelect.addEventListener('change', toggleSmsProviderSettings);
+            philsmsSettings.style.display = 'block';
             
             // Auto-hide success messages after 5 seconds
             const alert = document.getElementById('settings-alert');

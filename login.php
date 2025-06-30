@@ -275,7 +275,7 @@ function sendOTP($email, $name, $otp) {
         </form>
         
         <div class="auth-links">
-            <a href="register.php">Don't have an account? Register</a>
+            <a href="index.php">Back to Home</a>
         </div>
     </div>
     

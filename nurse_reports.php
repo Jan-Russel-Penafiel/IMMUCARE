@@ -19,94 +19,73 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Get immunization statistics
-// Get total immunizations by month for the current year
-$current_year = date('Y');
-$stmt = $conn->prepare("SELECT MONTH(administered_date) as month, COUNT(*) as count 
-                        FROM immunizations 
-                        WHERE administered_by = ? AND YEAR(administered_date) = ? 
-                        GROUP BY MONTH(administered_date)");
-$stmt->bind_param("ii", $user_id, $current_year);
+// Get List of Patients
+$stmt = $conn->prepare("
+    SELECT 
+        p.*,
+        COUNT(DISTINCT i.id) as immunization_count,
+        COUNT(DISTINCT a.id) as appointment_count
+    FROM patients p
+    LEFT JOIN immunizations i ON p.id = i.patient_id
+    LEFT JOIN appointments a ON p.id = a.patient_id
+    GROUP BY p.id
+    ORDER BY p.last_name, p.first_name
+");
 $stmt->execute();
-$monthly_immunizations = $stmt->get_result();
-
-$months = array(
-    1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'May', 6 => 'Jun',
-    7 => 'Jul', 8 => 'Aug', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'
-);
-
-$monthly_data = array_fill(1, 12, 0);
-while ($row = $monthly_immunizations->fetch_assoc()) {
-    $monthly_data[$row['month']] = $row['count'];
+$patients_result = $stmt->get_result();
+$patients_data = [];
+while ($row = $patients_result->fetch_assoc()) {
+    $patients_data[] = $row;
 }
 
-// Get immunizations by vaccine type
-$stmt = $conn->prepare("SELECT v.name, COUNT(*) as count 
-                        FROM immunizations i 
-                        JOIN vaccines v ON i.vaccine_id = v.id 
-                        WHERE i.administered_by = ? 
-                        GROUP BY i.vaccine_id 
-                        ORDER BY count DESC 
-                        LIMIT 5");
+// Get List of Appointments
+$stmt = $conn->prepare("
+    SELECT 
+        a.*,
+        p.first_name,
+        p.last_name,
+        v.name as vaccine_name
+    FROM appointments a
+    JOIN patients p ON a.patient_id = p.id
+    LEFT JOIN vaccines v ON a.vaccine_id = v.id
+    WHERE a.staff_id = ?
+    ORDER BY a.appointment_date DESC
+");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
-$vaccine_distribution_result = $stmt->get_result();
-
-// Store vaccine distribution data for later use
-$vaccine_labels = [];
-$vaccine_data = [];
-while ($vaccine = $vaccine_distribution_result->fetch_assoc()) {
-    $vaccine_labels[] = $vaccine['name'];
-    $vaccine_data[] = $vaccine['count'];
+$appointments_result = $stmt->get_result();
+$appointments_data = [];
+while ($row = $appointments_result->fetch_assoc()) {
+    $appointments_data[] = $row;
 }
 
-// Get age group distribution
-$stmt = $conn->prepare("SELECT 
-                        CASE 
-                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) < 1 THEN 'Under 1'
-                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 1 AND 4 THEN '1-4'
-                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 5 AND 11 THEN '5-11'
-                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 12 AND 17 THEN '12-17'
-                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 18 AND 49 THEN '18-49'
-                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 50 AND 64 THEN '50-64'
-                            ELSE '65+' 
-                        END as age_group,
-                        COUNT(*) as count
-                        FROM immunizations i 
-                        JOIN patients p ON i.patient_id = p.id 
-                        WHERE i.administered_by = ? 
-                        GROUP BY age_group 
-                        ORDER BY 
-                        CASE age_group
-                            WHEN 'Under 1' THEN 1
-                            WHEN '1-4' THEN 2
-                            WHEN '5-11' THEN 3
-                            WHEN '12-17' THEN 4
-                            WHEN '18-49' THEN 5
-                            WHEN '50-64' THEN 6
-                            ELSE 7
-                        END");
+// Get Patient Information and Diagnosis
+$stmt = $conn->prepare("
+    SELECT 
+        p.*,
+        i.administered_date,
+        i.diagnosis,
+        v.name as vaccine_name,
+        i.batch_number,
+        i.dose_number
+    FROM patients p
+    JOIN immunizations i ON p.id = i.patient_id
+    JOIN vaccines v ON i.vaccine_id = v.id
+    WHERE i.administered_by = ?
+    ORDER BY i.administered_date DESC
+");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
-$age_distribution_result = $stmt->get_result();
-
-// Store age distribution data for later use
-$age_labels = [];
-$age_data = [];
-while ($age = $age_distribution_result->fetch_assoc()) {
-    $age_labels[] = $age['age_group'];
-    $age_data[] = $age['count'];
+$diagnoses_result = $stmt->get_result();
+$diagnoses_data = [];
+while ($row = $diagnoses_result->fetch_assoc()) {
+    $diagnoses_data[] = $row;
 }
 
 // Process logout
 if (isset($_GET['logout'])) {
-    // Clear all session variables
     $_SESSION = array();
-    
-    // Destroy the session
     session_destroy();
-    
-    // Redirect to login page
     header('Location: login.php');
     exit;
 }
@@ -422,108 +401,108 @@ $conn->close();
             </div>
             
             <div class="main-content">
-                <h2 class="page-title">Immunization Reports</h2>
+                <h2 class="page-title">Reports</h2>
                 
                 <div class="report-actions">
                     <div class="report-filter">
-                        <select id="year-filter">
-                            <option value="2023">2023</option>
-                            <option value="2022">2022</option>
-                            <option value="<?php echo $current_year; ?>" selected><?php echo $current_year; ?></option>
+                        <select id="report-type">
+                            <option value="patients">List of Patients</option>
+                            <option value="appointments">List of Appointments</option>
+                            <option value="diagnoses">Patient Information and Diagnosis</option>
                         </select>
                     </div>
                     
                     <div>
-                        <a href="export_report.php?type=immunizations" class="export-btn">
+                        <a href="#" class="export-btn" onclick="exportReport()">
                             <i class="fas fa-file-export"></i> Export Report
                         </a>
                     </div>
                 </div>
                 
-                <div class="report-grid">
-                    <div class="chart-container full-width">
-                        <h3 class="chart-title">Monthly Immunizations (<?php echo $current_year; ?>)</h3>
-                        <canvas id="monthlyChart" class="chart-canvas"></canvas>
-                    </div>
-                    
-                    <div class="chart-container">
-                        <h3 class="chart-title">Vaccine Distribution</h3>
-                        <canvas id="vaccineChart" class="chart-canvas"></canvas>
-                    </div>
-                    
-                    <div class="chart-container">
-                        <h3 class="chart-title">Age Group Distribution</h3>
-                        <canvas id="ageChart" class="chart-canvas"></canvas>
-                    </div>
-                </div>
-                
-                <h3 class="page-title">Detailed Reports</h3>
-                
-                <div class="report-actions">
-                    <div class="report-filter">
-                        <select id="report-type">
-                            <option value="monthly">Monthly Immunizations</option>
-                            <option value="vaccine">Vaccine Distribution</option>
-                            <option value="age">Age Group Distribution</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div id="monthly-report">
+                <!-- List of Patients Report -->
+                <div id="patients-report">
                     <table class="report-table">
                         <thead>
                             <tr>
-                                <th>Month</th>
-                                <th>Number of Immunizations</th>
+                                <th>Name</th>
+                                <th>Date of Birth</th>
+                                <th>Gender</th>
+                                <th>Contact</th>
+                                <th>Address</th>
+                                <th>Immunizations</th>
+                                <th>Appointments</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($months as $month_num => $month_name): ?>
+                            <?php foreach ($patients_data as $patient): ?>
                                 <tr>
-                                    <td><?php echo $month_name; ?></td>
-                                    <td><?php echo $monthly_data[$month_num]; ?></td>
+                                    <td><?php echo htmlspecialchars($patient['first_name'] . ' ' . $patient['last_name']); ?></td>
+                                    <td><?php echo date('M j, Y', strtotime($patient['date_of_birth'])); ?></td>
+                                    <td><?php echo ucfirst($patient['gender']); ?></td>
+                                    <td><?php echo htmlspecialchars($patient['phone_number']); ?></td>
+                                    <td>
+                                        <?php echo htmlspecialchars($patient['purok'] . ', ' . 
+                                            $patient['city'] . ', ' . 
+                                            $patient['province']); ?>
+                                    </td>
+                                    <td><?php echo $patient['immunization_count']; ?></td>
+                                    <td><?php echo $patient['appointment_count']; ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
-                
-                <div id="vaccine-report" style="display: none;">
+
+                <!-- List of Appointments Report -->
+                <div id="appointments-report" style="display: none;">
                     <table class="report-table">
                         <thead>
                             <tr>
+                                <th>Date & Time</th>
+                                <th>Patient Name</th>
+                                <th>Purpose</th>
                                 <th>Vaccine</th>
-                                <th>Number of Immunizations</th>
+                                <th>Status</th>
+                                <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php 
-                            // Reset the result pointer for vaccine distribution
-                            foreach ($vaccine_labels as $index => $name): ?>
+                            <?php foreach ($appointments_data as $appointment): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($name); ?></td>
-                                    <td><?php echo $vaccine_data[$index]; ?></td>
+                                    <td><?php echo date('M j, Y g:i A', strtotime($appointment['appointment_date'])); ?></td>
+                                    <td><?php echo htmlspecialchars($appointment['first_name'] . ' ' . $appointment['last_name']); ?></td>
+                                    <td><?php echo htmlspecialchars($appointment['purpose']); ?></td>
+                                    <td><?php echo htmlspecialchars($appointment['vaccine_name'] ?? 'N/A'); ?></td>
+                                    <td><?php echo ucfirst($appointment['status']); ?></td>
+                                    <td><?php echo htmlspecialchars($appointment['notes'] ?? ''); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
-                
-                <div id="age-report" style="display: none;">
+
+                <!-- Patient Information and Diagnosis Report -->
+                <div id="diagnoses-report" style="display: none;">
                     <table class="report-table">
                         <thead>
                             <tr>
-                                <th>Age Group</th>
-                                <th>Number of Immunizations</th>
+                                <th>Date</th>
+                                <th>Patient Name</th>
+                                <th>Vaccine</th>
+                                <th>Dose</th>
+                                <th>Batch Number</th>
+                                <th>Diagnosis</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php 
-                            // Use the stored age distribution data
-                            foreach ($age_labels as $index => $age_group): ?>
+                            <?php foreach ($diagnoses_data as $diagnosis): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($age_group); ?></td>
-                                    <td><?php echo $age_data[$index]; ?></td>
+                                    <td><?php echo date('M j, Y', strtotime($diagnosis['administered_date'])); ?></td>
+                                    <td><?php echo htmlspecialchars($diagnosis['first_name'] . ' ' . $diagnosis['last_name']); ?></td>
+                                    <td><?php echo htmlspecialchars($diagnosis['vaccine_name']); ?></td>
+                                    <td><?php echo $diagnosis['dose_number']; ?></td>
+                                    <td><?php echo htmlspecialchars($diagnosis['batch_number']); ?></td>
+                                    <td><?php echo htmlspecialchars($diagnosis['diagnosis'] ?? 'No diagnosis recorded'); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -534,150 +513,22 @@ $conn->close();
     </div>
     
     <script>
-        // Monthly Immunizations Chart
-        const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
-        const monthlyChart = new Chart(monthlyCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                datasets: [{
-                    label: 'Number of Immunizations',
-                    data: [
-                        <?php echo implode(', ', $monthly_data); ?>
-                    ],
-                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: {
-                            boxWidth: 12
-                        }
-                    }
-                }
-            }
-        });
-        
-        // Vaccine Distribution Chart
-        const vaccineCtx = document.getElementById('vaccineChart').getContext('2d');
-        const vaccineChart = new Chart(vaccineCtx, {
-            type: 'pie',
-            data: {
-                labels: [
-                    <?php echo "'" . implode("', '", array_map('addslashes', $vaccine_labels)) . "'"; ?>
-                ],
-                datasets: [{
-                    data: [
-                        <?php echo implode(', ', $vaccine_data); ?>
-                    ],
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.5)',
-                        'rgba(54, 162, 235, 0.5)',
-                        'rgba(255, 206, 86, 0.5)',
-                        'rgba(75, 192, 192, 0.5)',
-                        'rgba(153, 102, 255, 0.5)'
-                    ],
-                    borderColor: [
-                        'rgba(255, 99, 132, 1)',
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(153, 102, 255, 1)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            boxWidth: 12,
-                            font: {
-                                size: 11
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
-        // Age Group Distribution Chart
-        const ageCtx = document.getElementById('ageChart').getContext('2d');
-        const ageChart = new Chart(ageCtx, {
-            type: 'doughnut',
-            data: {
-                labels: [
-                    <?php echo "'" . implode("', '", array_map('addslashes', $age_labels)) . "'"; ?>
-                ],
-                datasets: [{
-                    data: [
-                        <?php echo implode(', ', $age_data); ?>
-                    ],
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.5)',
-                        'rgba(54, 162, 235, 0.5)',
-                        'rgba(255, 206, 86, 0.5)',
-                        'rgba(75, 192, 192, 0.5)',
-                        'rgba(153, 102, 255, 0.5)',
-                        'rgba(255, 159, 64, 0.5)',
-                        'rgba(201, 203, 207, 0.5)'
-                    ],
-                    borderColor: [
-                        'rgba(255, 99, 132, 1)',
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(153, 102, 255, 1)',
-                        'rgba(255, 159, 64, 1)',
-                        'rgba(201, 203, 207, 1)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            boxWidth: 12,
-                            font: {
-                                size: 11
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
         // Toggle between report tables
         document.getElementById('report-type').addEventListener('change', function() {
             const reportType = this.value;
             
-            document.getElementById('monthly-report').style.display = 'none';
-            document.getElementById('vaccine-report').style.display = 'none';
-            document.getElementById('age-report').style.display = 'none';
+            document.getElementById('patients-report').style.display = 'none';
+            document.getElementById('appointments-report').style.display = 'none';
+            document.getElementById('diagnoses-report').style.display = 'none';
             
             document.getElementById(reportType + '-report').style.display = 'block';
         });
+
+        // Export report function
+        function exportReport() {
+            const reportType = document.getElementById('report-type').value;
+            window.location.href = `export_report.php?type=${reportType}`;
+        }
     </script>
 </body>
 </html> 

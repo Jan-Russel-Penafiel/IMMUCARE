@@ -63,7 +63,7 @@ The database consists of the following main tables:
 - MySQL 5.7 or higher
 - Web server (Apache/Nginx)
 - SMTP server for email notifications
-- SMS gateway integration (Twilio recommended)
+- SMS gateway integration (PhilSMS)
 
 ## Installation
 

@@ -2,6 +2,7 @@
 session_start();
 require 'config.php';
 require_once 'vendor/autoload.php';
+require_once 'notification_system.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -17,6 +18,9 @@ $admin_id = $_SESSION['user_id'];
 $admin_name = $_SESSION['user_name'];
 $admin_email = $_SESSION['user_email'];
 
+// Initialize notification system
+$notification_system = new NotificationSystem();
+
 // Connect to database
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 if ($conn->connect_error) {
@@ -27,8 +31,18 @@ if ($conn->connect_error) {
 $action_message = '';
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
+// Check for success message in session
+if (isset($_SESSION['action_message'])) {
+    $action_message = $_SESSION['action_message'];
+    unset($_SESSION['action_message']); // Clear the message after displaying
+}
+
 // Add new patient
 if ($action == 'add' && isset($_POST['add_patient'])) {
+    // Start transaction
+    $conn->begin_transaction();
+    
+    try {
     $first_name = $_POST['first_name'];
     $middle_name = $_POST['middle_name'] ?? null;
     $last_name = $_POST['last_name'];
@@ -60,8 +74,9 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
         $email_result = $check_email->get_result();
         
         if ($email_result->num_rows > 0) {
-            $action_message = "Error: Email address already in use. Please use a different email.";
-        } else {
+                throw new Exception("Email address already in use. Please use a different email.");
+            }
+            
             // Generate a random password
             $plainPassword = substr(str_shuffle("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"), 0, 10);
             $hashedPassword = password_hash($plainPassword, PASSWORD_DEFAULT);
@@ -70,160 +85,94 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
             $user_stmt = $conn->prepare("INSERT INTO users (role_id, user_type, name, email, phone, password, created_at) VALUES (4, 'patient', ?, ?, ?, ?, NOW())");
             $user_stmt->bind_param("ssss", $user_name, $user_email, $user_phone, $hashedPassword);
             
-            if ($user_stmt->execute()) {
-                $user_id = $conn->insert_id;
-                
-                // Send welcome email to the new user
-                $mail = new PHPMailer(true);
-                try {
-                    // Server settings
-                    $mail->isSMTP();
-                    $mail->Host = SMTP_HOST;
-                    $mail->SMTPAuth = true;
-                    $mail->Username = SMTP_USER;
-                    $mail->Password = SMTP_PASS;
-                    $mail->SMTPSecure = SMTP_SECURE;
-                    $mail->Port = SMTP_PORT;
-                    
-                    // Recipients
-                    $mail->setFrom(SMTP_USER, APP_NAME);
-                    $mail->addAddress($user_email, $user_name);
-                    
-                    // Content
-                    $mail->isHTML(true);
-                    $mail->Subject = 'Welcome to ' . APP_NAME . ' - Patient Account Created';
-                    $mail->Body = '
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                            <div style="text-align: center; margin-bottom: 20px;">
-                                <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
-                            </div>
-                            <h2 style="color: #4285f4;">Welcome to ' . APP_NAME . '!</h2>
-                            <p>Hello ' . $user_name . ',</p>
-                            <p>Your patient account has been successfully created by an administrator.</p>
-                            <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                                <p><strong>Email:</strong> ' . $user_email . '</p>
-                                <p><strong>Password:</strong> ' . $plainPassword . '</p>
-                            </div>
-                            <p>You can now log in to your account using the provided credentials. We recommend changing your password after your first login.</p>
-                            <p>With your ' . APP_NAME . ' account, you can:</p>
-                            <ul>
-                                <li>View your immunization records</li>
-                                <li>Schedule appointments</li>
-                                <li>Receive vaccination reminders</li>
-                                <li>Update your personal information</li>
-                            </ul>
-                            <div style="text-align: center; margin-top: 30px;">
-                                <a href="' . APP_URL . '/login.php" style="background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Your Account</a>
-                            </div>
-                            <p style="margin-top: 30px;">Thank you for choosing ' . APP_NAME . ' for your immunization needs.</p>
-                            <p>Best regards,<br>' . APP_NAME . ' Team</p>
-                        </div>
-                    ';
-                    
-                    $mail->send();
-                    $email_sent = true;
-                    
-                    // Log the email
-                    $log_stmt = $conn->prepare("INSERT INTO email_logs (user_id, email_address, subject, message, status, sent_at, created_at) VALUES (?, ?, ?, ?, 'sent', NOW(), NOW())");
-                    $subject = 'Welcome to ' . APP_NAME . ' - Patient Account Created';
-                    $log_stmt->bind_param("isss", $user_id, $user_email, $subject, $mail->Body);
-                    $log_stmt->execute();
-                    
-                } catch (Exception $e) {
-                    error_log("Email sending failed: " . $mail->ErrorInfo);
-                }
-            } else {
-                $action_message = "Error creating user account: " . $conn->error;
+            if (!$user_stmt->execute()) {
+                throw new Exception("Error creating user account: " . $conn->error);
             }
+            
+            $user_id = $conn->insert_id;
         }
-    } else if (!empty($user_id)) {
-        // If linking to existing user, get their email
-        $user_query = $conn->prepare("SELECT email, name FROM users WHERE id = ?");
-        $user_query->bind_param("i", $user_id);
-        $user_query->execute();
-        $user_result = $user_query->get_result();
-        if ($user_result->num_rows > 0) {
-            $user_data = $user_result->fetch_assoc();
-            $user_email = $user_data['email'];
-            $user_name = $user_data['name'];
-        }
-    }
-    
-    // If no errors occurred with user account creation, proceed with patient creation
-    if (empty($action_message)) {
+        
+        // Insert patient record
         $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, middle_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, medical_history, allergies, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
         $stmt->bind_param("issssssssssss", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone_number, $medical_history, $allergies);
     
-        if ($stmt->execute()) {
+        if (!$stmt->execute()) {
+            throw new Exception("Error adding patient: " . $conn->error);
+        }
+        
             $patient_id = $conn->insert_id;
             
-            // If we have a user email but haven't sent an email yet (for existing user accounts)
-            if (!empty($user_email) && !$email_sent && !empty($user_id)) {
-                // Send notification email to the existing user
-                $mail = new PHPMailer(true);
-                try {
-                    // Server settings
-                    $mail->isSMTP();
-                    $mail->Host = SMTP_HOST;
-                    $mail->SMTPAuth = true;
-                    $mail->Username = SMTP_USER;
-                    $mail->Password = SMTP_PASS;
-                    $mail->SMTPSecure = SMTP_SECURE;
-                    $mail->Port = SMTP_PORT;
-                    
-                    // Recipients
-                    $mail->setFrom(SMTP_USER, APP_NAME);
-                    $mail->addAddress($user_email, $user_name);
-                    
-                    // Content
-                    $mail->isHTML(true);
-                    $mail->Subject = APP_NAME . ' - Patient Profile Created';
-                    $mail->Body = '
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                            <div style="text-align: center; margin-bottom: 20px;">
-                                <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
-                            </div>
-                            <h2 style="color: #4285f4;">Patient Profile Created</h2>
-                            <p>Hello ' . $user_name . ',</p>
-                            <p>A patient profile has been created and linked to your account.</p>
-                            <p>You can now access your immunization records, schedule appointments, and receive vaccination reminders through your account.</p>
-                            <div style="text-align: center; margin-top: 30px;">
-                                <a href="' . APP_URL . '/login.php" style="background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Your Account</a>
-                            </div>
-                            <p style="margin-top: 30px;">Thank you for choosing ' . APP_NAME . ' for your immunization needs.</p>
-                            <p>Best regards,<br>' . APP_NAME . ' Team</p>
-                        </div>
-                    ';
-                    
-                    $mail->send();
-                    $email_sent = true;
-                    
-                    // Log the email
-                    $log_stmt = $conn->prepare("INSERT INTO email_logs (user_id, email_address, subject, message, status, sent_at, created_at) VALUES (?, ?, ?, ?, 'sent', NOW(), NOW())");
-                    $subject = APP_NAME . ' - Patient Profile Created';
-                    $log_stmt->bind_param("isss", $user_id, $user_email, $subject, $mail->Body);
-                    $log_stmt->execute();
+        // If we created a new user account or linked to existing one
+        if (!empty($user_id)) {
+            // Send welcome notification for new user accounts via both SMS and Email
+            if (isset($_POST['create_account']) && $_POST['create_account'] == 'on') {
+                $welcome_message = "Welcome to ImmuCare Patient Portal!\n\n" .
+                                 "Your account has been created with the following details:\n" .
+                                 "- Name: " . $first_name . " " . $last_name . "\n" .
+                                 "- Email: " . $user_email . "\n" .
+                                 "- Phone: " . $user_phone . "\n\n" .
+                                 "You can now access your immunization records, schedule appointments, and receive important health notifications. " .
+                                 "For security reasons, please change your password after your first login.\n\n" .
+                                 "Need help? Contact our support team or visit our help center.";
+                
+                $notification_system->sendCustomNotification(
+                    $user_id,
+                    "Welcome to ImmuCare Patient Portal",
+                    $welcome_message,
+                    'both'
+                );
+            }
+            
+            // Send patient profile creation notification
+            $profile_message = "Your patient profile has been successfully created in the ImmuCare system.\n\n" .
+                              "Profile Details:\n" .
+                              "- Patient ID: " . $patient_id . "\n" .
+                              "- Full Name: " . $first_name . " " . ($middle_name ? $middle_name . " " : "") . $last_name . "\n" .
+                              "- Date of Birth: " . date('F j, Y', strtotime($date_of_birth)) . "\n" .
+                              "- Gender: " . ucfirst($gender) . "\n" .
+                              "- Contact: " . $phone_number . "\n" .
+                              "- Address: Purok " . $purok . ", " . $city . ", " . $province . "\n\n" .
+                              "You can now:\n" .
+                              "- View your immunization records\n" .
+                              "- Schedule appointments\n" .
+                              "- Receive vaccination reminders\n" .
+                              "- Update your medical information\n\n" .
+                              "Please verify all information and contact us if any corrections are needed.";
+            
+            $notification_system->sendCustomNotification(
+                $user_id,
+                "Patient Profile Created",
+                $profile_message,
+                'both'
+            );
+        }
+        
+        // Commit transaction
+        $conn->commit();
+        
+        // Store success message in session
+        $_SESSION['action_message'] = "Patient added successfully! " . 
+            (!empty($user_email) ? "Notifications have been sent via SMS and Email to " . $user_email : "");
+        
+        // Redirect to prevent form resubmission
+        header("Location: admin_patients.php");
+        exit;
                     
                 } catch (Exception $e) {
-                    error_log("Email sending failed: " . $mail->ErrorInfo);
-                }
-            }
-            
-            if ($email_sent) {
-                $action_message = "Patient added successfully! A notification email has been sent to " . $user_email;
-            } else {
-                $action_message = "Patient added successfully!";
-            }
-            
-            $action = ''; // Return to list view
-        } else {
-            $action_message = "Error adding patient: " . $conn->error;
-        }
+        // Rollback transaction on error
+        $conn->rollback();
+        $_SESSION['action_message'] = "Error: " . $e->getMessage();
+        header("Location: admin_patients.php?action=add");
+        exit;
     }
 }
 
 // Edit patient
 if ($action == 'edit' && isset($_POST['edit_patient'])) {
+    // Start transaction
+    $conn->begin_transaction();
+    
+    try {
     $patient_id = $_POST['patient_id'];
     $first_name = $_POST['first_name'];
     $middle_name = $_POST['middle_name'] ?? null;
@@ -266,8 +215,9 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
         $email_result = $check_email->get_result();
         
         if ($email_result->num_rows > 0) {
-            $action_message = "Error: Email address already in use. Please use a different email.";
-        } else {
+                throw new Exception("Error: Email address already in use. Please use a different email.");
+            }
+            
             // Generate a random password
             $plainPassword = substr(str_shuffle("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"), 0, 10);
             $hashedPassword = password_hash($plainPassword, PASSWORD_DEFAULT);
@@ -276,160 +226,69 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
             $user_stmt = $conn->prepare("INSERT INTO users (role_id, user_type, name, email, phone, password, created_at) VALUES (4, 'patient', ?, ?, ?, ?, NOW())");
             $user_stmt->bind_param("ssss", $user_name, $user_email, $user_phone, $hashedPassword);
             
-            if ($user_stmt->execute()) {
-                $user_id = $conn->insert_id;
-                
-                // Send welcome email to the new user
-                $mail = new PHPMailer(true);
-                try {
-                    // Server settings
-                    $mail->isSMTP();
-                    $mail->Host = SMTP_HOST;
-                    $mail->SMTPAuth = true;
-                    $mail->Username = SMTP_USER;
-                    $mail->Password = SMTP_PASS;
-                    $mail->SMTPSecure = SMTP_SECURE;
-                    $mail->Port = SMTP_PORT;
-                    
-                    // Recipients
-                    $mail->setFrom(SMTP_USER, APP_NAME);
-                    $mail->addAddress($user_email, $user_name);
-                    
-                    // Content
-                    $mail->isHTML(true);
-                    $mail->Subject = 'Welcome to ' . APP_NAME . ' - Patient Account Created';
-                    $mail->Body = '
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                            <div style="text-align: center; margin-bottom: 20px;">
-                                <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
-                            </div>
-                            <h2 style="color: #4285f4;">Welcome to ' . APP_NAME . '!</h2>
-                            <p>Hello ' . $user_name . ',</p>
-                            <p>Your patient account has been successfully created by an administrator.</p>
-                            <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                                <p><strong>Email:</strong> ' . $user_email . '</p>
-                                <p><strong>Password:</strong> ' . $plainPassword . '</p>
-                            </div>
-                            <p>You can now log in to your account using the provided credentials. We recommend changing your password after your first login.</p>
-                            <p>With your ' . APP_NAME . ' account, you can:</p>
-                            <ul>
-                                <li>View your immunization records</li>
-                                <li>Schedule appointments</li>
-                                <li>Receive vaccination reminders</li>
-                                <li>Update your personal information</li>
-                            </ul>
-                            <div style="text-align: center; margin-top: 30px;">
-                                <a href="' . APP_URL . '/login.php" style="background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Your Account</a>
-                            </div>
-                            <p style="margin-top: 30px;">Thank you for choosing ' . APP_NAME . ' for your immunization needs.</p>
-                            <p>Best regards,<br>' . APP_NAME . ' Team</p>
-                        </div>
-                    ';
-                    
-                    $mail->send();
-                    $email_sent = true;
-                    
-                    // Log the email
-                    $log_stmt = $conn->prepare("INSERT INTO email_logs (user_id, email_address, subject, message, status, sent_at, created_at) VALUES (?, ?, ?, ?, 'sent', NOW(), NOW())");
-                    $subject = 'Welcome to ' . APP_NAME . ' - Patient Account Created';
-                    $log_stmt->bind_param("isss", $user_id, $user_email, $subject, $mail->Body);
-                    $log_stmt->execute();
-                    
-                } catch (Exception $e) {
-                    error_log("Email sending failed: " . $mail->ErrorInfo);
-                }
-            } else {
-                $action_message = "Error creating user account: " . $conn->error;
+            if (!$user_stmt->execute()) {
+                throw new Exception("Error creating user account: " . $conn->error);
             }
+            
+            $user_id = $conn->insert_id;
         }
-    } else if (!empty($user_id)) {
-        // If linking to existing user, get their email
-        $user_query = $conn->prepare("SELECT email, name FROM users WHERE id = ?");
-        $user_query->bind_param("i", $user_id);
-        $user_query->execute();
-        $user_result = $user_query->get_result();
-        if ($user_result->num_rows > 0) {
-            $user_data = $user_result->fetch_assoc();
-            $user_email = $user_data['email'];
-            $user_name = $user_data['name'];
-        }
-    }
-
-    // If no errors occurred with user account creation, proceed with patient update
-    if (empty($action_message)) {
+        
+        // Insert patient record
         $query = "UPDATE patients SET user_id = ?, first_name = ?, middle_name = ?, last_name = ?, date_of_birth = ?, gender = ?, purok = ?, city = ?, province = ?, postal_code = ?, phone_number = ?, medical_history = ?, allergies = ? WHERE id = ?";
         $stmt = $conn->prepare($query);
         $stmt->bind_param("isssssssssssi", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone_number, $medical_history, $allergies, $patient_id);
     
-        if ($stmt->execute()) {
+        if (!$stmt->execute()) {
+            throw new Exception("Error updating patient: " . $conn->error);
+        }
+        
             // If we have a user email but haven't sent an email yet (for existing user accounts)
             // Only send email if user_id has changed or a new user account was created
             if (!empty($user_email) && !$email_sent && (!empty($user_id) && $user_id != $original_user_id)) {
-                // Send notification email to the user
-                $mail = new PHPMailer(true);
-                try {
-                    // Server settings
-                    $mail->isSMTP();
-                    $mail->Host = SMTP_HOST;
-                    $mail->SMTPAuth = true;
-                    $mail->Username = SMTP_USER;
-                    $mail->Password = SMTP_PASS;
-                    $mail->SMTPSecure = SMTP_SECURE;
-                    $mail->Port = SMTP_PORT;
-                    
-                    // Recipients
-                    $mail->setFrom(SMTP_USER, APP_NAME);
-                    $mail->addAddress($user_email, $user_name);
-                    
-                    // Content
-                    $mail->isHTML(true);
-                    $mail->Subject = APP_NAME . ' - Patient Profile Updated';
-                    $mail->Body = '
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                            <div style="text-align: center; margin-bottom: 20px;">
-                                <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
-                            </div>
-                            <h2 style="color: #4285f4;">Patient Profile Updated</h2>
-                            <p>Hello ' . $user_name . ',</p>
-                            <p>Your patient profile has been updated by an administrator.</p>
-                            <p>You can log in to your account to view your updated information, access your immunization records, schedule appointments, and receive vaccination reminders.</p>
-                            <div style="text-align: center; margin-top: 30px;">
-                                <a href="' . APP_URL . '/login.php" style="background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Your Account</a>
-                            </div>
-                            <p style="margin-top: 30px;">Thank you for choosing ' . APP_NAME . ' for your immunization needs.</p>
-                            <p>Best regards,<br>' . APP_NAME . ' Team</p>
-                        </div>
-                    ';
-                    
-                    $mail->send();
-                    $email_sent = true;
-                    
-                    // Log the email
-                    $log_stmt = $conn->prepare("INSERT INTO email_logs (user_id, email_address, subject, message, status, sent_at, created_at) VALUES (?, ?, ?, ?, 'sent', NOW(), NOW())");
-                    $subject = APP_NAME . ' - Patient Profile Updated';
-                    $log_stmt->bind_param("isss", $user_id, $user_email, $subject, $mail->Body);
-                    $log_stmt->execute();
-                    
+                $update_message = "Your ImmuCare patient profile has been updated.\n\n" .
+                                 "Updated Information:\n" .
+                                 "- Full Name: " . $first_name . " " . ($middle_name ? $middle_name . " " : "") . $last_name . "\n" .
+                                 "- Date of Birth: " . date('F j, Y', strtotime($date_of_birth)) . "\n" .
+                                 "- Gender: " . ucfirst($gender) . "\n" .
+                                 "- Contact: " . $phone_number . "\n" .
+                                 "- Address: Purok " . $purok . ", " . $city . ", " . $province . "\n\n" .
+                                 ($medical_history ? "- Medical History has been updated\n" : "") .
+                                 ($allergies ? "- Allergy information has been updated\n" : "") .
+                                 "\nPlease review these changes and contact us immediately if you notice any discrepancies.";
+                
+                $notification_system->sendCustomNotification(
+                    $user_id,
+                    "Patient Profile Updated",
+                    $update_message,
+                    'both'
+                );
+            }
+        
+        // Commit transaction
+        $conn->commit();
+        
+        // Store success message in session
+        $_SESSION['action_message'] = "Patient updated successfully! " . 
+            (!empty($user_email) ? "Notifications have been sent via SMS and Email to " . $user_email : "");
+        
+        // Redirect to prevent form resubmission
+        header("Location: admin_patients.php");
+        exit;
                 } catch (Exception $e) {
-                    error_log("Email sending failed: " . $mail->ErrorInfo);
-                }
-            }
-            
-            if ($email_sent) {
-                $action_message = "Patient updated successfully! A notification email has been sent to " . $user_email;
-            } else {
-                $action_message = "Patient updated successfully!";
-            }
-            
-            $action = ''; // Return to list view
-        } else {
-            $action_message = "Error updating patient: " . $conn->error;
-        }
+        // Rollback transaction on error
+        $conn->rollback();
+        $_SESSION['action_message'] = "Error: " . $e->getMessage();
+        header("Location: admin_patients.php?action=edit&id=" . $patient_id);
+        exit;
     }
 }
 
 // Delete patient
 if ($action == 'delete' && isset($_GET['id'])) {
+    // Start transaction
+    $conn->begin_transaction();
+    
+    try {
     $patient_id = $_GET['id'];
     
     // Check if patient has immunization records
@@ -440,19 +299,60 @@ if ($action == 'delete' && isset($_GET['id'])) {
     $immunization_count = $result->fetch_assoc()['count'];
     
     if ($immunization_count > 0) {
-        $action_message = "Cannot delete patient with existing immunization records. Please archive instead.";
-    } else {
+            throw new Exception("Cannot delete patient with existing immunization records. Please archive instead.");
+        }
+        
+        // Get patient and user information before deletion
+        $get_patient = $conn->prepare("SELECT p.*, u.id as user_id, u.email, u.phone FROM patients p LEFT JOIN users u ON p.user_id = u.id WHERE p.id = ?");
+        $get_patient->bind_param("i", $patient_id);
+        $get_patient->execute();
+        $patient_data = $get_patient->get_result()->fetch_assoc();
+        
+        // If patient has a user account, send notification via both SMS and Email before deletion
+        if ($patient_data && $patient_data['user_id']) {
+            $delete_message = "Important Notice: Your ImmuCare patient profile has been deleted.\n\n" .
+                             "Profile Details:\n" .
+                             "- Patient ID: " . $patient_id . "\n" .
+                             "- Name: " . $patient_data['first_name'] . " " . $patient_data['last_name'] . "\n" .
+                             "- Email: " . $patient_data['email'] . "\n\n" .
+                             "This means:\n" .
+                             "- Your patient records have been removed\n" .
+                             "- Any scheduled appointments have been cancelled\n" .
+                             "- You will no longer receive vaccination reminders\n\n" .
+                             "If you believe this was done in error, please contact our support team immediately.\n" .
+                             "You can reach us at " . SUPPORT_PHONE . " or " . SUPPORT_EMAIL;
+            
+            $notification_system->sendCustomNotification(
+                $patient_data['user_id'],
+                "Patient Profile Deletion Notice",
+                $delete_message,
+                'both'
+            );
+        }
+        
         $stmt = $conn->prepare("DELETE FROM patients WHERE id = ?");
         $stmt->bind_param("i", $patient_id);
         
-        if ($stmt->execute()) {
-            $action_message = "Patient deleted successfully!";
-        } else {
-            $action_message = "Error deleting patient: " . $conn->error;
+        if (!$stmt->execute()) {
+            throw new Exception("Error deleting patient: " . $conn->error);
         }
+        
+        // Commit transaction
+        $conn->commit();
+        
+        // Store success message in session
+        $_SESSION['action_message'] = "Patient deleted successfully! Final notifications sent via SMS and Email.";
+        
+        // Redirect
+        header("Location: admin_patients.php");
+        exit;
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        $_SESSION['action_message'] = "Error: " . $e->getMessage();
+        header("Location: admin_patients.php");
+        exit;
     }
-    
-    $action = ''; // Return to list view
 }
 
 // Fetch health centers for dropdown

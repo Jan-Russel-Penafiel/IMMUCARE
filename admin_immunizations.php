@@ -2,6 +2,7 @@
 session_start();
 require 'config.php';
 require_once 'vendor/autoload.php';
+require_once 'notification_system.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -16,6 +17,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION[
 $admin_id = $_SESSION['user_id'];
 $admin_name = $_SESSION['user_name'];
 $admin_email = $_SESSION['user_email'];
+
+// Initialize notification system
+$notification_system = new NotificationSystem();
 
 // Connect to database
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -64,84 +68,45 @@ if ($action == 'add' && isset($_POST['add_immunization'])) {
     $stmt->bind_param("iiiissssss", $patient_id, $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $diagnosis);
 
     if ($stmt->execute()) {
-        // Send notification email to patient if they have an account
+        $immunization_id = $conn->insert_id;
+        
+        // Get vaccine name for the notification
+        $vaccine_query = $conn->prepare("SELECT name FROM vaccines WHERE id = ?");
+        $vaccine_query->bind_param("i", $vaccine_id);
+        $vaccine_query->execute();
+        $vaccine_result = $vaccine_query->get_result();
+        $vaccine_name = $vaccine_result->fetch_assoc()['name'];
+        
+        // Get administered by name for the notification
+        $staff_query = $conn->prepare("SELECT name FROM users WHERE id = ?");
+        $staff_query->bind_param("i", $administered_by);
+        $staff_query->execute();
+        $staff_result = $staff_query->get_result();
+        $administered_by_name = $staff_result->fetch_assoc()['name'];
+        
+        // Send notification if patient has a user account
         if ($patient['user_id']) {
-            $user_query = $conn->prepare("SELECT email, name FROM users WHERE id = ?");
-            $user_query->bind_param("i", $patient['user_id']);
-            $user_query->execute();
-            $user_result = $user_query->get_result();
+            $immunization_message = "A new immunization record has been added to your profile.\n\n" .
+                                  "Immunization Details:\n" .
+                                  "- Vaccine: " . $vaccine_name . "\n" .
+                                  "- Dose Number: " . $dose_number . "\n" .
+                                  "- Date Administered: " . date('F j, Y', strtotime($administered_date)) . "\n" .
+                                  "- Administered By: " . $administered_by_name . "\n" .
+                                  "- Batch Number: " . $batch_number . "\n" .
+                                  "- Next Dose Due: " . ($next_dose_date ? date('F j, Y', strtotime($next_dose_date)) : 'Not Required') . "\n\n" .
+                                  "Important Notes:\n" .
+                                  "- Keep this record for your personal files\n" .
+                                  "- Watch for any side effects and report them immediately\n" .
+                                  ($next_dose_date ? "- Mark your calendar for the next dose\n" : "") .
+                                  "- Contact us if you experience any unusual symptoms\n\n" .
+                                  "You can view your complete immunization history in your patient portal.";
             
-            if ($user_result->num_rows > 0) {
-                $user_data = $user_result->fetch_assoc();
-                $patient_email = $user_data['email'];
-                $patient_name = $user_data['name'];
-                
-                // Get vaccine name
-                $vaccine_query = $conn->prepare("SELECT name FROM vaccines WHERE id = ?");
-                $vaccine_query->bind_param("i", $vaccine_id);
-                $vaccine_query->execute();
-                $vaccine_result = $vaccine_query->get_result();
-                $vaccine_name = $vaccine_result->fetch_assoc()['name'];
-                
-                // Send email notification
-                $mail = new PHPMailer(true);
-                try {
-                    // Server settings
-                    $mail->isSMTP();
-                    $mail->Host = SMTP_HOST;
-                    $mail->SMTPAuth = true;
-                    $mail->Username = SMTP_USER;
-                    $mail->Password = SMTP_PASS;
-                    $mail->SMTPSecure = SMTP_SECURE;
-                    $mail->Port = SMTP_PORT;
-                    
-                    // Recipients
-                    $mail->setFrom(SMTP_USER, APP_NAME);
-                    $mail->addAddress($patient_email, $patient_name);
-                    
-                    // Content
-                    $mail->isHTML(true);
-                    $mail->Subject = APP_NAME . ' - New Immunization Record Added';
-                    $mail->Body = '
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                            <div style="text-align: center; margin-bottom: 20px;">
-                                <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
-                            </div>
-                            <h2 style="color: #4285f4;">New Immunization Record</h2>
-                            <p>Hello ' . $patient_name . ',</p>
-                            <p>A new immunization record has been added to your profile:</p>
-                            <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                                <p><strong>Vaccine:</strong> ' . $vaccine_name . '</p>
-                                <p><strong>Dose Number:</strong> ' . $dose_number . '</p>
-                                <p><strong>Administered Date:</strong> ' . date('M d, Y', strtotime($administered_date)) . '</p>
-                                ' . ($next_dose_date ? '<p><strong>Next Dose Due:</strong> ' . date('M d, Y', strtotime($next_dose_date)) . '</p>' : '') . '
-                            </div>
-                            <div style="text-align: center; margin-top: 30px;">
-                                <a href="' . APP_URL . '/patient_dashboard.php" style="background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Your Records</a>
-                            </div>
-                            <p style="margin-top: 30px;">Thank you for choosing ' . APP_NAME . ' for your immunization needs.</p>
-                            <p>Best regards,<br>' . APP_NAME . ' Team</p>
-                        </div>
-                    ';
-                    
-                    $mail->send();
-                    
-                    // Log the email
-                    $log_stmt = $conn->prepare("INSERT INTO email_logs (user_id, email_address, subject, message, status, sent_at, created_at) VALUES (?, ?, ?, ?, 'sent', NOW(), NOW())");
-                    $subject = APP_NAME . ' - New Immunization Record Added';
-                    $log_stmt->bind_param("isss", $patient['user_id'], $patient_email, $subject, $mail->Body);
-                    $log_stmt->execute();
-                    
-                    $action_message = "Immunization record added successfully! A notification email has been sent to the patient.";
-                } catch (Exception $e) {
-                    error_log("Email sending failed: " . $mail->ErrorInfo);
-                    $action_message = "Immunization record added successfully! (Email notification failed)";
-                }
-            } else {
-                $action_message = "Immunization record added successfully!";
-            }
-        } else {
-            $action_message = "Immunization record added successfully!";
+            $notification_system->sendCustomNotification(
+                $patient['user_id'],
+                "New Immunization Record Added: " . $vaccine_name,
+                $immunization_message,
+                'both'
+            );
         }
         
         $action = ''; // Return to list view
@@ -168,84 +133,44 @@ if ($action == 'edit' && isset($_POST['edit_immunization'])) {
     $stmt->bind_param("iiiisssssis", $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $diagnosis, $immunization_id, $patient_id);
 
     if ($stmt->execute()) {
-        // Send notification email to patient if they have an account
+        // Get vaccine name for the notification
+        $vaccine_query = $conn->prepare("SELECT name FROM vaccines WHERE id = ?");
+        $vaccine_query->bind_param("i", $vaccine_id);
+        $vaccine_query->execute();
+        $vaccine_result = $vaccine_query->get_result();
+        $vaccine_name = $vaccine_result->fetch_assoc()['name'];
+        
+        // Get administered by name for the notification
+        $staff_query = $conn->prepare("SELECT name FROM users WHERE id = ?");
+        $staff_query->bind_param("i", $administered_by);
+        $staff_query->execute();
+        $staff_result = $staff_query->get_result();
+        $administered_by_name = $staff_result->fetch_assoc()['name'];
+        
+        // Send update notification if patient has a user account
         if ($patient['user_id']) {
-            $user_query = $conn->prepare("SELECT email, name FROM users WHERE id = ?");
-            $user_query->bind_param("i", $patient['user_id']);
-            $user_query->execute();
-            $user_result = $user_query->get_result();
+            $update_message = "An immunization record in your profile has been updated.\n\n" .
+                            "Updated Immunization Details:\n" .
+                            "- Vaccine: " . $vaccine_name . "\n" .
+                            "- Dose Number: " . $dose_number . "\n" .
+                            "- Date Administered: " . date('F j, Y', strtotime($administered_date)) . "\n" .
+                            "- Administered By: " . $administered_by_name . "\n" .
+                            "- Batch Number: " . $batch_number . "\n" .
+                            "- Next Dose Due: " . ($next_dose_date ? date('F j, Y', strtotime($next_dose_date)) : 'Not Required') . "\n\n" .
+                            "Please review these changes in your patient portal. " .
+                            "If you notice any discrepancies, please contact our immunization department at " .
+                            IMMUNIZATION_PHONE . " or via email at " . IMMUNIZATION_EMAIL . ".\n\n" .
+                            "Remember to:\n" .
+                            "- Keep your immunization records up to date\n" .
+                            "- Report any delayed reactions or concerns\n" .
+                            ($next_dose_date ? "- Schedule your next dose before " . date('F j, Y', strtotime($next_dose_date)) : "");
             
-            if ($user_result->num_rows > 0) {
-                $user_data = $user_result->fetch_assoc();
-                $patient_email = $user_data['email'];
-                $patient_name = $user_data['name'];
-                
-                // Get vaccine name
-                $vaccine_query = $conn->prepare("SELECT name FROM vaccines WHERE id = ?");
-                $vaccine_query->bind_param("i", $vaccine_id);
-                $vaccine_query->execute();
-                $vaccine_result = $vaccine_query->get_result();
-                $vaccine_name = $vaccine_result->fetch_assoc()['name'];
-                
-                // Send email notification
-                $mail = new PHPMailer(true);
-                try {
-                    // Server settings
-                    $mail->isSMTP();
-                    $mail->Host = SMTP_HOST;
-                    $mail->SMTPAuth = true;
-                    $mail->Username = SMTP_USER;
-                    $mail->Password = SMTP_PASS;
-                    $mail->SMTPSecure = SMTP_SECURE;
-                    $mail->Port = SMTP_PORT;
-                    
-                    // Recipients
-                    $mail->setFrom(SMTP_USER, APP_NAME);
-                    $mail->addAddress($patient_email, $patient_name);
-                    
-                    // Content
-                    $mail->isHTML(true);
-                    $mail->Subject = APP_NAME . ' - Immunization Record Updated';
-                    $mail->Body = '
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                            <div style="text-align: center; margin-bottom: 20px;">
-                                <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
-                            </div>
-                            <h2 style="color: #4285f4;">Immunization Record Updated</h2>
-                            <p>Hello ' . $patient_name . ',</p>
-                            <p>Your immunization record has been updated:</p>
-                            <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                                <p><strong>Vaccine:</strong> ' . $vaccine_name . '</p>
-                                <p><strong>Dose Number:</strong> ' . $dose_number . '</p>
-                                <p><strong>Administered Date:</strong> ' . date('M d, Y', strtotime($administered_date)) . '</p>
-                                ' . ($next_dose_date ? '<p><strong>Next Dose Due:</strong> ' . date('M d, Y', strtotime($next_dose_date)) . '</p>' : '') . '
-                            </div>
-                            <div style="text-align: center; margin-top: 30px;">
-                                <a href="' . APP_URL . '/patient_dashboard.php" style="background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Your Records</a>
-                            </div>
-                            <p style="margin-top: 30px;">Thank you for choosing ' . APP_NAME . ' for your immunization needs.</p>
-                            <p>Best regards,<br>' . APP_NAME . ' Team</p>
-                        </div>
-                    ';
-                    
-                    $mail->send();
-                    
-                    // Log the email
-                    $log_stmt = $conn->prepare("INSERT INTO email_logs (user_id, email_address, subject, message, status, sent_at, created_at) VALUES (?, ?, ?, ?, 'sent', NOW(), NOW())");
-                    $subject = APP_NAME . ' - Immunization Record Updated';
-                    $log_stmt->bind_param("isss", $patient['user_id'], $patient_email, $subject, $mail->Body);
-                    $log_stmt->execute();
-                    
-                    $action_message = "Immunization record updated successfully! A notification email has been sent to the patient.";
-                } catch (Exception $e) {
-                    error_log("Email sending failed: " . $mail->ErrorInfo);
-                    $action_message = "Immunization record updated successfully! (Email notification failed)";
-                }
-            } else {
-                $action_message = "Immunization record updated successfully!";
-            }
-        } else {
-            $action_message = "Immunization record updated successfully!";
+            $notification_system->sendCustomNotification(
+                $patient['user_id'],
+                "Immunization Record Updated: " . $vaccine_name,
+                $update_message,
+                'both'
+            );
         }
         
         $action = ''; // Return to list view
@@ -272,76 +197,27 @@ if ($action == 'delete' && isset($_GET['id'])) {
         $delete_stmt->bind_param("ii", $immunization_id, $patient_id);
         
         if ($delete_stmt->execute()) {
-            // Send notification email to patient if they have an account
+            // Send notification if patient has a user account
             if ($patient['user_id']) {
-                $user_query = $conn->prepare("SELECT email, name FROM users WHERE id = ?");
-                $user_query->bind_param("i", $patient['user_id']);
-                $user_query->execute();
-                $user_result = $user_query->get_result();
+                $delete_message = "Important Notice: An immunization record has been removed from your profile.\n\n" .
+                                 "Deleted Record Details:\n" .
+                                 "- Vaccine: " . $immunization['vaccine_name'] . "\n" .
+                                 "- Dose Number: " . $immunization['dose_number'] . "\n" .
+                                 "- Administration Date: " . date('F j, Y', strtotime($immunization['administered_date'])) . "\n\n" .
+                                 "This record has been permanently removed from your immunization history. " .
+                                 "If you believe this was done in error, please contact our immunization department immediately.\n\n" .
+                                 "Important:\n" .
+                                 "- This may affect your immunization schedule\n" .
+                                 "- You may need to provide alternative proof of this vaccination\n" .
+                                 "- Contact us if you need to verify your current immunization status\n\n" .
+                                 "For questions or concerns, reach our immunization team at " . IMMUNIZATION_PHONE;
                 
-                if ($user_result->num_rows > 0) {
-                    $user_data = $user_result->fetch_assoc();
-                    $patient_email = $user_data['email'];
-                    $patient_name = $user_data['name'];
-                    
-                    // Send email notification
-                    $mail = new PHPMailer(true);
-                    try {
-                        // Server settings
-                        $mail->isSMTP();
-                        $mail->Host = SMTP_HOST;
-                        $mail->SMTPAuth = true;
-                        $mail->Username = SMTP_USER;
-                        $mail->Password = SMTP_PASS;
-                        $mail->SMTPSecure = SMTP_SECURE;
-                        $mail->Port = SMTP_PORT;
-                        
-                        // Recipients
-                        $mail->setFrom(SMTP_USER, APP_NAME);
-                        $mail->addAddress($patient_email, $patient_name);
-                        
-                        // Content
-                        $mail->isHTML(true);
-                        $mail->Subject = APP_NAME . ' - Immunization Record Deleted';
-                        $mail->Body = '
-                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                                <div style="text-align: center; margin-bottom: 20px;">
-                                    <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
-                                </div>
-                                <h2 style="color: #4285f4;">Immunization Record Deleted</h2>
-                                <p>Hello ' . $patient_name . ',</p>
-                                <p>An immunization record has been deleted from your profile:</p>
-                                <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                                    <p><strong>Vaccine:</strong> ' . $immunization['vaccine_name'] . '</p>
-                                    <p><strong>Dose Number:</strong> ' . $immunization['dose_number'] . '</p>
-                                    <p><strong>Administered Date:</strong> ' . date('M d, Y', strtotime($immunization['administered_date'])) . '</p>
-                                </div>
-                                <div style="text-align: center; margin-top: 30px;">
-                                    <a href="' . APP_URL . '/patient_dashboard.php" style="background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Your Records</a>
-                                </div>
-                                <p style="margin-top: 30px;">If you believe this was done in error, please contact our support team.</p>
-                                <p>Best regards,<br>' . APP_NAME . ' Team</p>
-                            </div>
-                        ';
-                        
-                        $mail->send();
-                        
-                        // Log the email
-                        $log_stmt = $conn->prepare("INSERT INTO email_logs (user_id, email_address, subject, message, status, sent_at, created_at) VALUES (?, ?, ?, ?, 'sent', NOW(), NOW())");
-                        $subject = APP_NAME . ' - Immunization Record Deleted';
-                        $log_stmt->bind_param("isss", $patient['user_id'], $patient_email, $subject, $mail->Body);
-                        $log_stmt->execute();
-                        
-                        $action_message = "Immunization record deleted successfully! A notification email has been sent to the patient.";
-                    } catch (Exception $e) {
-                        error_log("Email sending failed: " . $mail->ErrorInfo);
-                        $action_message = "Immunization record deleted successfully! (Email notification failed)";
-                    }
-                } else {
-                    $action_message = "Immunization record deleted successfully!";
-                }
-            } else {
-                $action_message = "Immunization record deleted successfully!";
+                $notification_system->sendCustomNotification(
+                    $patient['user_id'],
+                    "Immunization Record Removed: " . $immunization['vaccine_name'],
+                    $delete_message,
+                    'both'
+                );
             }
         } else {
             $action_message = "Error deleting immunization record: " . $conn->error;

@@ -108,13 +108,115 @@ $conn->close();
             margin: 0;
         }
         
-        .form-container {
+        .user-menu {
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-info {
+            margin-right: 20px;
+            text-align: right;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        
+        .user-role {
+            font-size: 0.8rem;
+            color: var(--primary-color);
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .user-email {
+            font-size: 0.9rem;
+            color: var(--light-text);
+        }
+        
+        .logout-btn {
+            padding: 8px 15px;
+            background-color: #f1f3f5;
+            color: var(--text-color);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            text-decoration: none;
+        }
+        
+        .logout-btn:hover {
+            background-color: #e9ecef;
+        }
+        
+        .dashboard-content {
+            display: grid;
+            grid-template-columns: 1fr 4fr;
+            gap: 30px;
+        }
+        
+        .sidebar {
+            background-color: var(--bg-white);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+        
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .sidebar-menu li {
+            margin-bottom: 5px;
+        }
+        
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border-radius: var(--border-radius);
+            color: var(--text-color);
+            transition: var(--transition);
+            text-decoration: none;
+        }
+        
+        .sidebar-menu a:hover {
+            background-color: #f1f8ff;
+            color: var(--primary-color);
+        }
+        
+        .sidebar-menu a.active {
+            background-color: #e8f0fe;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+        
+        .sidebar-menu i {
+            margin-right: 10px;
+            font-size: 1.1rem;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .main-content {
             background-color: var(--bg-white);
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
             padding: 30px;
-            max-width: 800px;
-            margin: 0 auto;
+        }
+        
+        .page-title {
+            font-size: 1.8rem;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        
+        .form-container {
+            background-color: var(--bg-white);
+            border-radius: var(--border-radius);
+            padding: 30px;
         }
         
         .form-group {
@@ -138,6 +240,7 @@ $conn->close();
             border-radius: var(--border-radius);
             font-family: 'Poppins', sans-serif;
             font-size: 0.9rem;
+            background-color: #f8f9fa;
         }
         
         .form-group textarea {
@@ -183,18 +286,13 @@ $conn->close();
             background-color: #e9ecef;
         }
         
-        .error-message {
-            color: #dc3545;
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            padding: 10px;
-            border-radius: var(--border-radius);
-            margin-bottom: 20px;
-        }
-        
-        @media screen and (max-width: 768px) {
-            .form-container {
-                padding: 20px;
+        @media screen and (max-width: 992px) {
+            .dashboard-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                margin-bottom: 20px;
             }
             
             .button-group {
@@ -228,70 +326,86 @@ $conn->close();
             </div>
         </div>
         
-        <div class="form-container">
-            <h2 class="page-title">Schedule New Appointment</h2>
+        <div class="dashboard-content">
+            <div class="sidebar">
+                <ul class="sidebar-menu">
+                    <li><a href="nurse_dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li><a href="nurse_immunizations.php"><i class="fas fa-syringe"></i> Immunizations</a></li>
+                    <li><a href="nurse_vaccine_inventory.php"><i class="fas fa-vials"></i> Vaccine Inventory</a></li>
+                    <li><a href="nurse_appointments.php" class="active"><i class="fas fa-calendar-check"></i> Appointments</a></li>
+                    <li><a href="nurse_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
+                    <li><a href="nurse_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                    <li><a href="nurse_profile.php"><i class="fas fa-user"></i> Profile</a></li>
+                </ul>
+            </div>
             
-            <?php if (isset($error)): ?>
-                <div class="error-message"><?php echo $error; ?></div>
-            <?php endif; ?>
-            
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label for="patient_id">Patient</label>
-                    <select name="patient_id" id="patient_id" required>
-                        <option value="">Select Patient</option>
-                        <?php while ($patient = $patients_result->fetch_assoc()): ?>
-                            <option value="<?php echo $patient['id']; ?>">
-                                <?php echo htmlspecialchars($patient['last_name'] . ', ' . $patient['first_name']); ?>
-                            </option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
+            <div class="main-content">
+                <h2 class="page-title">Schedule New Appointment</h2>
                 
-                <div class="form-group">
-                    <label for="appointment_date">Appointment Date</label>
-                    <input type="date" name="appointment_date" id="appointment_date" required 
-                           min="<?php echo date('Y-m-d'); ?>">
-                </div>
+                <?php if (isset($error)): ?>
+                    <div class="error-message"><?php echo $error; ?></div>
+                <?php endif; ?>
                 
-                <div class="form-group">
-                    <label for="appointment_time">Appointment Time</label>
-                    <input type="time" name="appointment_time" id="appointment_time" required>
+                <div class="form-container">
+                    <form method="POST" action="">
+                        <div class="form-group">
+                            <label for="patient_id">Patient</label>
+                            <select name="patient_id" id="patient_id" required>
+                                <option value="">Select Patient</option>
+                                <?php while ($patient = $patients_result->fetch_assoc()): ?>
+                                    <option value="<?php echo $patient['id']; ?>">
+                                        <?php echo htmlspecialchars($patient['last_name'] . ', ' . $patient['first_name']); ?>
+                                    </option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="appointment_date">Appointment Date</label>
+                            <input type="date" name="appointment_date" id="appointment_date" required 
+                                   min="<?php echo date('Y-m-d'); ?>">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="appointment_time">Appointment Time</label>
+                            <input type="time" name="appointment_time" id="appointment_time" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="purpose">Purpose</label>
+                            <select name="purpose" id="purpose" required>
+                                <option value="">Select Purpose</option>
+                                <option value="Vaccination">Vaccination</option>
+                                <option value="Follow-up">Follow-up</option>
+                                <option value="Consultation">Consultation</option>
+                                <option value="General Checkup">General Checkup</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="vaccine_id">Vaccine (Optional)</label>
+                            <select name="vaccine_id" id="vaccine_id">
+                                <option value="">Select Vaccine</option>
+                                <?php while ($vaccine = $vaccines_result->fetch_assoc()): ?>
+                                    <option value="<?php echo $vaccine['id']; ?>">
+                                        <?php echo htmlspecialchars($vaccine['name'] . ' (' . $vaccine['manufacturer'] . ')'); ?>
+                                    </option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="notes">Notes</label>
+                            <textarea name="notes" id="notes" placeholder="Enter any additional notes or instructions"></textarea>
+                        </div>
+                        
+                        <div class="button-group">
+                            <a href="nurse_appointments.php" class="cancel-btn">Cancel</a>
+                            <button type="submit" class="submit-btn">Schedule Appointment</button>
+                        </div>
+                    </form>
                 </div>
-                
-                <div class="form-group">
-                    <label for="purpose">Purpose</label>
-                    <select name="purpose" id="purpose" required>
-                        <option value="">Select Purpose</option>
-                        <option value="Vaccination">Vaccination</option>
-                        <option value="Follow-up">Follow-up</option>
-                        <option value="Consultation">Consultation</option>
-                        <option value="General Checkup">General Checkup</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="vaccine_id">Vaccine (Optional)</label>
-                    <select name="vaccine_id" id="vaccine_id">
-                        <option value="">Select Vaccine</option>
-                        <?php while ($vaccine = $vaccines_result->fetch_assoc()): ?>
-                            <option value="<?php echo $vaccine['id']; ?>">
-                                <?php echo htmlspecialchars($vaccine['name'] . ' (' . $vaccine['manufacturer'] . ')'); ?>
-                            </option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="notes">Notes</label>
-                    <textarea name="notes" id="notes" placeholder="Enter any additional notes or instructions"></textarea>
-                </div>
-                
-                <div class="button-group">
-                    <a href="nurse_appointments.php" class="cancel-btn">Cancel</a>
-                    <button type="submit" class="submit-btn">Schedule Appointment</button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
     

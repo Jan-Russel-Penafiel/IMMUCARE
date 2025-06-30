@@ -2,14 +2,20 @@
 session_start();
 require 'config.php';
 
-// Check if user is logged in and is a patient
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'patient') {
+// Check if user is logged in and has appropriate role
+$allowed_user_types = ['patient', 'nurse', 'midwife', 'admin'];
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || !in_array($_SESSION['user_type'], $allowed_user_types)) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
 }
 
 // Get user information
 $user_id = $_SESSION['user_id'];
+
+// If staff is creating/updating profile for a patient
+if ($_SESSION['user_type'] !== 'patient' && isset($_POST['patient_user_id'])) {
+    $user_id = $_POST['patient_user_id'];
+}
 
 // Validate required fields
 $required_fields = ['first_name', 'last_name', 'date_of_birth', 'gender', 'purok', 'city', 'province', 'phone_number'];

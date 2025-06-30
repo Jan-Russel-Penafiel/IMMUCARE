@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS vaccines (
     recommended_age VARCHAR(100),
     doses_required INT DEFAULT 1,
     days_between_doses INT,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at DATETIME NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -130,6 +131,8 @@ CREATE TABLE IF NOT EXISTS sms_logs (
     message TEXT NOT NULL,
     status VARCHAR(50),
     provider_response TEXT,
+    related_to VARCHAR(50) DEFAULT 'general',
+    related_id INT,
     sent_at DATETIME NOT NULL,
     created_at DATETIME NOT NULL,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
@@ -144,6 +147,8 @@ CREATE TABLE IF NOT EXISTS email_logs (
     message TEXT NOT NULL,
     status VARCHAR(50),
     provider_response TEXT,
+    related_to VARCHAR(50) DEFAULT 'general',
+    related_id INT,
     sent_at DATETIME NOT NULL,
     created_at DATETIME NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -233,4 +238,7 @@ INSERT INTO system_settings (setting_key, setting_value, description, created_at
 ('sms_enabled', 'true', 'Enable SMS notifications', NOW()),
 ('email_enabled', 'true', 'Enable email notifications', NOW()),
 ('appointment_reminder_days', '2', 'Days before appointment to send reminder', NOW()),
-('auto_sync_mhc', 'false', 'Automatically sync data with Municipal Health Center', NOW()); 
+('auto_sync_mhc', 'false', 'Automatically sync data with Municipal Health Center', NOW());
+
+-- Add is_active column to vaccines table
+ALTER TABLE vaccines ADD COLUMN is_active BOOLEAN DEFAULT TRUE AFTER days_between_doses; 

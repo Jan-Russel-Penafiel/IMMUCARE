@@ -218,22 +218,44 @@ if ($action == 'send' && isset($_POST['send_notification'])) {
 
 // Delete notification
 if ($action == 'delete' && isset($_GET['id'])) {
-    $notification_id = $_GET['id'];
-    
-    $stmt = $conn->prepare("DELETE FROM notifications WHERE id = ?");
-    $stmt->bind_param("i", $notification_id);
-    
-    if ($stmt->execute()) {
-        if ($conn->affected_rows > 0) {
-            $action_message = "Notification deleted successfully!";
-        } else {
-            $action_message = "Could not delete notification.";
+    try {
+        $notification_id = $_GET['id'];
+        
+        // First check if notification exists
+        $check_stmt = $conn->prepare("SELECT id FROM notifications WHERE id = ?");
+        $check_stmt->bind_param("i", $notification_id);
+        $check_stmt->execute();
+        $check_result = $check_stmt->get_result();
+        
+        if ($check_result->num_rows === 0) {
+            throw new Exception("Notification not found.");
         }
-    } else {
-        $action_message = "Error deleting notification: " . $conn->error;
+        
+        // Delete the notification
+        $delete_stmt = $conn->prepare("DELETE FROM notifications WHERE id = ?");
+        $delete_stmt->bind_param("i", $notification_id);
+        
+        if (!$delete_stmt->execute()) {
+            throw new Exception("Database error: " . $conn->error);
+        }
+        
+        if ($delete_stmt->affected_rows > 0) {
+            $_SESSION['notification_message'] = "Notification deleted successfully!";
+            $_SESSION['notification_type'] = 'success';
+        } else {
+            throw new Exception("Could not delete notification.");
+        }
+        
+        // Redirect to prevent resubmission
+        header("Location: admin_notifications.php");
+        exit;
+        
+    } catch (Exception $e) {
+        $_SESSION['notification_message'] = "Error: " . $e->getMessage();
+        $_SESSION['notification_type'] = 'error';
+        header("Location: admin_notifications.php");
+        exit;
     }
-    
-    $action = ''; // Return to list view
 }
 
 // Get health centers for dropdown
@@ -260,7 +282,7 @@ $notifications_query = "SELECT n.*, u.name as user_name, u.email as user_email,
                        LIMIT 50";
 $notifications_result = $conn->query($notifications_query);
 
-// Close database connection after all queries
+// Now we can safely close the connection
 $conn->close();
 
 // Function to safely count group members
@@ -610,10 +632,10 @@ function getGroupCount($group, $grouped_users) {
         }
         
         .recipient-group h5 {
-            color: var(--text-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin: 0 0 10px 0;
-            font-size: 0.9rem;
-            font-weight: 600;
             padding-bottom: 8px;
             border-bottom: 1px solid #e9ecef;
         }
@@ -948,19 +970,14 @@ function getGroupCount($group, $grouped_users) {
             font-weight: 500;
         }
 
-        .status-unread {
-            background-color: #fff8e1;
-            color: #f57c00;
-        }
-
-        .status-read {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-
         .status-sent {
             background-color: #e3f2fd;
             color: #1976d2;
+        }
+
+        .status-failed {
+            background-color: #ffebee;
+            color: #d32f2f;
         }
 
         .action-buttons {
@@ -1045,6 +1062,54 @@ function getGroupCount($group, $grouped_users) {
 
         .alert.fade-out {
             animation: fadeOut 0.5s ease-out forwards;
+        }
+        
+        .search-recipients {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            width: 150px;
+            transition: all 0.3s ease;
+        }
+        
+        .search-recipients:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.1);
+        }
+        
+        .recipient-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        
+        .recipient-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .recipient-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        .recipient-list::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+        
+        .recipient-list::-webkit-scrollbar-thumb:hover {
+            background: #999;
+        }
+        
+        .recipient-checkbox {
+            transition: all 0.2s ease;
+        }
+        
+        .recipient-checkbox:hover {
+            background-color: #f8f9fa;
         }
     </style>
 </head>
@@ -1181,19 +1246,28 @@ function getGroupCount($group, $grouped_users) {
                                             <?php foreach (['patient', 'midwife', 'nurse'] as $group): ?>
                                                 <?php if (!empty($grouped_users[$group])): ?>
                                                     <div class="recipient-group">
-                                                        <h5><?php echo ucfirst($group); ?>s</h5>
-                                                        <?php foreach ($grouped_users[$group] as $user): ?>
-                                                            <div class="recipient-checkbox">
-                                                                <label>
-                                                                    <input type="checkbox" 
-                                                                           id="recipient_<?php echo $user['id']; ?>" 
-                                                                           name="recipients[]" 
-                                                                           value="<?php echo $user['id']; ?>"
-                                                                           class="<?php echo $group; ?>-checkbox">
-                                                                    <?php echo htmlspecialchars($user['display_name']); ?>
-                                                                </label>
-                                                            </div>
-                                                        <?php endforeach; ?>
+                                                        <h5>
+                                                            <?php echo ucfirst($group); ?>s
+                                                            <input type="text" 
+                                                                   class="search-recipients" 
+                                                                   data-group="<?php echo $group; ?>" 
+                                                                   placeholder="Search <?php echo ucfirst($group); ?>s..."
+                                                                   style="float: right; padding: 4px 8px; font-size: 0.8rem; width: 150px; border: 1px solid #ddd; border-radius: 4px;">
+                                                        </h5>
+                                                        <div class="recipient-list" id="<?php echo $group; ?>-list">
+                                                            <?php foreach ($grouped_users[$group] as $user): ?>
+                                                                <div class="recipient-checkbox" data-name="<?php echo strtolower(htmlspecialchars($user['display_name'])); ?>">
+                                                                    <label>
+                                                                        <input type="checkbox" 
+                                                                               id="recipient_<?php echo $user['id']; ?>" 
+                                                                               name="recipients[]" 
+                                                                               value="<?php echo $user['id']; ?>"
+                                                                               class="<?php echo $group; ?>-checkbox">
+                                                                        <?php echo htmlspecialchars($user['display_name']); ?>
+                                                                    </label>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                        </div>
                                                     </div>
                                                 <?php endif; ?>
                                             <?php endforeach; ?>
@@ -1226,7 +1300,7 @@ function getGroupCount($group, $grouped_users) {
                                 <tr>
                                     <th>Notification</th>
                                     <th>Type</th>
-                                    <th>Status</th>
+                                    <th>Delivery Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1276,25 +1350,18 @@ function getGroupCount($group, $grouped_users) {
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="status-badge <?php echo $notification['is_read'] ? 'status-read' : 'status-unread'; ?>">
-                                                    <?php echo $notification['is_read'] ? 'Read' : 'Unread'; ?>
+                                                <span class="status-badge <?php echo $notification['delivery_status'] === 'sent' ? 'status-sent' : 'status-failed'; ?>">
+                                                    <?php echo ucfirst($notification['delivery_status']); ?>
                                                 </span>
-                                                <?php if ($notification['delivery_status']): ?>
-                                                    <span class="status-badge <?php echo $notification['delivery_status'] === 'sent' ? 'status-sent' : 'status-failed'; ?>">
-                                                        <?php echo ucfirst($notification['delivery_status']); ?>
-                                                    </span>
-                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <div class="action-buttons">
                                                     <a href="#" class="action-btn btn-view" onclick="viewNotification('<?php echo htmlspecialchars($notification['title'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($notification['message'], ENT_QUOTES); ?>')">
                                                         <i class="fas fa-eye"></i> View
                                                     </a>
-                                                    <?php if (!$notification['is_read']): ?>
-                                                        <a href="?action=delete&id=<?php echo $notification['id']; ?>" class="action-btn btn-delete" onclick="return confirm('Are you sure you want to delete this notification?');">
-                                                            <i class="fas fa-trash"></i> Delete
-                                                        </a>
-                                                    <?php endif; ?>
+                                                    <a href="?action=delete&id=<?php echo $notification['id']; ?>" class="action-btn btn-delete" onclick="return confirm('Are you sure you want to delete this notification?');">
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </a>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1420,6 +1487,56 @@ function getGroupCount($group, $grouped_users) {
             if (window.history.replaceState) {
                 window.history.replaceState(null, null, window.location.href);
             }
+            
+            // Add search functionality
+            const searchInputs = document.querySelectorAll('.search-recipients');
+            
+            searchInputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const group = this.dataset.group;
+                    const recipientItems = document.querySelectorAll(`#${group}-list .recipient-checkbox`);
+                    
+                    recipientItems.forEach(item => {
+                        const name = item.dataset.name;
+                        if (name.includes(searchTerm)) {
+                            item.style.display = 'block';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+            });
+            
+            // Add "Select All Visible" functionality
+            groups.forEach(group => {
+                const groupCheckbox = document.getElementById(`group_${group}`);
+                const individualCheckboxes = document.querySelectorAll(`.${group}-checkbox`);
+                
+                if (groupCheckbox && individualCheckboxes.length > 0) {
+                    // Update group checkbox when all visible individuals are selected
+                    individualCheckboxes.forEach(checkbox => {
+                        checkbox.addEventListener('change', () => {
+                            const visibleCheckboxes = Array.from(individualCheckboxes).filter(cb => 
+                                cb.closest('.recipient-checkbox').style.display !== 'none'
+                            );
+                            const allChecked = visibleCheckboxes.every(cb => cb.checked);
+                            groupCheckbox.checked = allChecked;
+                        });
+                    });
+                    
+                    // Select/deselect all visible checkboxes when group checkbox changes
+                    groupCheckbox.addEventListener('change', function() {
+                        const visibleCheckboxes = Array.from(individualCheckboxes).filter(cb => 
+                            cb.closest('.recipient-checkbox').style.display !== 'none'
+                        );
+                        visibleCheckboxes.forEach(checkbox => {
+                            checkbox.checked = this.checked;
+                            checkbox.disabled = this.checked;
+                        });
+                    });
+                }
+            });
         });
         
         // Function to view notification details

@@ -2,8 +2,9 @@
 session_start();
 require 'config.php';
 
-// Check if user is logged in and is a nurse
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'nurse') {
+// Check if user is logged in and has appropriate role
+$allowed_user_types = ['nurse', 'midwife', 'admin'];
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || !in_array($_SESSION['user_type'], $allowed_user_types)) {
     header('Content-Type: application/json');
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;

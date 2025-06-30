@@ -305,6 +305,138 @@ $conn->close();
             padding: 5px 10px;
             font-size: 0.8rem;
         }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            width: 80%;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .close-modal:hover {
+            color: #333;
+        }
+
+        .appointment-details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .detail-item {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        .detail-value {
+            color: var(--text-color);
+        }
+
+        /* Additional Modal Styles for Reschedule */
+        .modal-form {
+            margin-top: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .form-group input, 
+        .form-group select, 
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .modal-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn-cancel {
+            background-color: #f1f3f5;
+            color: var(--text-color);
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-reschedule {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-reschedule:hover {
+            opacity: 0.9;
+        }
+
+        .alert {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
     </style>
 </head>
 <body>
@@ -386,8 +518,17 @@ $conn->close();
                                     </div>
                                 </div>
                                 <div class="appointment-actions">
-                                    <a href="view_appointment.php?id=<?php echo $appointment['id']; ?>" class="btn btn-primary btn-sm">View</a>
-                                    <a href="reschedule_appointment.php?id=<?php echo $appointment['id']; ?>" class="btn btn-outline btn-sm">Reschedule</a>
+                                    <button onclick="viewAppointment(
+                                        <?php echo $appointment['id']; ?>,
+                                        '<?php echo htmlspecialchars($appointment['first_name'] . ' ' . $appointment['last_name'], ENT_QUOTES); ?>',
+                                        '<?php echo date('F j, Y - g:i A', strtotime($appointment['appointment_date'])); ?>',
+                                        '<?php echo htmlspecialchars($appointment['purpose'], ENT_QUOTES); ?>'
+                                    )" class="btn btn-primary btn-sm">View</button>
+                                    <button onclick="openRescheduleModal(
+                                        <?php echo $appointment['id']; ?>,
+                                        '<?php echo htmlspecialchars($appointment['first_name'] . ' ' . $appointment['last_name'], ENT_QUOTES); ?>',
+                                        '<?php echo date('Y-m-d\TH:i', strtotime($appointment['appointment_date'])); ?>'
+                                    )" class="btn btn-outline btn-sm">Reschedule</button>
                                 </div>
                             </div>
                         <?php endwhile; ?>
@@ -398,5 +539,150 @@ $conn->close();
             </div>
         </div>
     </div>
+
+    <!-- Add Modal Structure -->
+    <div id="appointmentModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Appointment Details</h3>
+            <div id="appointmentDetails" class="appointment-details-grid">
+                <!-- Details will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Reschedule Modal -->
+    <div id="rescheduleModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeRescheduleModal()">&times;</span>
+            <h3>Reschedule Appointment</h3>
+            <div id="alertMessage" class="alert"></div>
+            <form id="rescheduleForm" class="modal-form" onsubmit="submitReschedule(event)">
+                <input type="hidden" id="appointmentId" name="appointmentId">
+                <div class="form-group">
+                    <label for="patientNameDisplay">Patient</label>
+                    <input type="text" id="patientNameDisplay" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="newDate">New Appointment Date & Time</label>
+                    <input type="datetime-local" id="newDate" name="newDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="reason">Reason for Rescheduling</label>
+                    <textarea id="reason" name="reason" rows="3" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeRescheduleModal()">Cancel</button>
+                    <button type="submit" class="btn-reschedule">Confirm Reschedule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Function to open modal and load appointment details
+        function viewAppointment(appointmentId, patientName, appointmentDate, purpose) {
+            const modal = document.getElementById('appointmentModal');
+            const detailsContainer = document.getElementById('appointmentDetails');
+            
+            // Format the appointment details
+            const details = `
+                <div class="detail-item">
+                    <div class="detail-label">Patient Name</div>
+                    <div class="detail-value">${patientName}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Appointment Date</div>
+                    <div class="detail-value">${appointmentDate}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Purpose</div>
+                    <div class="detail-value">${purpose}</div>
+                </div>
+            `;
+            
+            detailsContainer.innerHTML = details;
+            modal.style.display = 'block';
+        }
+
+        // Close modal when clicking the close button or outside the modal
+        document.querySelector('.close-modal').onclick = function() {
+            document.getElementById('appointmentModal').style.display = 'none';
+        }
+
+        // Function to open reschedule modal
+        function openRescheduleModal(appointmentId, patientName, currentDate) {
+            const modal = document.getElementById('rescheduleModal');
+            document.getElementById('appointmentId').value = appointmentId;
+            document.getElementById('patientNameDisplay').value = patientName;
+            
+            // Set minimum date to today
+            const today = new Date();
+            const todayStr = today.toISOString().slice(0, 16);
+            document.getElementById('newDate').min = todayStr;
+            
+            // Set current appointment date as default
+            const currentDateTime = new Date(currentDate);
+            const currentDateStr = currentDateTime.toISOString().slice(0, 16);
+            document.getElementById('newDate').value = currentDateStr;
+            
+            modal.style.display = 'block';
+        }
+
+        function closeRescheduleModal() {
+            const modal = document.getElementById('rescheduleModal');
+            modal.style.display = 'none';
+            document.getElementById('alertMessage').style.display = 'none';
+            document.getElementById('rescheduleForm').reset();
+        }
+
+        function submitReschedule(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+
+            // Send AJAX request to process_appointment.php
+            fetch('process_appointment.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const alertDiv = document.getElementById('alertMessage');
+                alertDiv.style.display = 'block';
+                
+                if (data.success) {
+                    alertDiv.className = 'alert alert-success';
+                    alertDiv.textContent = 'Appointment rescheduled successfully!';
+                    // Reload the page after 2 seconds
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.textContent = data.message || 'Error rescheduling appointment.';
+                }
+            })
+            .catch(error => {
+                const alertDiv = document.getElementById('alertMessage');
+                alertDiv.style.display = 'block';
+                alertDiv.className = 'alert alert-error';
+                alertDiv.textContent = 'An error occurred. Please try again.';
+            });
+        }
+
+        // Update window click handler to handle both modals
+        window.onclick = function(event) {
+            const viewModal = document.getElementById('appointmentModal');
+            const rescheduleModal = document.getElementById('rescheduleModal');
+            
+            if (event.target == viewModal) {
+                viewModal.style.display = 'none';
+            }
+            if (event.target == rescheduleModal) {
+                closeRescheduleModal();
+            }
+        }
+    </script>
 </body>
 </html> 
