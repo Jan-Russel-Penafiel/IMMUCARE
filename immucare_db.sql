@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 30, 2025 at 04:25 PM
+-- Generation Time: Jul 01, 2025 at 07:51 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -40,6 +40,13 @@ CREATE TABLE `appointments` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `appointments`
+--
+
+INSERT INTO `appointments` (`id`, `patient_id`, `staff_id`, `appointment_date`, `vaccine_id`, `purpose`, `status`, `notes`, `created_at`, `updated_at`) VALUES
+(1, 12, NULL, '2025-07-03 11:41:00', NULL, 'bjhb', 'requested', 'knbkbkj', '2025-07-01 11:40:20', '2025-07-01 03:40:20');
+
 -- --------------------------------------------------------
 
 --
@@ -70,6 +77,7 @@ CREATE TABLE `data_transfers` (
 
 CREATE TABLE `email_logs` (
   `id` int(11) NOT NULL,
+  `notification_id` int(11) DEFAULT NULL,
   `user_id` int(11) NOT NULL,
   `email_address` varchar(100) NOT NULL,
   `subject` varchar(255) NOT NULL,
@@ -86,13 +94,8 @@ CREATE TABLE `email_logs` (
 -- Dumping data for table `email_logs`
 --
 
-INSERT INTO `email_logs` (`id`, `user_id`, `email_address`, `subject`, `message`, `status`, `provider_response`, `related_to`, `related_id`, `sent_at`, `created_at`) VALUES
-(1, 5, 'stephanyartieda@sksu.edu.ph', 'Welcome to ImmuCare - Account Created', '\n                <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                    <div style=\"text-align: center; margin-bottom: 20px;\">\n                        <img src=\"http://localhost/mic_new/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                    </div>\n                    <h2 style=\"color: #4285f4;\">Welcome to ImmuCare!</h2>\n                    <p>Hello asdadad,</p>\n                    <p>Your account has been successfully created by an administrator.</p>\n                    <div style=\"background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;\">\n                        <p><strong>Email:</strong> stephanyartieda@sksu.edu.ph</p>\n                        <p><strong>Password:</strong> </p>\n                        <p><strong>Role:</strong> Patient</p>\n                    </div>\n                    <p>You can now log in to your account using the provided credentials. We recommend changing your password after your first login.</p>\n                    <p>If you have any questions, please contact our support team.</p>\n                    <div style=\"text-align: center; margin-top: 30px;\">\n                        <a href=\"http://localhost/mic_new/login.php\" style=\"background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Login to Your Account</a>\n                    </div>\n                    <p style=\"margin-top: 30px;\">Thank you,<br>ImmuCare Team</p>\n                </div>\n            ', 'sent', NULL, 'general', NULL, '2025-06-30 21:31:40', '2025-06-30 21:31:40'),
-(2, 5, 'stephanyartieda@sksu.edu.ph', 'ImmuCare - Patient Profile Created', '\n                        <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                            <div style=\"text-align: center; margin-bottom: 20px;\">\n                                <img src=\"http://localhost/mic_new/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                            </div>\n                            <h2 style=\"color: #4285f4;\">Patient Profile Created</h2>\n                            <p>Hello asdadad,</p>\n                            <p>A patient profile has been created and linked to your account.</p>\n                            <p>You can now access your immunization records, schedule appointments, and receive vaccination reminders through your account.</p>\n                            <div style=\"text-align: center; margin-top: 30px;\">\n                                <a href=\"http://localhost/mic_new/login.php\" style=\"background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Login to Your Account</a>\n                            </div>\n                            <p style=\"margin-top: 30px;\">Thank you for choosing ImmuCare for your immunization needs.</p>\n                            <p>Best regards,<br>ImmuCare Team</p>\n                        </div>\n                    ', 'sent', NULL, 'general', NULL, '2025-06-30 21:32:19', '2025-06-30 21:32:19'),
-(3, 5, 'stephanyartieda@sksu.edu.ph', 'Patient Profile Created', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                <div style=\"text-align: center; margin-bottom: 20px;\">\n                    <img src=\"https://yourwebsite.com/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                </div>\n                <h2 style=\"color: #4285f4;\">Patient Profile Created</h2>\n                <p>Hello asdadad Peñafiel,</p>\n                <div style=\"background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;\">\n                    <p>Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.</p>\n                </div>\n                <p>Thank you,<br>ImmuCare Team</p>\n            </div>\n        ', 'sent', 'Email sent successfully', 'custom_notification', NULL, '2025-06-30 21:40:52', '2025-06-30 21:40:52'),
-(4, 5, 'stephanyartieda@sksu.edu.ph', 'Patient Profile Created', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                <div style=\"text-align: center; margin-bottom: 20px;\">\n                    <img src=\"https://yourwebsite.com/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                </div>\n                <h2 style=\"color: #4285f4;\">Patient Profile Created</h2>\n                <p>Hello asdadad Peñafiel,</p>\n                <div style=\"background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;\">\n                    <p>Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.</p>\n                </div>\n                <p>Thank you,<br>ImmuCare Team</p>\n            </div>\n        ', 'sent', 'Email sent successfully', 'custom_notification', NULL, '2025-06-30 21:43:47', '2025-06-30 21:43:47'),
-(5, 5, 'stephanyartieda@sksu.edu.ph', 'Patient Profile Deleted', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                <div style=\"text-align: center; margin-bottom: 20px;\">\n                    <img src=\"https://yourwebsite.com/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                </div>\n                <h2 style=\"color: #4285f4;\">Patient Profile Deleted</h2>\n                <p>Hello asdadad Peñafiel,</p>\n                <div style=\"background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;\">\n                    <p>Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.</p>\n                </div>\n                <p>Thank you,<br>ImmuCare Team</p>\n            </div>\n        ', 'sent', 'Email sent successfully', 'custom_notification', NULL, '2025-06-30 21:44:03', '2025-06-30 21:44:03'),
-(6, 5, 'stephanyartieda@sksu.edu.ph', 'Patient Profile Deleted', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                <div style=\"text-align: center; margin-bottom: 20px;\">\n                    <img src=\"https://yourwebsite.com/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                </div>\n                <h2 style=\"color: #4285f4;\">Patient Profile Deleted</h2>\n                <p>Hello asdadad Peñafiel,</p>\n                <div style=\"background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;\">\n                    <p>Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.</p>\n                </div>\n                <p>Thank you,<br>ImmuCare Team</p>\n            </div>\n        ', 'sent', 'Email sent successfully', 'custom_notification', NULL, '2025-06-30 21:44:15', '2025-06-30 21:44:15');
+INSERT INTO `email_logs` (`id`, `notification_id`, `user_id`, `email_address`, `subject`, `message`, `status`, `provider_response`, `related_to`, `related_id`, `sent_at`, `created_at`) VALUES
+(39, 40, 15, 'stephanyartieda@sksu.edu.ph', 'Welcome to ImmuCare - Account Created', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e1e4e8; border-radius: 8px; background-color: #ffffff;\">\n                <!-- Header with Logo -->\n                <div style=\"text-align: center; margin-bottom: 30px;\">\n                    <img src=\"http://localhost/mic_new/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px; height: auto;\">\n                </div>\n                \n                <!-- Title -->\n                <h2 style=\"color: #4285f4; font-size: 24px; font-weight: 600; margin: 0 0 20px 0; text-align: left;\">Welcome to ImmuCare - Account Created</h2>\n                \n                <!-- Greeting -->\n                <p style=\"color: #333333; font-size: 16px; line-height: 1.5; margin: 0 0 20px 0;\">Hello Stephany lablab,</p>\n                \n                <!-- Message Content -->\n                <div style=\"background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;\">\n                    <div style=\"color: #333333; font-size: 16px; line-height: 1.6;\">\n                        Welcome to ImmuCare!<br />\n<br />\nYour ImmuCare account has been created with the following credentials:<br />\n- Email: stephanyartieda@sksu.edu.ph<br />\n- Phone: 09920157536<br />\n- Password: 12345678<br />\n<br />\nPlease keep these credentials secure and change your password after your first login.<br />\n<br />\nFor assistance, contact our support team:<br />\nPhone: +1-800-IMMUCARE<br />\nEmail: support@immucare.com\n                    </div>\n                </div>\n                \n                <!-- Footer -->\n                <div style=\"margin-top: 30px; padding-top: 20px; border-top: 1px solid #e1e4e8;\">\n                    <p style=\"color: #666666; font-size: 14px; margin: 0;\">Thank you,<br>ImmuCare Team</p>\n                    \n                    <!-- Contact Info -->\n                    <div style=\"margin-top: 20px; color: #666666; font-size: 12px;\">\n                        <p style=\"margin: 5px 0;\">Need help? Contact us at support@immucare.com</p>\n                        <p style=\"margin: 5px 0;\">Phone: +1-800-IMMUCARE</p>\n                    </div>\n                </div>\n            </div>\n        ', 'sent', NULL, 'general', NULL, '2025-07-01 11:06:19', '2025-07-01 11:06:19');
 
 -- --------------------------------------------------------
 
@@ -172,7 +175,17 @@ INSERT INTO `notifications` (`id`, `user_id`, `title`, `message`, `type`, `is_re
 (4, 5, 'Patient Profile Created', 'IMMUCARE: Patient Profile Created - Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.', 'sms', 0, '2025-06-30 21:43:49', '2025-06-30 21:43:49', '2025-06-30 13:43:49'),
 (6, 5, 'Patient Profile Deleted', 'IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.', 'sms', 0, '2025-06-30 21:44:06', '2025-06-30 21:44:06', '2025-06-30 13:44:06'),
 (8, 5, 'Patient Profile Deleted', 'IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.', 'sms', 0, '2025-06-30 21:44:18', '2025-06-30 21:44:18', '2025-06-30 13:44:18'),
-(9, 5, 'Schedule Change', 'IMMUCARE: Schedule Change - dsada dad a', 'sms', 0, '2025-06-30 22:22:04', '2025-06-30 22:22:04', '2025-06-30 14:22:04');
+(9, 5, 'Schedule Change', 'IMMUCARE: Schedule Change - dsada dad a', 'sms', 0, '2025-06-30 22:22:04', '2025-06-30 22:22:04', '2025-06-30 14:22:04'),
+(14, 8, 'Welcome to ImmuCare - Account Created', 'Welcome to ImmuCare! Your account has been created as a Patient. You can now access our system using your email (stephanyartieda@sksu.edu.ph) and the provided password. For security reasons, please change your password after your first login. If you need any assistance, please contact our support team.', 'system', 0, '2025-07-01 09:06:48', '2025-07-01 09:06:48', '2025-07-01 01:06:48'),
+(15, 8, 'Patient Profile Linked to Your Account', 'Your existing ImmuCare account has been linked to a new patient profile.\n\nAccount Details:\n- Name: Stephany lablab\n- Email: stephanyartieda@sksu.edu.ph\n- Phone: 09319750668\n\nPatient Profile Details:\n- Full Name: Stephany asdadgd lablab\n- Date of Birth: September 8, 2004\n- Gender: Female\n- Contact: 09319750668\n- Address: Purok sada, Santo Niño, Provinces\n\nYou can now access your health records and schedule appointments through your existing account.\n\nIf you did not expect this change, please contact our support team immediately at support@immucare.com', 'system', 0, '2025-07-01 09:07:27', '2025-07-01 09:07:27', '2025-07-01 01:07:27'),
+(16, 8, 'Patient Profile Created Successfully', 'Your patient profile has been successfully created in the ImmuCare system.\n\nProfile Details:\n- Patient ID: 5\n- Full Name: Stephany asdadgd lablab\n- Date of Birth: September 8, 2004\n- Gender: Female\n- Contact: 09319750668\n- Address: Purok sada, Santo Niño, Provinces\n\nMedical Information:\n- Medical History: sadada\n- Allergies: dada\n\nYou can now:\n- View your immunization records\n- Schedule appointments\n- Receive vaccination reminders\n- Update your medical information\n\nPlease verify all information and contact us if any corrections are needed.\nFor support, reach us at support@immucare.com or +1-800-IMMUCARE', 'system', 0, '2025-07-01 09:07:34', '2025-07-01 09:07:34', '2025-07-01 01:07:34'),
+(29, 11, 'Patient Profile and Account Deletion Notice', 'Important Notice: Your ImmuCare patient profile and user account have been deleted.\n\nProfile Details:\n- Patient ID: 8\n- Name: Stephany asdadgd lablab\n- Email: stephanyartieda@sksu.edu.ph\n\nThis means:\n- Your patient records have been removed\n- Your user account has been deactivated\n- Any scheduled appointments have been cancelled\n- You will no longer receive vaccination reminders\n\nIf you believe this was done in error, please contact our support team immediately.\nYou can reach us at +1-800-IMMUCARE or support@immucare.com', 'system', 0, '2025-07-01 10:38:19', '2025-07-01 10:38:19', '2025-07-01 02:38:19'),
+(33, 12, 'Patient Profile and Account Deletion Notice', 'Important Notice: Your ImmuCare patient profile and user account have been deleted.\n\nProfile Details:\n- Patient ID: 9\n- Name: Stephany sadada lablab\n- Email: stephanyartieda@sksu.edu.ph\n\nThis means:\n- Your patient records have been removed\n- Your user account has been deactivated\n- Any scheduled appointments have been cancelled\n- You will no longer receive vaccination reminders\n\nIf you believe this was done in error, please contact our support team immediately.\nYou can reach us at +1-800-IMMUCARE or support@immucare.com', 'system', 0, '2025-07-01 10:54:06', '2025-07-01 10:54:06', '2025-07-01 02:54:06'),
+(36, 13, 'Patient Profile and Account Deletion Notice', 'Important Notice: Your ImmuCare patient profile and user account have been deleted.\n\nProfile Details:\n- Patient ID: 10\n- Name: Stephany asdadgd lablab\n- Email: stephanyartieda@sksu.edu.ph\n\nThis means:\n- Your patient records have been removed\n- Your user account has been deactivated\n- Any scheduled appointments have been cancelled\n- You will no longer receive vaccination reminders\n\nIf you believe this was done in error, please contact our support team immediately.\nYou can reach us at +1-800-IMMUCARE or support@immucare.com', 'system', 0, '2025-07-01 10:59:16', '2025-07-01 10:59:16', '2025-07-01 02:59:16'),
+(39, 14, 'Patient Profile and Account Deletion Notice', 'Important Notice: Your ImmuCare patient profile and user account have been deleted.\n\nProfile Details:\n- Patient ID: 11\n- Name: Stephany asdadgd lablab\n- Email: stephanyartieda@sksu.edu.ph\n\nThis means:\n- Your patient records have been removed\n- Your user account has been deactivated\n- Any scheduled appointments have been cancelled\n- You will no longer receive vaccination reminders\n\nIf you believe this was done in error, please contact our support team immediately.\nYou can reach us at +1-800-IMMUCARE or support@immucare.com', 'system', 0, '2025-07-01 11:05:13', '2025-07-01 11:05:13', '2025-07-01 03:05:13'),
+(40, 15, 'Welcome to ImmuCare - Account Created', 'Welcome to ImmuCare!\n\nYour ImmuCare account has been created with the following credentials:\n- Email: stephanyartieda@sksu.edu.ph\n- Phone: 09920157536\n- Password: 12345678\n\nPlease keep these credentials secure and change your password after your first login.\n\nFor assistance, contact our support team:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com', 'system', 0, '2025-07-01 11:06:19', '2025-07-01 11:06:19', '2025-07-01 03:06:19'),
+(42, 2, 'New Appointment Request', 'New appointment request from patient #12 for July 3, 2025 - 11:41 AM', '', 0, NULL, '2025-07-01 11:40:20', '2025-07-01 03:40:20'),
+(43, 3, 'New Appointment Request', 'New appointment request from patient #12 for July 3, 2025 - 11:41 AM', '', 0, NULL, '2025-07-01 11:40:20', '2025-07-01 03:40:20');
 
 -- --------------------------------------------------------
 
@@ -205,7 +218,7 @@ CREATE TABLE `patients` (
 
 INSERT INTO `patients` (`id`, `user_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth`, `gender`, `purok`, `city`, `province`, `postal_code`, `phone_number`, `medical_history`, `allergies`, `created_at`, `updated_at`) VALUES
 (1, 4, 'Test', 'P', 'Patient', '1990-01-01', 'male', 'Purok 1', 'Anytown', 'Province', '12345', '+1234567893', NULL, NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(2, 5, 'asdadad', 'asdada', 'Peñafiel', '2003-02-02', 'female', 'asdad', 'Santo Niño', 'Provinces', '9509', '09319750668', 'asda', 'asda', '2025-06-30 21:32:15', '2025-06-30 13:32:15');
+(12, 15, 'Stephany', 'asdada', 'lablab', '2002-01-20', 'female', 'asda', 'dada', 'asda', '9509as', '09920157536', 'dada', 'dada', '2025-07-01 11:06:58', '2025-07-01 03:06:58');
 
 -- --------------------------------------------------------
 
@@ -238,6 +251,7 @@ INSERT INTO `roles` (`id`, `name`, `description`, `created_at`) VALUES
 
 CREATE TABLE `sms_logs` (
   `id` int(11) NOT NULL,
+  `notification_id` int(11) DEFAULT NULL,
   `patient_id` int(11) NOT NULL,
   `phone_number` varchar(20) NOT NULL,
   `message` text NOT NULL,
@@ -248,17 +262,6 @@ CREATE TABLE `sms_logs` (
   `sent_at` datetime NOT NULL,
   `created_at` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `sms_logs`
---
-
-INSERT INTO `sms_logs` (`id`, `patient_id`, `phone_number`, `message`, `status`, `provider_response`, `related_to`, `related_id`, `sent_at`, `created_at`) VALUES
-(1, 2, '09319750668', 'IMMUCARE: Patient Profile Created - Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.', 'sent', '{\"status\":\"success\",\"message\":\"Your message was successfully delivered\",\"data\":{\"uid\":\"4907036286190\",\"user_id\":1958,\"to\":\"639319750668\",\"message\":\"IMMUCARE: Patient Profile Created - Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.\",\"sms_type\":\"plain\",\"status\":\"Delivered\",\"sms_count\":2,\"cost\":0.7,\"sending_server_id\":1,\"from\":\"PhilSMS\",\"telco_id\":2,\"send_by\":\"api\",\"updated_at\":\"2025-06-30T13:40:55.000000Z\",\"created_at\":\"2025-06-30T13:40:55.000000Z\"}}', 'custom_notification', NULL, '2025-06-30 21:40:55', '2025-06-30 21:40:55'),
-(2, 2, '09319750668', 'IMMUCARE: Patient Profile Created - Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.', 'sent', '{\"status\":\"success\",\"message\":\"Your message was successfully delivered\",\"data\":{\"uid\":\"2975428711793\",\"user_id\":1958,\"to\":\"639319750668\",\"message\":\"IMMUCARE: Patient Profile Created - Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.\",\"sms_type\":\"plain\",\"status\":\"Delivered\",\"sms_count\":2,\"cost\":0.7,\"sending_server_id\":1,\"from\":\"PhilSMS\",\"telco_id\":2,\"send_by\":\"api\",\"updated_at\":\"2025-06-30T13:43:50.000000Z\",\"created_at\":\"2025-06-30T13:43:50.000000Z\"}}', 'custom_notification', NULL, '2025-06-30 21:43:49', '2025-06-30 21:43:49'),
-(3, 2, '09319750668', 'IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.', 'sent', '{\"status\":\"success\",\"message\":\"Your message was successfully delivered\",\"data\":{\"uid\":\"7963188326501\",\"user_id\":1958,\"to\":\"639319750668\",\"message\":\"IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.\",\"sms_type\":\"plain\",\"status\":\"Delivered\",\"sms_count\":2,\"cost\":0.7,\"sending_server_id\":1,\"from\":\"PhilSMS\",\"telco_id\":2,\"send_by\":\"api\",\"updated_at\":\"2025-06-30T13:44:06.000000Z\",\"created_at\":\"2025-06-30T13:44:06.000000Z\"}}', 'custom_notification', NULL, '2025-06-30 21:44:06', '2025-06-30 21:44:06'),
-(4, 2, '09319750668', 'IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.', 'sent', '{\"status\":\"success\",\"message\":\"Your message was successfully delivered\",\"data\":{\"uid\":\"4731677022314\",\"user_id\":1958,\"to\":\"639319750668\",\"message\":\"IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.\",\"sms_type\":\"plain\",\"status\":\"Delivered\",\"sms_count\":2,\"cost\":0.7,\"sending_server_id\":1,\"from\":\"PhilSMS\",\"telco_id\":2,\"send_by\":\"api\",\"updated_at\":\"2025-06-30T13:44:19.000000Z\",\"created_at\":\"2025-06-30T13:44:19.000000Z\"}}', 'custom_notification', NULL, '2025-06-30 21:44:18', '2025-06-30 21:44:18'),
-(5, 2, '09319750668', 'IMMUCARE: Schedule Change - dsada dad a', 'sent', '{\"status\":\"success\",\"message\":\"Your message was successfully delivered\",\"data\":{\"uid\":\"8262549319871\",\"user_id\":1958,\"to\":\"639319750668\",\"message\":\"IMMUCARE: Schedule Change - dsada dad a\",\"sms_type\":\"plain\",\"status\":\"Delivered\",\"sms_count\":1,\"cost\":0.35,\"sending_server_id\":1,\"from\":\"PhilSMS\",\"telco_id\":2,\"send_by\":\"api\",\"updated_at\":\"2025-06-30T14:22:05.000000Z\",\"created_at\":\"2025-06-30T14:22:05.000000Z\"}}', 'custom_notification', NULL, '2025-06-30 22:22:04', '2025-06-30 22:22:04');
 
 -- --------------------------------------------------------
 
@@ -281,13 +284,18 @@ CREATE TABLE `system_settings` (
 --
 
 INSERT INTO `system_settings` (`id`, `setting_key`, `setting_value`, `description`, `updated_by`, `created_at`, `updated_at`) VALUES
-(1, 'sms_provider', 'philsms', 'SMS gateway provider', NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(2, 'sms_enabled', 'true', 'Enable SMS notifications', NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(3, 'email_enabled', 'true', 'Enable email notifications', NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(4, 'appointment_reminder_days', '2', 'Days before appointment to send reminder', 1, '2025-06-30 20:52:14', '2025-06-30 14:24:58'),
-(5, 'auto_sync_mhc', 'true', 'Automatically sync data with Municipal Health Center', 1, '2025-06-30 20:52:14', '2025-06-30 14:24:52'),
-(6, 'philsms_api_key', '2100|J9BVGEx9FFOJAbHV0xfn6SMOkKBt80HTLjHb6zZX ', 'PhilSMS API Key', 1, '2025-06-30 22:24:52', '2025-06-30 14:24:52'),
-(7, 'philsms_sender_id', 'PhilSMS', 'PhilSMS Sender ID', 1, '2025-06-30 22:24:52', '2025-06-30 14:24:52');
+(1, 'sms_provider', 'philsms', 'SMS gateway provider', NULL, '2025-06-30 20:52:14', '2025-06-30 04:52:14'),
+(2, 'sms_enabled', 'true', 'Enable SMS notifications', NULL, '2025-06-30 20:52:14', '2025-06-30 04:52:14'),
+(3, 'email_enabled', 'true', 'Enable email notifications', NULL, '2025-06-30 20:52:14', '2025-06-30 04:52:14'),
+(4, 'appointment_reminder_days', '2', 'Days before appointment to send reminder', 1, '2025-06-30 20:52:14', '2025-06-30 06:24:58'),
+(5, 'auto_sync_mhc', 'true', 'Automatically sync data with Municipal Health Center', 1, '2025-06-30 20:52:14', '2025-06-30 06:24:52'),
+(6, 'philsms_api_key', '2100|J9BVGEx9FFOJAbHV0xfn6SMOkKBt80HTLjHb6zZX ', 'PhilSMS API Key', 1, '2025-06-30 22:24:52', '2025-06-30 06:24:52'),
+(7, 'philsms_sender_id', 'PhilSMS', 'PhilSMS Sender ID', 1, '2025-06-30 22:24:52', '2025-06-30 06:24:52'),
+(8, 'smtp_host', 'smtp.gmail.com', 'SMTP Server Host', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
+(9, 'smtp_port', '587', 'SMTP Server Port', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
+(10, 'smtp_user', 'vmctaccollege@gmail.com', 'SMTP Username', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
+(11, 'smtp_pass', 'tqqs fkkh lbuz jbeg', 'SMTP Password', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
+(12, 'smtp_secure', 'tls', 'SMTP Security Type (tls/ssl)', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09');
 
 -- --------------------------------------------------------
 
@@ -301,12 +309,12 @@ CREATE TABLE `users` (
   `user_type` enum('admin','midwife','nurse','patient') NOT NULL DEFAULT 'patient',
   `name` varchar(100) NOT NULL,
   `email` varchar(100) NOT NULL,
-  `phone` varchar(20) DEFAULT NULL,
-  `password` varchar(255) DEFAULT NULL,
+  `phone` varchar(20) NOT NULL,
+  `password` varchar(255) NOT NULL,
   `otp` varchar(6) DEFAULT NULL,
   `otp_expiry` datetime DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT 1,
-  `last_login` datetime DEFAULT NULL,
+  `last_login` datetime NOT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -316,11 +324,11 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `role_id`, `user_type`, `name`, `email`, `phone`, `password`, `otp`, `otp_expiry`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', NULL, NULL, NULL, 1, NULL, '2025-06-30 20:52:14', '2025-06-30 13:25:08'),
-(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', NULL, NULL, NULL, 1, NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(3, 3, 'nurse', 'John Nurse', 'nurse@immucare.com', '+1234567892', NULL, NULL, NULL, 1, NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(4, 4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '+1234567893', NULL, NULL, NULL, 1, NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(5, 4, 'patient', 'asdadad', 'stephanyartieda@sksu.edu.ph', '09319750668', NULL, NULL, NULL, 1, NULL, '2025-06-30 21:31:35', '2025-06-30 13:31:35');
+(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '$2y$10$0d0Hn8zfYGEfXFlGrlxL5OMbsAXuft90xp6fb0nGVXmOIA532U7.y', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-06-30 20:52:14', '2025-07-01 05:37:04'),
+(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '$2y$10$1CzcVqbStPe3By1x6i0mOOeSc5d1XppCGPTVeI6F4OvfORO0g1USW', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-06-30 20:52:14', '2025-07-01 05:37:23'),
+(3, 3, 'nurse', 'John Nurse', 'nurse@immucare.com', '+1234567892', '', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
+(4, 4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '+1234567893', '$2y$10$i4nrJwhdt1o6A.LGZrcWLOAwws.oIQzkAKqI/H9sOglnCZ0xQt1CS', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-06-30 20:52:14', '2025-07-01 05:37:40'),
+(15, 4, 'patient', 'Stephany lablab', 'stephanyartieda@sksu.edu.ph', '09920157536', '12345678', NULL, NULL, 1, '2025-07-01 13:47:32', '2025-07-01 11:06:19', '2025-07-01 05:47:32');
 
 -- --------------------------------------------------------
 
@@ -377,7 +385,8 @@ ALTER TABLE `data_transfers`
 --
 ALTER TABLE `email_logs`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `notification_id` (`notification_id`);
 
 --
 -- Indexes for table `health_centers`
@@ -420,7 +429,8 @@ ALTER TABLE `roles`
 --
 ALTER TABLE `sms_logs`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `patient_id` (`patient_id`);
+  ADD KEY `patient_id` (`patient_id`),
+  ADD KEY `notification_id` (`notification_id`);
 
 --
 -- Indexes for table `system_settings`
@@ -452,7 +462,7 @@ ALTER TABLE `vaccines`
 -- AUTO_INCREMENT for table `appointments`
 --
 ALTER TABLE `appointments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `data_transfers`
@@ -464,7 +474,7 @@ ALTER TABLE `data_transfers`
 -- AUTO_INCREMENT for table `email_logs`
 --
 ALTER TABLE `email_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
 
 --
 -- AUTO_INCREMENT for table `health_centers`
@@ -482,13 +492,13 @@ ALTER TABLE `immunizations`
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
 
 --
 -- AUTO_INCREMENT for table `patients`
 --
 ALTER TABLE `patients`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `roles`
@@ -500,19 +510,19 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT for table `sms_logs`
 --
 ALTER TABLE `sms_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `system_settings`
 --
 ALTER TABLE `system_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `vaccines`
@@ -542,45 +552,23 @@ ALTER TABLE `data_transfers`
 -- Constraints for table `email_logs`
 --
 ALTER TABLE `email_logs`
-  ADD CONSTRAINT `email_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `email_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `email_logs_ibfk_2` FOREIGN KEY (`notification_id`) REFERENCES `notifications` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `immunizations`
 --
 ALTER TABLE `immunizations`
   ADD CONSTRAINT `immunizations_ibfk_1` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `immunizations_ibfk_2` FOREIGN KEY (`vaccine_id`) REFERENCES `vaccines` (`id`),
-  ADD CONSTRAINT `immunizations_ibfk_3` FOREIGN KEY (`administered_by`) REFERENCES `users` (`id`);
-
---
--- Constraints for table `notifications`
---
-ALTER TABLE `notifications`
-  ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `patients`
---
-ALTER TABLE `patients`
-  ADD CONSTRAINT `patients_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `immunizations_ibfk_2` FOREIGN KEY (`vaccine_id`) REFERENCES `vaccines` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `immunizations_ibfk_3` FOREIGN KEY (`administered_by`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `sms_logs`
 --
 ALTER TABLE `sms_logs`
-  ADD CONSTRAINT `sms_logs_ibfk_1` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `system_settings`
---
-ALTER TABLE `system_settings`
-  ADD CONSTRAINT `system_settings_ibfk_1` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `users`
---
-ALTER TABLE `users`
-  ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`);
+  ADD CONSTRAINT `sms_logs_ibfk_1` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `sms_logs_ibfk_2` FOREIGN KEY (`notification_id`) REFERENCES `notifications` (`id`) ON DELETE SET NULL;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

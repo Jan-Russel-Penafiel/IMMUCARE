@@ -3,9 +3,6 @@ session_start();
 require 'vendor/autoload.php';
 require 'config.php';
 
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
 $error = '';
 $success = '';
 
@@ -18,9 +15,10 @@ if (isset($_SESSION['user_id'])) {
 // Process login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+    $password = isset($_POST['password']) ? $_POST['password'] : '';
     
-    if (empty($email)) {
-        $error = 'Please enter your email address';
+    if (empty($email) || empty($password)) {
+        $error = 'Please enter both email and password';
     } else {
         // Connect to database
         $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -30,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         }
         
         // Check if user exists and get all necessary user data
-        $stmt = $conn->prepare("SELECT id, email, name, user_type, phone, is_active, role_id FROM users WHERE email = ?");
+        $stmt = $conn->prepare("SELECT id, email, name, user_type, password, phone, is_active, role_id FROM users WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -42,32 +40,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
             if ($user['is_active'] != 1) {
                 $error = 'Your account is inactive. Please contact an administrator.';
             }
-            else {
-                // Generate OTP
-                $otp = rand(100000, 999999);
-                $otp_expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+            // Check password - either as hashed or plain text
+            else if (
+                (strlen($user['password']) >= 60 && password_verify($password, $user['password'])) || // Hashed password check
+                ($user['password'] === $password) // Plain text password check
+            ) {
+                // Set user session
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_email'] = $user['email'];
+                $_SESSION['user_name'] = $user['name'];
+                $_SESSION['user_type'] = $user['user_type'];
+                $_SESSION['user_role_id'] = $user['role_id'];
+                $_SESSION['user_phone'] = $user['phone'];
                 
-                // Store OTP in database
-                $stmt = $conn->prepare("UPDATE users SET otp = ?, otp_expiry = ? WHERE id = ?");
-                $stmt->bind_param("ssi", $otp, $otp_expiry, $user['id']);
-                $stmt->execute();
+                // Update last login timestamp
+                $update_stmt = $conn->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
+                $update_stmt->bind_param("i", $user['id']);
+                $update_stmt->execute();
+                $update_stmt->close();
                 
-                // Send OTP via email
-                if (sendOTP($user['email'], $user['name'], $otp)) {
-                    // Store user data in session
-                    $_SESSION['temp_user_id'] = $user['id'];
-                    $_SESSION['temp_user_email'] = $user['email'];
-                    $_SESSION['temp_user_name'] = $user['name'];
-                    $_SESSION['temp_user_type'] = $user['user_type'];
-                    $_SESSION['temp_user_role_id'] = $user['role_id'];
-                    $_SESSION['temp_user_phone'] = $user['phone'];
-                    
-                    // Redirect to OTP verification page
-                    header('Location: verify_otp.php');
-                    exit;
-                } else {
-                    $error = 'Failed to send OTP. Please try again.';
+                // Redirect based on user type
+                switch ($user['user_type']) {
+                    case 'admin':
+                        header('Location: admin_dashboard.php');
+                        break;
+                    case 'nurse':
+                        header('Location: nurse_dashboard.php');
+                        break;
+                    case 'midwife':
+                        header('Location: midwife_dashboard.php');
+                        break;
+                    case 'patient':
+                        header('Location: patient_dashboard.php');
+                        break;
+                    default:
+                        header('Location: dashboard.php');
                 }
+                exit;
+            } else {
+                $error = 'Invalid password. Please try again.';
             }
         } else {
             $error = 'Email not found. Please register first.';
@@ -77,50 +88,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         $conn->close();
     }
 }
-
-// Function to send OTP via email
-function sendOTP($email, $name, $otp) {
-    $mail = new PHPMailer(true);
-    
-    try {
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USER;
-        $mail->Password = SMTP_PASS;
-        $mail->SMTPSecure = SMTP_SECURE;
-        $mail->Port = SMTP_PORT;
-        
-        // Recipients
-        $mail->setFrom(SMTP_USER, 'ImmuCare');
-        $mail->addAddress($email, $name);
-        
-        // Content
-        $mail->isHTML(true);
-        $mail->Subject = 'Your ImmuCare Login OTP';
-        $mail->Body = '
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="https://yourwebsite.com/images/logo.svg" alt="ImmuCare Logo" style="max-width: 150px;">
-                </div>
-                <h2 style="color: #4285f4;">One-Time Password (OTP) Verification</h2>
-                <p>Hello ' . $name . ',</p>
-                <p>Your OTP for logging into ImmuCare is:</p>
-                <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
-                    ' . $otp . '
-                </div>
-                <p>This OTP is valid for 10 minutes. If you did not request this OTP, please ignore this email.</p>
-                <p>Thank you,<br>ImmuCare Team</p>
-            </div>
-        ';
-        
-        $mail->send();
-        return true;
-    } catch (Exception $e) {
-        return false;
-    }
-}
 ?>
 
 <!DOCTYPE html>
@@ -128,7 +95,7 @@ function sendOTP($email, $name, $otp) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - ImmuCare</title>
+    <title>Password Login - ImmuCare</title>
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -312,8 +279,8 @@ function sendOTP($email, $name, $otp) {
                     <div class="auth-logo">
                         <img src="images/logo.svg" alt="ImmuCare Logo">
                     </div>
-                    <h1 class="auth-title">Login to ImmuCare</h1>
-                    <p class="auth-subtitle">Enter your email to receive a one-time password</p>
+                    <h1 class="auth-title">Login with Password</h1>
+                    <p class="auth-subtitle">Enter your email and password to access your account</p>
                     
                     <?php if (!empty($error)): ?>
                         <div class="alert alert-danger" role="alert">
@@ -330,17 +297,21 @@ function sendOTP($email, $name, $otp) {
                     <?php endif; ?>
                     
                     <form method="POST" action="">
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="email" class="form-label">Email Address</label>
                             <input type="email" class="form-control" id="email" name="email" required>
                         </div>
-                        <button type="submit" name="login" class="btn btn-primary w-100">Get OTP</button>
+                        <div class="mb-4">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <button type="submit" name="login" class="btn btn-primary w-100">Login</button>
                     </form>
                     
                     <div class="auth-links">
                         <div class="row gx-2 gy-2 mt-3">
                             <div class="col-6 text-center">
-                                <a href="login_password.php" class="btn btn-outline-primary btn-sm-mobile w-100"><i class="fas fa-key me-2"></i>Use Password</a>
+                                <a href="login.php" class="btn btn-outline-primary btn-sm-mobile w-100"><i class="fas fa-mobile-alt me-2"></i>Use OTP</a>
                             </div>
                             <div class="col-6 text-center">
                                 <a href="index.php" class="btn btn-outline-secondary btn-sm-mobile w-100"><i class="fas fa-home me-2"></i>Back to Home</a>
@@ -359,10 +330,11 @@ function sendOTP($email, $name, $otp) {
         // Add client-side validation
         document.querySelector('form').addEventListener('submit', function(e) {
             const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
             
-            if (!email) {
+            if (!email || !password) {
                 e.preventDefault();
-                alert('Please enter your email address');
+                alert('Please enter both email and password');
             }
         });
     </script>

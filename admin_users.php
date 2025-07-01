@@ -60,75 +60,13 @@ if ($action == 'add' && isset($_POST['add_user'])) {
         $update_stmt->bind_param("si", $user_type, $new_user_id);
         $update_stmt->execute();
         
-        // Send welcome notification via both SMS and Email
-        $welcome_message = "Welcome to ImmuCare! Your account has been created as a " . ucfirst($user_type) . ". " .
-                          "You can now access our system using your email (" . $email . ") and the provided password. " .
-                          "For security reasons, please change your password after your first login. " .
-                          "If you need any assistance, please contact our support team.";
-        
-        $notification_system->sendCustomNotification(
-            $new_user_id,
-            "Welcome to ImmuCare - Account Created",
-            $welcome_message,
-            'both'
-        );
-        
-        // Send welcome email to the new user
-        $mail = new PHPMailer(true);
-        try {
-            // Server settings
-            $mail->isSMTP();
-            $mail->Host = SMTP_HOST;
-            $mail->SMTPAuth = true;
-            $mail->Username = SMTP_USER;
-            $mail->Password = SMTP_PASS;
-            $mail->SMTPSecure = SMTP_SECURE;
-            $mail->Port = SMTP_PORT;
-            
-            // Recipients
-            $mail->setFrom(SMTP_USER, APP_NAME);
-            $mail->addAddress($email, $name);
-            
-            // Generate a random password if needed
-            $plainPassword = $password;
-            
-            // Content
-            $mail->isHTML(true);
-            $mail->Subject = 'Welcome to ' . APP_NAME . ' - Account Created';
-            $mail->Body = '
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
-                    </div>
-                    <h2 style="color: #4285f4;">Welcome to ' . APP_NAME . '!</h2>
-                    <p>Hello ' . $name . ',</p>
-                    <p>Your account has been successfully created by an administrator.</p>
-                    <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                        <p><strong>Email:</strong> ' . $email . '</p>
-                        <p><strong>Password:</strong> ' . $plainPassword . '</p>
-                        <p><strong>Role:</strong> ' . ucfirst($user_type) . '</p>
-                    </div>
-                    <p>You can now log in to your account using the provided credentials. We recommend changing your password after your first login.</p>
-                    <p>If you have any questions, please contact our support team.</p>
-                    <div style="text-align: center; margin-top: 30px;">
-                        <a href="' . APP_URL . '/login.php" style="background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Your Account</a>
-                    </div>
-                    <p style="margin-top: 30px;">Thank you,<br>' . APP_NAME . ' Team</p>
-                </div>
-            ';
-            
-            $mail->send();
-            $action_message = "User added successfully! A welcome email has been sent to " . $email;
-            
-            // Log the email
-            $log_stmt = $conn->prepare("INSERT INTO email_logs (user_id, email_address, subject, message, status, sent_at, created_at) VALUES (?, ?, ?, ?, 'sent', NOW(), NOW())");
-            $subject = 'Welcome to ' . APP_NAME . ' - Account Created';
-            $log_stmt->bind_param("isss", $new_user_id, $email, $subject, $mail->Body);
-            $log_stmt->execute();
-            
-        } catch (Exception $e) {
-            error_log("Email sending failed: " . $mail->ErrorInfo);
-            $action_message = "User added successfully! However, the welcome email could not be sent.";
+        // Send welcome notification only if it's a patient account
+        if ($role_id == 4) {
+            $notification_system->sendPatientAccountNotification(
+                $new_user_id,
+                'created',
+                ['password' => $password]
+            );
         }
         
         // If the role is "patient" (role_id = 4), redirect to add new patient page
@@ -145,92 +83,128 @@ if ($action == 'add' && isset($_POST['add_user'])) {
 
 // Edit user
 if ($action == 'edit' && isset($_POST['edit_user'])) {
-    $user_id = $_POST['user_id'];
-    $name = $_POST['name'];
-    $email = $_POST['email'];
-    $role_id = $_POST['role_id'];
-    $phone = $_POST['phone'];
-    $is_active = isset($_POST['is_active']) ? 1 : 0;
-
-    $query = "UPDATE users SET name = ?, email = ?, role_id = ?, phone = ?, is_active = ? WHERE id = ?";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("ssisii", $name, $email, $role_id, $phone, $is_active, $user_id);
+    // Start transaction
+    $conn->begin_transaction();
     
-    if ($stmt->execute()) {
+    try {
+        $user_id = $_POST['user_id'];
+        $name = $_POST['name'];
+        $email = $_POST['email'];
+        $role_id = $_POST['role_id'];
+        $phone = $_POST['phone'];
+        $is_active = isset($_POST['is_active']) ? 1 : 0;
+
+        // Update user
+        $query = "UPDATE users SET name = ?, email = ?, role_id = ?, phone = ?, is_active = ? WHERE id = ?";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("ssisii", $name, $email, $role_id, $phone, $is_active, $user_id);
+        
+        if (!$stmt->execute()) {
+            throw new Exception("Error updating user: " . $conn->error);
+        }
+        
         // Update password if provided
         if (!empty($_POST['password'])) {
             $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
             $stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
             $stmt->bind_param("si", $password, $user_id);
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                throw new Exception("Error updating password: " . $conn->error);
+            }
         }
         
-        // Send update notification via both SMS and Email
-        $update_message = "Your ImmuCare account information has been updated by an administrator.\n\n" .
-                         "Updated Information:\n" .
-                         "- Name: " . $name . "\n" .
-                         "- Email: " . $email . "\n" .
-                         "- Role: " . ucfirst($role_id == 1 ? 'Admin' : ($role_id == 2 ? 'Midwife' : ($role_id == 3 ? 'Nurse' : 'Patient'))) . "\n" .
-                         "- Status: " . ($is_active ? 'Active' : 'Inactive') . "\n\n" .
-                         (!empty($_POST['password']) ? "Your password has also been updated. " : "") .
-                         "If you did not request these changes or notice any discrepancies, please contact our support team immediately.";
+        // Check if user has associated patient record
+        $check_patient = $conn->prepare("SELECT id FROM patients WHERE user_id = ?");
+        $check_patient->bind_param("i", $user_id);
+        $check_patient->execute();
+        $patient_result = $check_patient->get_result();
         
-        $notification_system->sendCustomNotification(
+        if ($patient_result->num_rows > 0) {
+            // Extract first and last name from full name
+            $name_parts = explode(' ', $name);
+            $first_name = $name_parts[0];
+            $last_name = count($name_parts) > 1 ? end($name_parts) : '';
+            
+            // Update associated patient record
+            $update_patient = $conn->prepare("UPDATE patients SET first_name = ?, last_name = ?, phone_number = ? WHERE user_id = ?");
+            $update_patient->bind_param("sssi", $first_name, $last_name, $phone, $user_id);
+            if (!$update_patient->execute()) {
+                throw new Exception("Error updating associated patient record: " . $conn->error);
+            }
+        }
+        
+        // Send update notification
+        $notification_system->sendPatientAccountNotification(
             $user_id,
-            "Account Information Updated",
-            $update_message,
-            'both'
+            'updated',
+            [
+                'is_active' => $is_active,
+                'password_updated' => !empty($_POST['password'])
+            ]
         );
         
-        $action_message = "User updated successfully!";
+        // Commit transaction
+        $conn->commit();
+        $action_message = "User and associated records updated successfully!";
         $action = ''; // Return to list view
-    } else {
-        $action_message = "Error updating user: " . $conn->error;
+        
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        $action_message = "Error: " . $e->getMessage();
     }
 }
 
 // Delete user
-if ($action == 'delete' && isset($_GET['id'])) {
+if ($action === 'delete' && isset($_GET['id'])) {
     $user_id = $_GET['id'];
     
-    // Check if not deleting self
-    if ($user_id == $admin_id) {
-        $action_message = "You cannot delete your own account!";
-    } else {
-        // Get user email and phone before deletion for notification
-        $get_user = $conn->prepare("SELECT email, phone, name, user_type FROM users WHERE id = ?");
-        $get_user->bind_param("i", $user_id);
-        $get_user->execute();
-        $user_result = $get_user->get_result();
-        $user_data = $user_result->fetch_assoc();
+    try {
+        // Start transaction
+        $conn->begin_transaction();
         
-        // Send deletion notification via both SMS and Email before deleting
-        if ($user_data) {
-            $delete_message = "Important Notice: Your ImmuCare account has been deactivated.\n\n" .
-                             "This means you will no longer have access to the ImmuCare system. " .
-                             "If you believe this was done in error, please contact our support team immediately at " . SUPPORT_EMAIL . ".\n\n" .
-                             "Account Details:\n" .
-                             "- Name: " . $user_data['name'] . "\n" .
-                             "- Email: " . $user_data['email'] . "\n" .
-                             "- Account Type: " . ucfirst($user_data['user_type']) . "\n\n" .
-                             "Thank you for using ImmuCare.";
-            
-            $notification_system->sendCustomNotification(
-                $user_id,
-                "Account Deactivation Notice",
-                $delete_message,
-                'both'
-            );
+        // Get user data before deletion
+        $stmt = $conn->prepare("SELECT name, email, user_type FROM users WHERE id = ?");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $user_data = $stmt->get_result()->fetch_assoc();
+        
+        // Check if user exists
+        if (!$user_data) {
+            throw new Exception("User not found");
         }
         
+        // Send deletion notification BEFORE deleting the user
+        try {
+            $notification_system->sendPatientAccountNotification(
+                $user_id,
+                'deleted',
+                []
+            );
+        } catch (Exception $e) {
+            // Log notification error but continue with deletion
+            error_log("Failed to send deletion notification: " . $e->getMessage());
+        }
+
+        // Now proceed with user deletion
         $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
         $stmt->bind_param("i", $user_id);
+        $stmt->execute();
         
-        if ($stmt->execute()) {
-            $action_message = "User deleted successfully!";
-        } else {
-            $action_message = "Error deleting user: " . $conn->error;
-        }
+        // Delete associated patient record if exists
+        $stmt = $conn->prepare("DELETE FROM patients WHERE user_id = ?");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        
+        // Commit transaction
+        $conn->commit();
+        
+        $action_message = "User and associated records deleted successfully! A notification has been sent via email.";
+        
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        $action_message = "Error: " . $e->getMessage();
     }
     
     $action = ''; // Return to list view

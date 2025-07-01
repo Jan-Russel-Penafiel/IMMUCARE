@@ -6,15 +6,28 @@
  * for appointment reminders, immunization alerts, and other system notifications.
  */
 
+// First include config.php to get the existing constants
 require_once 'config.php';
 require_once 'vendor/autoload.php';
+
+// Only define constants that aren't in config.php
+if (!defined('SMTP_FROM_EMAIL')) {
+    define('SMTP_FROM_EMAIL', 'noreply@immucare.com');
+}
+if (!defined('SMTP_FROM_NAME')) {
+    define('SMTP_FROM_NAME', 'IMMUCARE');
+}
+
 require_once 'includes/sms_helper.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 class NotificationSystem {
     private $conn;
+    private $max_retries = 3;
+    private $retry_delay = 1; // seconds
     
     /**
      * Constructor - initialize database connection
@@ -23,15 +36,18 @@ class NotificationSystem {
         $this->conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
         
         if ($this->conn->connect_error) {
-            die("Connection failed: " . $this->conn->connect_error);
+            throw new Exception("Connection failed: " . $this->conn->connect_error);
         }
+        $this->conn->set_charset("utf8mb4");
     }
     
     /**
      * Destructor - close database connection
      */
     public function __destruct() {
+        if ($this->conn) {
         $this->conn->close();
+        }
     }
     
     /**
@@ -116,7 +132,7 @@ class NotificationSystem {
                 $subject = "Appointment Reminder: " . $formatted_date;
                 $message = $this->getAppointmentEmailTemplate($patient_name, $purpose, $formatted_date, $formatted_time, $location);
                 
-                $email_result = $this->sendEmail($appointment['email'], $patient_name, $subject, $message, $appointment['user_id']);
+                $email_result = $this->sendEmail($appointment['email'], $subject, $message);
                 
                 if ($email_result) {
                     $results['email_sent']++;
@@ -222,9 +238,9 @@ class NotificationSystem {
             // Send email notification if enabled
             if ($email_enabled && !empty($immunization['email'])) {
                 $subject = "Immunization Due: " . $vaccine_name;
-                $message = $this->getImmunizationDueEmailTemplate($patient_name, $vaccine_name, $formatted_due_date);
+                $message = $this->getImmunizationEmailTemplate($patient_name, $vaccine_name, $formatted_due_date);
                 
-                $email_result = $this->sendEmail($immunization['email'], $patient_name, $subject, $message, $immunization['user_id']);
+                $email_result = $this->sendEmail($immunization['email'], $subject, $message);
                 
                 if ($email_result) {
                     $results['email_sent']++;
@@ -264,81 +280,103 @@ class NotificationSystem {
      * @param int $user_id User ID to send notification to
      * @param string $title Notification title
      * @param string $message Notification message
-     * @param string $type Notification type (email, sms, or both)
-     * @return array Results of the notification process
+     * @param string $channel Notification type (email, sms, or both)
+     * @return bool Whether the notification was sent successfully
      */
-    public function sendCustomNotification($user_id, $title, $message, $type = 'both') {
-        $results = [
-            'email_sent' => false,
-            'sms_sent' => false
-        ];
+    public function sendCustomNotification($user_id, $title, $message, $channel = 'both') {
+        try {
+            // Start transaction
+            $this->conn->begin_transaction();
         
-        // Get user and patient information
-        $stmt = $this->conn->prepare("
-            SELECT 
-                u.id as user_id,
-                u.email,
-                u.name as user_name,
-                p.id as patient_id,
-                p.phone_number,
-                p.first_name,
-                p.last_name
-            FROM 
-                users u
+            // Create notification record first
+            $notification_stmt = $this->conn->prepare("
+                INSERT INTO notifications (
+                    user_id, 
+                    title, 
+                    message, 
+                    type,
+                    is_read,
+                    sent_at,
+                    created_at
+                ) VALUES (?, ?, ?, 'system', 0, NOW(), NOW())
+            ");
+            
+            $notification_stmt->bind_param("iss", $user_id, $title, $message);
+            
+            if (!$notification_stmt->execute()) {
+                throw new Exception("Failed to create notification record");
+            }
+            
+            $notification_id = $this->conn->insert_id;
+            
+            // Get user and patient details
+            $user_stmt = $this->conn->prepare("
+                SELECT 
+                    u.email as user_email,
+                    u.phone as user_phone,
+                    u.name as user_name,
+                    p.id as patient_id,
+                    p.phone_number as patient_phone,
+                    CONCAT(p.first_name, ' ', p.last_name) as patient_name
+                FROM users u
                 LEFT JOIN patients p ON u.id = p.user_id
-            WHERE 
-                u.id = ?
-        ");
+                WHERE u.id = ?
+            ");
+            $user_stmt->bind_param("i", $user_id);
+            $user_stmt->execute();
+            $user = $user_stmt->get_result()->fetch_assoc();
         
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows === 0) {
-            return ['error' => 'User not found'];
-        }
-        
-        $user = $result->fetch_assoc();
-        $patient_name = !empty($user['first_name']) ? $user['first_name'] . ' ' . $user['last_name'] : $user['user_name'];
-        
-        // Send email notification
-        if (($type === 'email' || $type === 'both') && !empty($user['email'])) {
-            $email_result = $this->sendEmail(
-                $user['email'], 
-                $patient_name, 
-                $title, 
-                $title === "Patient Profile Created" ? 
-                    $this->getPatientProfileCreatedTemplate($patient_name) : 
-                    $this->getCustomEmailTemplate($patient_name, $title, $message), 
-                $user['user_id'],
-                'custom_notification',
-                null
-            );
-            
-            if ($email_result) {
-                $results['email_sent'] = true;
+            if (!$user) {
+                throw new Exception("User not found");
             }
-        }
         
-        // Send SMS notification
-        if (($type === 'sms' || $type === 'both') && !empty($user['phone_number'])) {
-            $sms_message = "IMMUCARE: {$title} - {$message}";
-            $sms_result = $this->sendSMS(
-                $user['phone_number'], 
-                $sms_message, 
-                $user['patient_id'], 
-                $user['user_id'], 
-                $title,
-                'custom_notification',
-                null
-            );
-            
-            if ($sms_result) {
-                $results['sms_sent'] = true;
+            $success = true;
+            $name_to_use = $user['patient_name'] ?? $user['user_name'];
+        
+            // Send email if requested
+            if ($channel === 'both' || $channel === 'email') {
+                if (!empty($user['user_email'])) {
+                    $email_message = $this->getCustomEmailTemplate($name_to_use, $title, $message);
+                    if (!$this->sendEmail($user['user_email'], $title, $email_message)) {
+                        $success = false;
+                    }
+                }
             }
-        }
         
-        return $results;
+            // Send SMS if requested
+            if ($channel === 'both' || $channel === 'sms') {
+                // Use patient phone number if available, otherwise use user phone
+                $phone_to_use = !empty($user['patient_phone']) ? $user['patient_phone'] : $user['user_phone'];
+                
+                if (!empty($phone_to_use)) {
+                    $sms_message = "IMMUCARE: $title - $message";
+                    if (!$this->sendSMS(
+                        $phone_to_use, 
+                        $sms_message, 
+                        $user['patient_id'] ?? $user_id, 
+                        $user_id, 
+                        $notification_id, 
+                        $title, 
+                        'custom_notification'
+                    )) {
+                        $success = false;
+                    }
+                }
+            }
+            
+            if ($success) {
+                $this->conn->commit();
+                return true;
+            } else {
+                $this->conn->rollback();
+                return false;
+            }
+            
+        } catch (Exception $e) {
+            $this->conn->rollback();
+            error_log("Error in sendCustomNotification: " . $e->getMessage());
+            throw $e;
+        }
     }
     
     /**
@@ -383,311 +421,223 @@ class NotificationSystem {
      * 
      * @param string $phone_number Recipient phone number
      * @param string $message SMS message
-     * @param int $patient_id Patient ID for logging
+     * @param int $patient_id Patient ID
      * @param int $user_id User ID for notification table
      * @param string $title Notification title
      * @param string $related_to Related entity type (e.g., appointment, immunization)
      * @param int $related_id Related entity ID
      * @return bool Whether the SMS was sent successfully
      */
-    private function sendSMS($phone_number, $message, $patient_id = null, $user_id = null, $title = '', $related_to = 'general', $related_id = null) {
-        // Call the global sendSMS function from sms_helper.php
-        $sms_result = sendSMS($phone_number, $message);
-        
-        // Determine status based on result
-        $status = ($sms_result['status'] === 'sent') ? 'sent' : 'failed';
-        $provider_response = isset($sms_result['response']) ? json_encode($sms_result['response']) : $sms_result['message'];
-        
-        // Log the SMS attempt
-        if ($patient_id) {
-            $stmt = $this->conn->prepare("
-                INSERT INTO sms_logs (
-                    patient_id, 
-                    phone_number, 
-                    message, 
-                    status, 
-                    provider_response,
-                    related_to,
-                    related_id,
-                    sent_at, 
-                    created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-            ");
-            
-            $stmt->bind_param("isssssi", 
-                $patient_id, 
-                $phone_number, 
-                $message, 
-                $status, 
-                $provider_response,
-                $related_to,
-                $related_id
-            );
-            $stmt->execute();
-        }
-        
-        // Add to notifications table if user_id is provided
-        if ($user_id && $sms_result['status'] === 'sent') {
-            $stmt = $this->conn->prepare("
-                INSERT INTO notifications (
-                    user_id, 
-                    title, 
-                    message, 
-                    type, 
-                    is_read,
-                    sent_at, 
-                    created_at
-                ) VALUES (?, ?, ?, 'sms', 0, NOW(), NOW())
-            ");
-            
-            $stmt->bind_param("iss", $user_id, $title, $message);
-            $stmt->execute();
-        }
-        
-        return ($sms_result['status'] === 'sent');
-    }
-    
-    /**
-     * Send an email using PHPMailer and log it
-     * 
-     * @param string $to_email Recipient email
-     * @param string $to_name Recipient name
-     * @param string $subject Email subject
-     * @param string $body Email body (HTML)
-     * @param int $user_id User ID for logging
-     * @param string $related_to Related entity type (e.g., appointment, immunization)
-     * @param int $related_id Related entity ID
-     * @return bool Whether the email was sent successfully
-     */
-    private function sendEmail($to_email, $to_name, $subject, $body, $user_id = null, $related_to = 'general', $related_id = null) {
-        $mail = new PHPMailer(true);
-        
+    private function sendSMS($phone_number, $message, $patient_id = NULL, $user_id, $notification_id = NULL, $title = '', $related_to = 'general', $related_id = NULL) {
         try {
-            // Server settings
-            $mail->isSMTP();
-            $mail->Host = SMTP_HOST;
-            $mail->SMTPAuth = true;
-            $mail->Username = SMTP_USER;
-            $mail->Password = SMTP_PASS;
-            $mail->SMTPSecure = SMTP_SECURE;
-            $mail->Port = SMTP_PORT;
+            // Format phone number (remove any non-numeric characters except +)
+            $phone_number = preg_replace('/[^0-9+]/', '', $phone_number);
             
-            // Recipients
-            $mail->setFrom(SMTP_USER, 'ImmuCare');
-            $mail->addAddress($to_email, $to_name);
+            // If number doesn't start with +63, add it (for Philippine numbers)
+            if (substr($phone_number, 0, 1) === '0') {
+                $phone_number = '+63' . substr($phone_number, 1);
+            } elseif (substr($phone_number, 0, 2) === '63') {
+                $phone_number = '+' . $phone_number;
+            }
             
-            // Content
-            $mail->isHTML(true);
-            $mail->Subject = $subject;
-            $mail->Body = $body;
+            // Get PhilSMS API key from system settings
+            $settings_stmt = $this->conn->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'philsms_api_key' LIMIT 1");
+            $settings_stmt->execute();
+            $api_key = $settings_stmt->get_result()->fetch_assoc()['setting_value'];
             
-            $result = $mail->send();
+            // Prepare the API request
+            $url = 'https://app.philsms.com/api/v3/sms/send';
+            $data = [
+                'recipient' => $phone_number,
+                'message' => $message,
+                'sender_id' => 'PhilSMS'
+            ];
             
-            // Log the email attempt
-            if ($user_id) {
-                $stmt = $this->conn->prepare("
-                    INSERT INTO email_logs (
-                        user_id, 
-                        email_address, 
-                        subject, 
-                        message, 
-                        status, 
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $api_key,
+                'Content-Type: application/json'
+            ]);
+            
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($http_code === 200) {
+                // Log the successful SMS
+                $log_stmt = $this->conn->prepare("
+                    INSERT INTO sms_logs (
+                        notification_id,
+                        patient_id,
+                        user_id,
+                        phone_number,
+                        message,
+                        status,
                         provider_response,
                         related_to,
                         related_id,
-                        sent_at, 
+                        sent_at,
                         created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                    ) VALUES (?, ?, ?, ?, ?, 'sent', ?, ?, ?, NOW(), NOW())
                 ");
                 
-                $status = $result ? 'sent' : 'failed';
-                $provider_response = $result ? 'Email sent successfully' : $mail->ErrorInfo;
-                $stmt->bind_param("issssssi", 
-                    $user_id, 
-                    $to_email, 
-                    $subject, 
-                    $body, 
-                    $status, 
-                    $provider_response,
+                $log_stmt->bind_param(
+                    "iiissssi",
+                    $notification_id,
+                    $patient_id,
+                    $user_id,
+                    $phone_number,
+                    $message,
+                    $response,
                     $related_to,
                     $related_id
                 );
-                $stmt->execute();
                 
-                // Add to notifications table
-                if ($result) {
-                    $stmt = $this->conn->prepare("
-                        INSERT INTO notifications (
-                            user_id, 
-                            title, 
-                            message, 
-                            type, 
-                            is_read,
-                            sent_at, 
-                            created_at
-                        ) VALUES (?, ?, ?, 'email', 0, NOW(), NOW())
-                    ");
-                    
-                    $stmt->bind_param("iss", $user_id, $subject, $body);
-                    $stmt->execute();
+                if (!$log_stmt->execute()) {
+                    error_log("Failed to log SMS: " . $this->conn->error);
                 }
+                
+                return true;
+            } else {
+                // Log the failed SMS attempt
+                $log_stmt = $this->conn->prepare("
+                    INSERT INTO sms_logs (
+                        notification_id,
+                        patient_id,
+                        user_id,
+                        phone_number,
+                        message,
+                        status,
+                        provider_response,
+                        related_to,
+                        related_id,
+                        sent_at,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, 'failed', ?, ?, ?, NOW(), NOW())
+                ");
+                
+                $log_stmt->bind_param(
+                    "iiissssi",
+                    $notification_id,
+                    $patient_id,
+                    $user_id,
+                    $phone_number,
+                    $message,
+                    $response,
+                    $related_to,
+                    $related_id
+                );
+                
+                if (!$log_stmt->execute()) {
+                    error_log("Failed to log SMS: " . $this->conn->error);
+                }
+                
+                return false;
             }
             
-            return $result;
         } catch (Exception $e) {
-            error_log("Email sending failed: " . $mail->ErrorInfo);
+            error_log("Error sending SMS: " . $e->getMessage());
             return false;
         }
     }
     
     /**
-     * Get appointment reminder email template
+     * Send email notification
      * 
-     * @param string $patient_name Patient name
+     * @param string $to Recipient email address
+     * @param string $subject Email subject
+     * @param string $body Email body (plain text)
+     * @return bool Whether the email was sent successfully
+     */
+    private function sendEmail($to, $subject, $body) {
+        try {
+            $mail = new PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = SMTP_HOST;
+            $mail->SMTPAuth = true;
+            $mail->Username = SMTP_USER;
+            $mail->Password = SMTP_PASS;
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port = SMTP_PORT;
+            
+            $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+            $mail->addAddress($to);
+            
+            $mail->isHTML(false);
+            $mail->Subject = $subject;
+            $mail->Body = $body;
+            
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("Error sending email: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Generate appointment reminder email template
+     * 
+     * @param string $patient_name Patient's name
      * @param string $purpose Appointment purpose
-     * @param string $date Formatted appointment date
-     * @param string $time Formatted appointment time
+     * @param string $date Appointment date
+     * @param string $time Appointment time
      * @param string $location Appointment location
-     * @return string HTML email template
+     * @return string Plain text email template
      */
     private function getAppointmentEmailTemplate($patient_name, $purpose, $date, $time, $location) {
-        return '
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="https://yourwebsite.com/images/logo.svg" alt="ImmuCare Logo" style="max-width: 150px;">
-                </div>
-                <h2 style="color: #4285f4;">Appointment Reminder</h2>
-                <p>Hello ' . $patient_name . ',</p>
-                <p>This is a friendly reminder about your upcoming appointment:</p>
-                <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p><strong>Purpose:</strong> ' . $purpose . '</p>
-                    <p><strong>Date:</strong> ' . $date . '</p>
-                    <p><strong>Time:</strong> ' . $time . '</p>
-                    <p><strong>Location:</strong> ' . $location . '</p>
-                </div>
-                <p>If you need to reschedule or have any questions, please contact us as soon as possible.</p>
-                <p>Thank you,<br>ImmuCare Team</p>
-            </div>
-        ';
+        return "IMMUCARE: Appointment Reminder\n\n" .
+               "Hello " . $patient_name . ",\n\n" .
+               "This is a friendly reminder about your upcoming appointment:\n\n" .
+               "Purpose: " . $purpose . "\n" .
+               "Date: " . $date . "\n" .
+               "Time: " . $time . "\n" .
+               "Location: " . $location . "\n\n" .
+               "If you need to reschedule or have any questions, please contact us as soon as possible.\n\n" .
+               "Thank you,\n" .
+               "IMMUCARE Team";
     }
-    
+
     /**
-     * Get immunization due email template
+     * Generate immunization due email template
      * 
-     * @param string $patient_name Patient name
+     * @param string $patient_name Patient's name
      * @param string $vaccine_name Vaccine name
-     * @param string $due_date Formatted due date
-     * @return string HTML email template
+     * @param string $due_date Due date
+     * @return string Plain text email template
      */
-    private function getImmunizationDueEmailTemplate($patient_name, $vaccine_name, $due_date) {
-        return '
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="https://yourwebsite.com/images/logo.svg" alt="ImmuCare Logo" style="max-width: 150px;">
-                </div>
-                <h2 style="color: #4285f4;">Immunization Due Notice</h2>
-                <p>Hello ' . $patient_name . ',</p>
-                <p>This is to inform you that you have an immunization due soon:</p>
-                <div style="background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p><strong>Vaccine:</strong> ' . $vaccine_name . '</p>
-                    <p><strong>Due Date:</strong> ' . $due_date . '</p>
-                </div>
-                <p>Please schedule an appointment at your earliest convenience. You can schedule online through our website or by calling our office.</p>
-                <p>Staying up-to-date with vaccinations is an important part of maintaining your health.</p>
-                <p>Thank you,<br>ImmuCare Team</p>
-            </div>
-        ';
+    private function getImmunizationEmailTemplate($patient_name, $vaccine_name, $due_date) {
+        return "IMMUCARE: Immunization Due Notice\n\n" .
+               "Hello " . $patient_name . ",\n\n" .
+               "This is to inform you that you have an immunization due soon:\n\n" .
+               "Vaccine: " . $vaccine_name . "\n" .
+               "Due Date: " . $due_date . "\n\n" .
+               "Please schedule an appointment at your earliest convenience. " .
+               "You can schedule online through our website or by calling our office.\n\n" .
+               "Staying up-to-date with vaccinations is an important part of maintaining your health.\n\n" .
+               "Thank you,\n" .
+               "IMMUCARE Team";
     }
-    
+
     /**
-     * Get custom notification email template
+     * Generate custom email template
      * 
-     * @param string $patient_name Patient name
-     * @param string $title Notification title
-     * @param string $message Notification message
-     * @return string HTML email template
+     * @param string $patient_name Patient's name
+     * @param string $title Email title
+     * @param string $message Email message
+     * @return string Plain text email template
      */
     private function getCustomEmailTemplate($patient_name, $title, $message) {
-        return '
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e1e4e8; border-radius: 8px; background-color: #ffffff;">
-                <!-- Header with Logo -->
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <img src="' . APP_URL . '/images/logo.svg" alt="ImmuCare Logo" style="max-width: 150px; height: auto;">
-                </div>
-                
-                <!-- Title -->
-                <h2 style="color: #4285f4; font-size: 24px; font-weight: 600; margin: 0 0 20px 0; text-align: left;">' . htmlspecialchars($title) . '</h2>
-                
-                <!-- Greeting -->
-                <p style="color: #333333; font-size: 16px; line-height: 1.5; margin: 0 0 20px 0;">Hello ' . htmlspecialchars($patient_name) . ',</p>
-                
-                <!-- Message Content -->
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
-                    <div style="color: #333333; font-size: 16px; line-height: 1.6;">
-                        ' . nl2br(htmlspecialchars($message)) . '
-                    </div>
-                </div>
-                
-                <!-- Footer -->
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e1e4e8;">
-                    <p style="color: #666666; font-size: 14px; margin: 0;">Thank you,<br>ImmuCare Team</p>
-                    
-                    <!-- Contact Info -->
-                    <div style="margin-top: 20px; color: #666666; font-size: 12px;">
-                        <p style="margin: 5px 0;">Need help? Contact us at ' . SUPPORT_EMAIL . '</p>
-                        <p style="margin: 5px 0;">Phone: ' . SUPPORT_PHONE . '</p>
-                    </div>
-                </div>
-            </div>
-        ';
-    }
-    
-    /**
-     * Get patient profile creation email template
-     * 
-     * @param string $patient_name Patient's full name
-     * @return string HTML email template
-     */
-    private function getPatientProfileCreatedTemplate($patient_name) {
-        return '
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e1e4e8; border-radius: 8px; background-color: #ffffff;">
-                <!-- Header with Logo -->
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <img src="' . APP_URL . '/images/logo.svg" alt="ImmuCare Logo" style="max-width: 150px; height: auto;">
-                </div>
-                
-                <!-- Title -->
-                <h2 style="color: #4285f4; font-size: 24px; font-weight: 600; margin: 0 0 20px 0; text-align: left;">Patient Profile Created</h2>
-                
-                <!-- Greeting -->
-                <p style="color: #333333; font-size: 16px; line-height: 1.5; margin: 0 0 20px 0;">Hello ' . htmlspecialchars($patient_name) . ',</p>
-                
-                <!-- Message Content -->
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
-                    <div style="color: #333333; font-size: 16px; line-height: 1.6;">
-                        <p style="margin: 0 0 15px 0;">Your patient profile has been created successfully in the ImmuCare system. You now have access to the following features:</p>
-                        <ul style="margin: 0 0 15px 0; padding-left: 20px;">
-                            <li style="margin-bottom: 8px;">View and manage your immunization records</li>
-                            <li style="margin-bottom: 8px;">Schedule and track appointments</li>
-                            <li style="margin-bottom: 8px;">Receive important health notifications</li>
-                            <li style="margin-bottom: 8px;">Update your medical information</li>
-                        </ul>
-                        <p style="margin: 0;">Please log in to your account to complete your profile setup and verify your information.</p>
-                    </div>
-                </div>
-                
-                <!-- Footer -->
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e1e4e8;">
-                    <p style="color: #666666; font-size: 14px; margin: 0;">Thank you,<br>ImmuCare Team</p>
-                    
-                    <!-- Contact Info -->
-                    <div style="margin-top: 20px; color: #666666; font-size: 12px;">
-                        <p style="margin: 5px 0;">Need help? Contact us at ' . SUPPORT_EMAIL . '</p>
-                        <p style="margin: 5px 0;">Phone: ' . SUPPORT_PHONE . '</p>
-                    </div>
-                </div>
-            </div>
-        ';
+        return $title . "\n\n" .
+               "Hello " . $patient_name . ",\n\n" .
+               $message . "\n\n" .
+               "Thank you,\n" .
+               "IMMUCARE Team\n\n" .
+               "Need help? Contact us:\n" .
+               "Email: " . SUPPORT_EMAIL . "\n" .
+               "Phone: " . SUPPORT_PHONE;
     }
     
     /**
@@ -760,10 +710,8 @@ class NotificationSystem {
         if (!empty($appointment['email'])) {
             $email_result = $this->sendEmail(
                 $appointment['email'],
-                $patient_name,
                 $subject,
-                $this->getCustomEmailTemplate($patient_name, $subject, $email_message),
-                $appointment['user_id']
+                $email_message
             );
             
             if ($email_result) {
@@ -844,10 +792,8 @@ class NotificationSystem {
         if (!empty($user['email'])) {
             $email_result = $this->sendEmail(
                 $user['email'],
-                $full_name,
                 $subject,
-                $this->getCustomEmailTemplate($full_name, $subject, $email_message),
-                $user['user_id']
+                $email_message
             );
             
             if ($email_result) {
@@ -944,10 +890,8 @@ class NotificationSystem {
         if (!empty($immunization['email'])) {
             $email_result = $this->sendEmail(
                 $immunization['email'],
-                $patient_name,
                 $subject,
-                $this->getCustomEmailTemplate($patient_name, $subject, $email_message),
-                $immunization['user_id']
+                $email_message
             );
             
             if ($email_result) {
@@ -1059,6 +1003,168 @@ class NotificationSystem {
         
         $stmt->bind_param("i", $days);
         return $stmt->execute();
+    }
+
+    private function formatEmailMessage($message) {
+        return '
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <img src="' . APP_URL . '/images/logo.svg" alt="' . APP_NAME . ' Logo" style="max-width: 150px;">
+            </div>
+            <div style="line-height: 1.6; color: #24292e;">
+                ' . nl2br(htmlspecialchars($message)) . '
+            </div>
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e1e4e8; font-size: 0.9em; color: #6a737d;">
+                <p>This is an automated message from ' . APP_NAME . '. Please do not reply to this email.</p>
+            </div>
+        </div>';
+    }
+
+    /**
+     * Send notification for patient account-related actions
+     * 
+     * @param int $user_id User ID
+     * @param string $action Action type ('created', 'linked', 'updated', 'deleted')
+     * @param array $data Additional data for the notification
+     * @return bool Whether the notification was sent successfully
+     */
+    public function sendPatientAccountNotification($user_id, $action, $data = []) {
+        try {
+            // Get user and patient details
+            $user_stmt = $this->conn->prepare("
+                SELECT 
+                    u.email as user_email,
+                    u.phone as user_phone,
+                    u.name as user_name,
+                    u.user_type,
+                    p.id as patient_id,
+                    p.first_name,
+                    p.middle_name,
+                    p.last_name,
+                    p.date_of_birth,
+                    p.gender,
+                    p.phone_number as patient_phone,
+                    p.purok,
+                    p.city,
+                    p.province
+                FROM users u
+                LEFT JOIN patients p ON u.id = p.user_id
+                WHERE u.id = ?
+            ");
+            $user_stmt->bind_param("i", $user_id);
+            $user_stmt->execute();
+            $user = $user_stmt->get_result()->fetch_assoc();
+
+            if (!$user) {
+                throw new Exception("User not found");
+            }
+
+            switch ($action) {
+                case 'created':
+                    $is_linking = isset($data['is_linking']) && $data['is_linking'];
+                    $patient_details = isset($data['patient_details']) ? $data['patient_details'] : null;
+                    
+                    // Send account credentials via email only
+                    if (!$is_linking && isset($data['password'])) {
+                        $account_title = "IMMUCARE: Account Created Successfully";
+                        $account_message = "Dear " . $user['user_name'] . ",\n\n" .
+                                        "Your IMMUCARE account has been successfully created.\n\n" .
+                                        "Account Details:\n" .
+                                        "Email: " . $user['user_email'] . "\n" .
+                                        "Phone: " . $user['user_phone'] . "\n" .
+                                        "Password: " . $data['password'] . "\n\n" .
+                                        "For security reasons, please change your password after logging in.\n\n" .
+                                        "Need help? Contact us:\n" .
+                                        "Phone: " . SUPPORT_PHONE . "\n" .
+                                        "Email: " . SUPPORT_EMAIL . "\n\n" .
+                                        "Best regards,\n" .
+                                        "IMMUCARE Team";
+                        
+                        // Send account credentials via email only
+                        $this->sendCustomNotification($user_id, $account_title, $account_message, 'email');
+                    }
+
+                    // Send patient profile information via both SMS and email
+                    if ($patient_details) {
+                        $profile_title = "IMMUCARE: Patient Profile Created";
+                        $profile_message = "Dear " . $patient_details['first_name'] . ",\n\n" .
+                                        "Your patient profile has been created in IMMUCARE.\n\n" .
+                                        "Profile Details:\n" .
+                                        "Name: " . $patient_details['first_name'] . 
+                                        ($patient_details['middle_name'] ? " " . $patient_details['middle_name'] . " " : " ") . 
+                                        $patient_details['last_name'] . "\n" .
+                                        "Birth Date: " . date('F j, Y', strtotime($patient_details['date_of_birth'])) . "\n" .
+                                        "Gender: " . ucfirst($patient_details['gender']) . "\n" .
+                                        "Contact: " . $patient_details['phone_number'] . "\n" .
+                                        "Address: Purok " . $patient_details['purok'] . ", " . 
+                                        $patient_details['city'] . ", " . $patient_details['province'] . "\n";
+
+                        if (!empty($patient_details['medical_history'])) {
+                            $profile_message .= "\nMedical History:\n" . $patient_details['medical_history'] . "\n";
+                        }
+                        if (!empty($patient_details['allergies'])) {
+                            $profile_message .= "\nAllergies:\n" . $patient_details['allergies'] . "\n";
+                        }
+
+                        $profile_message .= "\nYou can now:\n" .
+                                        "1. View immunization records\n" .
+                                        "2. Schedule vaccinations\n" .
+                                        "3. Receive health notifications\n" .
+                                        "4. Update your information\n\n" .
+                                        "Best regards,\n" .
+                                        "IMMUCARE Team";
+
+                        // Send patient profile information via both SMS and email
+                        $this->sendCustomNotification($user_id, $profile_title, $profile_message, 'both');
+                    }
+                    return true;
+                    break;
+
+                case 'updated':
+                    $title = "IMMUCARE: Account Updated";
+                    $message = "Dear " . $user['user_name'] . ",\n\n" .
+                             "Your IMMUCARE account has been updated.\n\n" .
+                             "Update Details:\n" .
+                             "Account Status: " . ($data['is_active'] ? "Active" : "Inactive") . "\n" .
+                             (!empty($data['password_updated']) ? "Password: Updated\n" : "") . "\n" .
+                             "If you did not request these changes, please contact us immediately:\n" .
+                             "Phone: " . SUPPORT_PHONE . "\n" .
+                             "Email: " . SUPPORT_EMAIL . "\n\n" .
+                             "Best regards,\n" .
+                             "IMMUCARE Team";
+                    return $this->sendCustomNotification($user_id, $title, $message, 'both');
+                    break;
+
+                case 'deleted':
+                    $title = "IMMUCARE: Account Deleted";
+                    $message = "Dear " . $user['user_name'] . ",\n\n" .
+                             "Your IMMUCARE account and patient profile have been deleted.\n\n" .
+                             "Account Details:\n" .
+                             "Patient ID: " . $user['patient_id'] . "\n" .
+                             "Name: " . $user['first_name'] . ' ' . $user['last_name'] . "\n" .
+                             "Email: " . $user['user_email'] . "\n\n" .
+                             "This means:\n" .
+                             "1. Patient records removed\n" .
+                             "2. User account deactivated\n" .
+                             "3. Appointments cancelled\n" .
+                             "4. Vaccination reminders stopped\n\n" .
+                             "If this was done in error, contact us:\n" .
+                             "Phone: " . SUPPORT_PHONE . "\n" .
+                             "Email: " . SUPPORT_EMAIL . "\n\n" .
+                             "Best regards,\n" .
+                             "IMMUCARE Team";
+                    
+                    // Send deletion notification via email only
+                    return $this->sendCustomNotification($user_id, $title, $message, 'email');
+                    break;
+            }
+
+            return true;
+
+        } catch (Exception $e) {
+            error_log("Error in sendPatientAccountNotification: " . $e->getMessage());
+            throw $e;
+        }
     }
 }
 

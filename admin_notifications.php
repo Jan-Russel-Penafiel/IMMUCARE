@@ -1334,25 +1334,48 @@ function getGroupCount($group, $grouped_users) {
                                                 <div class="meta-item">
                                                     <?php 
                                                     $type_icon = '';
+                                                    $type_text = '';
                                                     switch ($notification['type']) {
                                                         case 'email':
                                                             $type_icon = 'fa-envelope';
+                                                            $type_text = 'Email';
                                                             break;
                                                         case 'sms':
                                                             $type_icon = 'fa-comment-sms';
+                                                            $type_text = 'SMS';
+                                                            break;
+                                                        case 'email_sms':
+                                                            $type_icon = 'fa-bell';
+                                                            $type_text = 'Email & SMS';
                                                             break;
                                                         default:
                                                             $type_icon = 'fa-bell';
+                                                            $type_text = 'System';
                                                     }
                                                     ?>
                                                     <i class="fas <?php echo $type_icon; ?>"></i>
-                                                    <?php echo ucfirst($notification['type']); ?>
+                                                    <?php echo $type_text; ?>
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="status-badge <?php echo $notification['delivery_status'] === 'sent' ? 'status-sent' : 'status-failed'; ?>">
-                                                    <?php echo ucfirst($notification['delivery_status']); ?>
-                                                </span>
+                                                <?php if ($notification['type'] === 'email_sms'): ?>
+                                                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                                                        <span class="status-badge <?php echo strpos(strtolower($notification['delivery_status']), 'email:sent') !== false ? 'status-sent' : 'status-failed'; ?>">
+                                                            <i class="fas fa-envelope"></i> Email: <?php 
+                                                                echo strpos(strtolower($notification['delivery_status']), 'email:sent') !== false ? 'Sent' : 'Failed'; 
+                                                            ?>
+                                                        </span>
+                                                        <span class="status-badge <?php echo strpos(strtolower($notification['delivery_status']), 'sms:sent') !== false ? 'status-sent' : 'status-failed'; ?>">
+                                                            <i class="fas fa-comment-sms"></i> SMS: <?php 
+                                                                echo strpos(strtolower($notification['delivery_status']), 'sms:sent') !== false ? 'Sent' : 'Failed'; 
+                                                            ?>
+                                                        </span>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <span class="status-badge <?php echo $notification['delivery_status'] === 'sent' ? 'status-sent' : 'status-failed'; ?>">
+                                                        <?php echo ucfirst($notification['delivery_status']); ?>
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <div class="action-buttons">

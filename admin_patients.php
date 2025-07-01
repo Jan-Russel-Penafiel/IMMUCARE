@@ -43,37 +43,37 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
     $conn->begin_transaction();
     
     try {
-    $first_name = $_POST['first_name'];
-    $middle_name = $_POST['middle_name'] ?? null;
-    $last_name = $_POST['last_name'];
-    $date_of_birth = $_POST['date_of_birth'];
-    $gender = $_POST['gender'];
-    $purok = $_POST['purok'];
-    $city = $_POST['city'];
-    $province = $_POST['province'];
-    $postal_code = $_POST['postal_code'] ?? null;
-    $phone_number = $_POST['phone_number'];
-    $medical_history = isset($_POST['medical_history']) ? $_POST['medical_history'] : null;
-    $allergies = isset($_POST['allergies']) ? $_POST['allergies'] : null;
+        $first_name = $_POST['first_name'];
+        $middle_name = $_POST['middle_name'] ?? null;
+        $last_name = $_POST['last_name'];
+        $date_of_birth = $_POST['date_of_birth'];
+        $gender = $_POST['gender'];
+        $purok = $_POST['purok'];
+        $city = $_POST['city'];
+        $province = $_POST['province'];
+        $postal_code = $_POST['postal_code'] ?? null;
+        $phone_number = $_POST['phone_number'];
+        $medical_history = isset($_POST['medical_history']) ? $_POST['medical_history'] : null;
+        $allergies = isset($_POST['allergies']) ? $_POST['allergies'] : null;
 
-    // Get user_id from form if linking to existing user
-    $user_id = !empty($_POST['user_id']) ? $_POST['user_id'] : null;
-    $email_sent = false;
-    $user_email = '';
-    
-    // Create new user account if requested
-    if (isset($_POST['create_account']) && $_POST['create_account'] == 'on') {
-        $user_email = $_POST['user_email'];
-        $user_phone = $_POST['user_phone'];
-        $user_name = $first_name . ' ' . $last_name;
+        // Get user_id from form if linking to existing user
+        $user_id = !empty($_POST['user_id']) ? $_POST['user_id'] : null;
+        $email_sent = false;
+        $user_email = '';
         
-        // Check if email already exists
-        $check_email = $conn->prepare("SELECT id FROM users WHERE email = ?");
-        $check_email->bind_param("s", $user_email);
-        $check_email->execute();
-        $email_result = $check_email->get_result();
-        
-        if ($email_result->num_rows > 0) {
+        // Create new user account if requested
+        if (isset($_POST['create_account']) && $_POST['create_account'] == 'on') {
+            $user_email = $_POST['user_email'];
+            $user_phone = $_POST['user_phone'];
+            $user_name = $first_name . ' ' . $last_name;
+            
+            // Check if email already exists
+            $check_email = $conn->prepare("SELECT id FROM users WHERE email = ?");
+            $check_email->bind_param("s", $user_email);
+            $check_email->execute();
+            $email_result = $check_email->get_result();
+            
+            if ($email_result->num_rows > 0) {
                 throw new Exception("Email address already in use. Please use a different email.");
             }
             
@@ -90,6 +90,60 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
             }
             
             $user_id = $conn->insert_id;
+
+            // Send unified notification for new user account and patient profile
+            $notification_system->sendPatientAccountNotification(
+                $user_id,
+                'created',
+                [
+                    'password' => $plainPassword,
+                    'patient_details' => [
+                        'first_name' => $first_name,
+                        'middle_name' => $middle_name,
+                        'last_name' => $last_name,
+                        'date_of_birth' => $date_of_birth,
+                        'gender' => $gender,
+                        'phone_number' => $phone_number,
+                        'purok' => $purok,
+                        'city' => $city,
+                        'province' => $province,
+                        'medical_history' => $medical_history,
+                        'allergies' => $allergies
+                    ]
+                ]
+            );
+        } elseif (!empty($user_id)) {
+            // If linking to existing user, get their email
+            $get_user = $conn->prepare("SELECT email, phone, name FROM users WHERE id = ?");
+            $get_user->bind_param("i", $user_id);
+            $get_user->execute();
+            $user_result = $get_user->get_result();
+            $user_data = $user_result->fetch_assoc();
+            $user_email = $user_data['email'];
+            $user_phone = $user_data['phone'];
+            $user_name = $user_data['name'];
+
+            // Send unified notification about linking to existing account
+            $notification_system->sendPatientAccountNotification(
+                $user_id,
+                'created',
+                [
+                    'is_linking' => true,
+                    'patient_details' => [
+                        'first_name' => $first_name,
+                        'middle_name' => $middle_name,
+                        'last_name' => $last_name,
+                        'date_of_birth' => $date_of_birth,
+                        'gender' => $gender,
+                        'phone_number' => $phone_number,
+                        'purok' => $purok,
+                        'city' => $city,
+                        'province' => $province,
+                        'medical_history' => $medical_history,
+                        'allergies' => $allergies
+                    ]
+                ]
+            );
         }
         
         // Insert patient record
@@ -100,65 +154,20 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
             throw new Exception("Error adding patient: " . $conn->error);
         }
         
-            $patient_id = $conn->insert_id;
-            
-        // If we created a new user account or linked to existing one
-        if (!empty($user_id)) {
-            // Send welcome notification for new user accounts via both SMS and Email
-            if (isset($_POST['create_account']) && $_POST['create_account'] == 'on') {
-                $welcome_message = "Welcome to ImmuCare Patient Portal!\n\n" .
-                                 "Your account has been created with the following details:\n" .
-                                 "- Name: " . $first_name . " " . $last_name . "\n" .
-                                 "- Email: " . $user_email . "\n" .
-                                 "- Phone: " . $user_phone . "\n\n" .
-                                 "You can now access your immunization records, schedule appointments, and receive important health notifications. " .
-                                 "For security reasons, please change your password after your first login.\n\n" .
-                                 "Need help? Contact our support team or visit our help center.";
-                
-                $notification_system->sendCustomNotification(
-                    $user_id,
-                    "Welcome to ImmuCare Patient Portal",
-                    $welcome_message,
-                    'both'
-                );
-            }
-            
-            // Send patient profile creation notification
-            $profile_message = "Your patient profile has been successfully created in the ImmuCare system.\n\n" .
-                              "Profile Details:\n" .
-                              "- Patient ID: " . $patient_id . "\n" .
-                              "- Full Name: " . $first_name . " " . ($middle_name ? $middle_name . " " : "") . $last_name . "\n" .
-                              "- Date of Birth: " . date('F j, Y', strtotime($date_of_birth)) . "\n" .
-                              "- Gender: " . ucfirst($gender) . "\n" .
-                              "- Contact: " . $phone_number . "\n" .
-                              "- Address: Purok " . $purok . ", " . $city . ", " . $province . "\n\n" .
-                              "You can now:\n" .
-                              "- View your immunization records\n" .
-                              "- Schedule appointments\n" .
-                              "- Receive vaccination reminders\n" .
-                              "- Update your medical information\n\n" .
-                              "Please verify all information and contact us if any corrections are needed.";
-            
-            $notification_system->sendCustomNotification(
-                $user_id,
-                "Patient Profile Created",
-                $profile_message,
-                'both'
-            );
-        }
+        $patient_id = $conn->insert_id;
         
         // Commit transaction
         $conn->commit();
         
         // Store success message in session
         $_SESSION['action_message'] = "Patient added successfully! " . 
-            (!empty($user_email) ? "Notifications have been sent via SMS and Email to " . $user_email : "");
+            (!empty($user_email) ? "A notification has been sent via SMS and Email." : "");
         
         // Redirect to prevent form resubmission
         header("Location: admin_patients.php");
         exit;
-                    
-                } catch (Exception $e) {
+        
+    } catch (Exception $e) {
         // Rollback transaction on error
         $conn->rollback();
         $_SESSION['action_message'] = "Error: " . $e->getMessage();
@@ -289,16 +298,16 @@ if ($action == 'delete' && isset($_GET['id'])) {
     $conn->begin_transaction();
     
     try {
-    $patient_id = $_GET['id'];
-    
-    // Check if patient has immunization records
-    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM immunizations WHERE patient_id = ?");
-    $stmt->bind_param("i", $patient_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $immunization_count = $result->fetch_assoc()['count'];
-    
-    if ($immunization_count > 0) {
+        $patient_id = $_GET['id'];
+        
+        // Check if patient has immunization records
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM immunizations WHERE patient_id = ?");
+        $stmt->bind_param("i", $patient_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $immunization_count = $result->fetch_assoc()['count'];
+        
+        if ($immunization_count > 0) {
             throw new Exception("Cannot delete patient with existing immunization records. Please archive instead.");
         }
         
@@ -308,28 +317,37 @@ if ($action == 'delete' && isset($_GET['id'])) {
         $get_patient->execute();
         $patient_data = $get_patient->get_result()->fetch_assoc();
         
-        // If patient has a user account, send notification via both SMS and Email before deletion
+        // If patient has a user account, ask for confirmation before deletion
         if ($patient_data && $patient_data['user_id']) {
-            $delete_message = "Important Notice: Your ImmuCare patient profile has been deleted.\n\n" .
-                             "Profile Details:\n" .
-                             "- Patient ID: " . $patient_id . "\n" .
-                             "- Name: " . $patient_data['first_name'] . " " . $patient_data['last_name'] . "\n" .
-                             "- Email: " . $patient_data['email'] . "\n\n" .
-                             "This means:\n" .
-                             "- Your patient records have been removed\n" .
-                             "- Any scheduled appointments have been cancelled\n" .
-                             "- You will no longer receive vaccination reminders\n\n" .
-                             "If you believe this was done in error, please contact our support team immediately.\n" .
-                             "You can reach us at " . SUPPORT_PHONE . " or " . SUPPORT_EMAIL;
+            if (!isset($_GET['confirm_user_delete'])) {
+                $_SESSION['action_message'] = "This patient has an associated user account. <a href='?action=delete&id=" . $patient_id . "&confirm_user_delete=1' class='btn-delete' style='margin-left: 10px;'>Click here</a> to delete both the patient record and user account.";
+                header("Location: admin_patients.php");
+                exit;
+            }
             
-            $notification_system->sendCustomNotification(
-                $patient_data['user_id'],
-                "Patient Profile Deletion Notice",
-                $delete_message,
-                'both'
-            );
+            // Send notification before deletion
+            try {
+                $notification_system->sendPatientAccountNotification(
+                    $patient_data['user_id'],
+                    'deleted',
+                    []
+                );
+            } catch (Exception $e) {
+                // Log notification error but continue with deletion
+                error_log("Failed to send deletion notification: " . $e->getMessage());
+            }
+            
+            // Delete user account if confirmed
+            if (isset($_GET['confirm_user_delete'])) {
+                $delete_user = $conn->prepare("DELETE FROM users WHERE id = ?");
+                $delete_user->bind_param("i", $patient_data['user_id']);
+                if (!$delete_user->execute()) {
+                    throw new Exception("Error deleting associated user account: " . $conn->error);
+                }
+            }
         }
         
+        // Delete patient record
         $stmt = $conn->prepare("DELETE FROM patients WHERE id = ?");
         $stmt->bind_param("i", $patient_id);
         
@@ -341,11 +359,13 @@ if ($action == 'delete' && isset($_GET['id'])) {
         $conn->commit();
         
         // Store success message in session
-        $_SESSION['action_message'] = "Patient deleted successfully! Final notifications sent via SMS and Email.";
+        $_SESSION['action_message'] = "Patient" . (isset($_GET['confirm_user_delete']) ? " and associated user account" : "") . " deleted successfully!" . 
+            (isset($_GET['confirm_user_delete']) ? " A notification has been sent via email." : "");
         
         // Redirect
         header("Location: admin_patients.php");
         exit;
+        
     } catch (Exception $e) {
         // Rollback transaction on error
         $conn->rollback();
@@ -975,6 +995,7 @@ $conn->close();
                     </div>
                     
                     <div class="patients-list">
+                        <?php $counter = 0; // Initialize counter ?>
                         <table class="patients-table">
                             <thead>
                                 <tr>
@@ -992,7 +1013,7 @@ $conn->close();
                                 <?php if ($patients_result->num_rows > 0): ?>
                                     <?php while ($patient = $patients_result->fetch_assoc()): ?>
                                         <tr>
-                                            <td><?php echo $patient['id']; ?></td>
+                                            <td><?php echo ++$counter; ?></td>
                                             <td>
                                                 <?php echo htmlspecialchars($patient['first_name'] . ' ' . $patient['middle_name'] . ' ' . $patient['last_name']); ?>
                                                 <?php if (!empty($patient['user_name'])): ?>
