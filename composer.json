@@ -1,6 +1,7 @@
 {
     "name": "immucare/vaccination-system",
     "description": "Immunization and vaccination management system for healthcare providers",
+    "license": "MIT",
     "require": {
         "phpmailer/phpmailer": "^6.10",
         "phpoffice/phpspreadsheet": "^1.29",
