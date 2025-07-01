@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
-        'name' => 'immucare/vaccination-system',
+        'name' => 'jan-russel-penafiel/immucare',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '9dc294c8241ccaa37b9f79c13e7f6d0c7957c0c0',
+        'reference' => '1f0b8ce1eb727ca96481ee9a32e8eeab2a1d31d7',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -28,10 +28,10 @@
             'aliases' => array(),
             'dev_requirement' => false,
         ),
-        'immucare/vaccination-system' => array(
+        'jan-russel-penafiel/immucare' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '9dc294c8241ccaa37b9f79c13e7f6d0c7957c0c0',
+            'reference' => '1f0b8ce1eb727ca96481ee9a32e8eeab2a1d31d7',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
