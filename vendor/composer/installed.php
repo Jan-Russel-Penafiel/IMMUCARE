@@ -3,7 +3,7 @@
         'name' => 'jan-russel-penafiel/immucare',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '1f0b8ce1eb727ca96481ee9a32e8eeab2a1d31d7',
+        'reference' => '1faac8288cef9c3ffd43f7e07931d90364cec2f8',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -31,7 +31,7 @@
         'jan-russel-penafiel/immucare' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '1f0b8ce1eb727ca96481ee9a32e8eeab2a1d31d7',
+            'reference' => '1faac8288cef9c3ffd43f7e07931d90364cec2f8',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

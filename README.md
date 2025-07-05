@@ -40,6 +40,50 @@ ImmuCare is a comprehensive web-based platform for recording, tracking, and mana
 - **Missed Appointment Reports**: Track and follow up on missed appointments
 - **Custom Reports**: Create custom reports based on various parameters
 
+## GitHub Workflows
+
+This project uses GitHub Actions for CI/CD pipelines and automated tasks. The following workflows are available:
+
+### Main CI/CD Pipeline
+- **Trigger**: Push to main branch or pull requests to main
+- **Features**:
+  - PHP code validation and linting
+  - Security scanning
+  - Dependency validation
+  - Production build and deployment
+
+To deploy using this workflow:
+1. Set up the following secrets in your repository:
+   - `FTP_SERVER`: Your FTP server address
+   - `FTP_USERNAME`: FTP username
+   - `FTP_PASSWORD`: FTP password
+2. Push to the main branch to trigger deployment
+
+### Database Setup
+- **Trigger**: Manual dispatch or push to SQL files
+- **Features**:
+  - Sets up MySQL database for testing
+  - Imports schema and initial data
+  - Applies database updates
+  - Verifies database structure
+
+To run this workflow manually:
+1. Go to Actions tab in your repository
+2. Select "Database Setup" workflow
+3. Click "Run workflow"
+
+### Security Scans
+- **Trigger**: Weekly schedule or manual dispatch
+- **Features**:
+  - PHP security scanning
+  - OWASP ZAP vulnerability scanning
+  - Dependency review
+  - CodeQL analysis
+
+To customize the security scanning:
+1. Update the target URL in `.github/workflows/security.yml`
+2. Adjust the schedule as needed
+
 ## Database Structure
 
 The database consists of the following main tables:
