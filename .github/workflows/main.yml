@@ -15,16 +15,12 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.1'
+          php-version: '8.2'
           extensions: mbstring, intl, zip, pdo_mysql
           tools: composer:v2
 
       - name: Validate composer.json
         run: composer validate --strict
-
-      - name: Update dependencies
-        run: |
-          composer require maennchen/zipstream-php:^2.4 --with-all-dependencies --no-interaction
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
@@ -41,12 +37,8 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.1'
+          php-version: '8.2'
           tools: composer:v2
-
-      - name: Update dependencies
-        run: |
-          composer require maennchen/zipstream-php:^2.4 --with-all-dependencies --no-interaction
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
@@ -64,13 +56,9 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.1'
+          php-version: '8.2'
           extensions: mbstring, intl, zip
           tools: composer:v2
-
-      - name: Update dependencies
-        run: |
-          composer require maennchen/zipstream-php:^2.4 --with-all-dependencies --no-interaction
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-dev
