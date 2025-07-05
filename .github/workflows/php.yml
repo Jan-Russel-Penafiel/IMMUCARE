@@ -17,16 +17,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up PHP
+    - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.1' # Change to your PHP version
-        tools: composer
+        php-version: '8.1'
+        extensions: mbstring, intl, zip, pdo_mysql
+        coverage: none
 
     - name: Validate composer.json and composer.lock
       run: composer validate --strict
 
     - name: Cache Composer packages
+      id: composer-cache
       uses: actions/cache@v3
       with:
         path: vendor
@@ -35,7 +37,11 @@ jobs:
           ${{ runner.os }}-php-
 
     - name: Install dependencies
-      run: composer install --prefer-dist --no-progress --no-interaction
+      run: composer install --prefer-dist --no-progress
+
+    # Basic syntax check for PHP files
+    - name: Check PHP syntax
+      run: find . -name "*.php" -not -path "./vendor/*" -print0 | xargs -0 -n1 php -l
 
     - name: Check if lock file is up to date
       run: |
