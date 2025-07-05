@@ -17,6 +17,10 @@ jobs:
           php-version: '8.1'
           tools: composer:v2
 
+      - name: Update dependencies
+        run: |
+          composer require maennchen/zipstream-php:^2.4 --with-all-dependencies --no-interaction
+
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
