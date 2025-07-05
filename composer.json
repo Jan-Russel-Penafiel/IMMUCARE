@@ -1,7 +1,7 @@
 {
-    "name": "Jan-Russel-Penafiel/IMMUCARE",
+    "name": "jan-russel-penafiel/immucare",
     "description": "Immunization and vaccination management system for healthcare providers",
-    "license": "proprietary",
+    "license": "MIT",
     "require": {
         "phpmailer/phpmailer": "^6.10",
         "phpoffice/phpspreadsheet": "^1.29",
