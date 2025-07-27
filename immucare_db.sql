@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 01, 2025 at 07:51 AM
+-- Generation Time: Jul 25, 2025 at 10:18 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -324,11 +324,11 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `role_id`, `user_type`, `name`, `email`, `phone`, `password`, `otp`, `otp_expiry`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '$2y$10$0d0Hn8zfYGEfXFlGrlxL5OMbsAXuft90xp6fb0nGVXmOIA532U7.y', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-06-30 20:52:14', '2025-07-01 05:37:04'),
-(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '$2y$10$1CzcVqbStPe3By1x6i0mOOeSc5d1XppCGPTVeI6F4OvfORO0g1USW', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-06-30 20:52:14', '2025-07-01 05:37:23'),
-(3, 3, 'nurse', 'John Nurse', 'nurse@immucare.com', '+1234567892', '', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(4, 4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '+1234567893', '$2y$10$i4nrJwhdt1o6A.LGZrcWLOAwws.oIQzkAKqI/H9sOglnCZ0xQt1CS', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-06-30 20:52:14', '2025-07-01 05:37:40'),
-(15, 4, 'patient', 'Stephany lablab', 'stephanyartieda@sksu.edu.ph', '09920157536', '12345678', NULL, NULL, 1, '2025-07-01 13:47:32', '2025-07-01 11:06:19', '2025-07-01 05:47:32');
+(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '$2y$10$0d0Hn8zfYGEfXFlGrlxL5OMbsAXuft90xp6fb0nGVXmOIA532U7.y', NULL, NULL, 1, '2025-07-21 19:58:13', '2025-06-30 20:52:14', '2025-07-21 11:58:13'),
+(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '$2y$10$1CzcVqbStPe3By1x6i0mOOeSc5d1XppCGPTVeI6F4OvfORO0g1USW', NULL, NULL, 1, '2025-07-21 19:55:26', '2025-06-30 20:52:14', '2025-07-21 11:55:26'),
+(3, 3, 'nurse', 'John Nurse', 'penafielliezl3322@gmail.com', '+1234567892', '', NULL, NULL, 1, '2025-07-21 20:02:26', '2025-06-30 20:52:14', '2025-07-21 12:02:26'),
+(4, 4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '+1234567893', '$2y$10$i4nrJwhdt1o6A.LGZrcWLOAwws.oIQzkAKqI/H9sOglnCZ0xQt1CS', NULL, NULL, 1, '2025-07-21 20:08:04', '2025-06-30 20:52:14', '2025-07-21 12:08:04'),
+(15, 4, 'patient', 'Stephany lablab', 'stephanyartieda@sksu.edu.ph', '09920157536', '12345678', '293049', '2025-07-01 08:04:34', 1, '2025-07-01 13:54:16', '2025-07-01 11:06:19', '2025-07-01 05:54:34');
 
 -- --------------------------------------------------------
 
