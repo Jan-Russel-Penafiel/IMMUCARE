@@ -20,60 +20,7 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Process data transfer request
-if (isset($_POST['transfer_data'])) {
-    $health_center_id = $_POST['health_center_id'];
-    
-    // Get health center details
-    $stmt = $conn->prepare("SELECT name, email FROM health_centers WHERE id = ?");
-    $stmt->bind_param("i", $health_center_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $health_center = $result->fetch_assoc();
-    
-    // Get data for transfer
-    $stmt = $conn->prepare("
-        SELECT 
-            p.id as patient_id,
-            CONCAT(p.first_name, ' ', p.last_name) as name,
-            TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) as age,
-            p.gender,
-            v.name as vaccine,
-            i.administered_date as date,
-            CASE 
-                WHEN i.next_dose_date IS NOT NULL AND i.next_dose_date > CURDATE() THEN 'Pending Next Dose'
-                WHEN i.next_dose_date IS NOT NULL AND i.next_dose_date <= CURDATE() THEN 'Due for Next Dose'
-                ELSE 'Completed'
-            END as status
-        FROM immunizations i
-        JOIN patients p ON i.patient_id = p.id
-        JOIN vaccines v ON i.vaccine_id = v.id
-        WHERE i.administered_by = ?
-        ORDER BY i.administered_date DESC
-    ");
-    $stmt->bind_param("i", $health_center_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $data = $result->fetch_all(MYSQLI_ASSOC);
-    
-    // Initialize file transfer
-    $transfer = new FileTransfer();
-    if ($transfer->sendToGoogleDrive($data, $health_center['email'])) {
-        $_SESSION['transfer_message'] = [
-            'type' => 'success',
-            'text' => "Data transfer to " . $health_center['name'] . " completed successfully. Files have been sent to " . $health_center['email']
-        ];
-    } else {
-        $_SESSION['transfer_message'] = [
-            'type' => 'error',
-            'text' => "Error during data transfer. Please check the logs and try again."
-        ];
-    }
-    
-    // Redirect to prevent form resubmission
-    header('Location: ' . $_SERVER['PHP_SELF']);
-    exit;
-}
+// Note: Transfer processing has been moved to process_file_transfer.php for AJAX handling
 
 // Get transfer message from session if exists
 $transfer_message = '';
@@ -114,7 +61,7 @@ $result = $stmt->get_result();
 $appointment_count = $result->fetch_assoc()['count'];
 
 // Get recent data transfers
-$stmt = $conn->prepare("SELECT dt.*, u.name as initiated_by_name FROM data_transfers dt JOIN users u ON dt.initiated_by = u.id ORDER BY dt.created_at DESC LIMIT 5");
+$stmt = $conn->prepare("SELECT dt.*, u.name as initiated_by_name FROM data_transfers dt LEFT JOIN users u ON dt.initiated_by = u.id ORDER BY dt.created_at DESC LIMIT 5");
 $stmt->execute();
 $recent_transfers = $stmt->get_result();
 
@@ -471,6 +418,31 @@ if (isset($_GET['logout'])) {
             color: #c62828;
         }
         
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-item label {
+            cursor: pointer;
+            font-weight: normal;
+            margin-bottom: 0;
+        }
+        
         .quick-actions {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -628,31 +600,16 @@ if (isset($_GET['logout'])) {
                             </div>
                         <?php endif; ?>
                         
-                        <form class="data-transfer-form" method="POST" action="">
+                        <form class="data-transfer-form" id="dataTransferForm">
                             <div class="form-group">
                                 <label for="health_center_id">Select Health Center:</label>
-                                <?php
-                                // Debug information
-                                error_reporting(E_ALL);
-                                ini_set('display_errors', 1);
-                                
-                                // Test database connection
-                                if ($conn->connect_error) {
-                                    echo "Connection failed: " . $conn->connect_error;
-                                }
-                                
-                                // Get health centers for transfer dropdown
-                                $query = "SELECT id, name, email FROM health_centers WHERE is_active = 1 ORDER BY name";
-                                $result = $conn->query($query);
-                                
-                                if (!$result) {
-                                    echo "Query failed: " . $conn->error;
-                                }
-                                ?>
-                                
                                 <select name="health_center_id" id="health_center_id" required class="form-control">
                                     <option value="">-- Select Health Center --</option>
                                     <?php
+                                    // Get health centers for transfer dropdown
+                                    $query = "SELECT id, name, email FROM health_centers WHERE is_active = 1 ORDER BY name";
+                                    $result = $conn->query($query);
+                                    
                                     if ($result && $result->num_rows > 0) {
                                         while ($center = $result->fetch_assoc()) {
                                             echo '<option value="' . htmlspecialchars($center['id']) . '">' 
@@ -661,17 +618,57 @@ if (isset($_GET['logout'])) {
                                                 . '</option>';
                                         }
                                     } else {
-                                        echo '<option value="" disabled>No health centers found. Please check the database.</option>';
+                                        echo '<option value="" disabled>No health centers found. Please add health centers in the database.</option>';
                                     }
                                     ?>
                                 </select>
                             </div>
                             
+                            <div class="form-group">
+                                <label>Select Data Types to Transfer:</label>
+                                <div class="checkbox-group" style="margin-top: 10px;">
+                                    <div class="checkbox-item">
+                                        <input type="checkbox" name="data_types[]" value="immunizations" id="immunizations" checked>
+                                        <label for="immunizations">Immunization Records</label>
+                                    </div>
+                                    <div class="checkbox-item">
+                                        <input type="checkbox" name="data_types[]" value="vaccines" id="vaccines">
+                                        <label for="vaccines">Vaccine Inventory</label>
+                                    </div>
+                                    <div class="checkbox-item">
+                                        <input type="checkbox" name="data_types[]" value="patients" id="patients">
+                                        <label for="patients">Patient Records</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>File Formats:</label>
+                                <div class="checkbox-group" style="margin-top: 10px;">
+                                    <div class="checkbox-item">
+                                        <input type="checkbox" name="formats[]" value="excel" id="excel" checked>
+                                        <label for="excel">Excel (.xlsx)</label>
+                                    </div>
+                                    <div class="checkbox-item">
+                                        <input type="checkbox" name="formats[]" value="pdf" id="pdf" checked>
+                                        <label for="pdf">PDF</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div class="form-group button-group">
-                                <button type="submit" name="transfer_data" class="transfer-btn" id="transferBtn">
+                                <button type="button" class="transfer-btn" id="transferBtn">
                                     <i class="fas fa-sync-alt"></i>
                                     <span>Transfer Data</span>
                                 </button>
+                            </div>
+                            
+                            <!-- Transfer Progress -->
+                            <div id="transferProgress" style="display: none; margin-top: 20px;">
+                                <div class="progress-bar-container" style="height: 20px; background-color: #f0f0f0; border-radius: 10px; overflow: hidden; margin-bottom: 10px;">
+                                    <div class="progress-bar" style="height: 100%; width: 0%; background-color: #4285f4; transition: width 0.3s;"></div>
+                                </div>
+                                <div class="progress-status" style="text-align: center; font-size: 14px; color: #666;">Preparing files...</div>
                             </div>
                         </form>
                         
@@ -754,12 +751,13 @@ if (isset($_GET['logout'])) {
                     item.classList.remove('active');
                 }
             });
-        });
-
-        document.getElementById('transferBtn').addEventListener('click', function(e) {
-            if (document.getElementById('health_center_id').value) {
-                this.classList.add('loading');
-                this.disabled = true;
+            
+            // Reset button state on page load
+            const submitBtn = document.getElementById('transferBtn');
+            if (submitBtn) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').textContent = 'Transfer Data';
             }
         });
 
@@ -776,29 +774,165 @@ if (isset($_GET['logout'])) {
             }
         });
 
-        // Form submission handling
-        document.querySelector('.data-transfer-form').addEventListener('submit', function(e) {
+        // AJAX Form submission handling
+        document.getElementById('transferBtn').addEventListener('click', function() {
+            const form = document.getElementById('dataTransferForm');
             const healthCenterId = document.getElementById('health_center_id').value;
             const submitBtn = document.getElementById('transferBtn');
+            const progressBar = document.querySelector('#transferProgress .progress-bar');
+            const progressStatus = document.querySelector('#transferProgress .progress-status');
+            const transferProgress = document.getElementById('transferProgress');
             
+            // Validate health center selection
             if (!healthCenterId) {
-                e.preventDefault();
                 alert('Please select a health center');
+                return;
+            }
+            
+            // Validate at least one data type is selected
+            const dataTypeCheckboxes = document.querySelectorAll('input[name="data_types[]"]:checked');
+            if (dataTypeCheckboxes.length === 0) {
+                alert('Please select at least one data type to transfer');
+                return;
+            }
+            
+            // Validate at least one format is selected
+            const formatCheckboxes = document.querySelectorAll('input[name="formats[]"]:checked');
+            if (formatCheckboxes.length === 0) {
+                alert('Please select at least one file format');
                 return;
             }
             
             // Disable form resubmission
             if (submitBtn.classList.contains('loading')) {
-                e.preventDefault();
                 return;
             }
             
+            // Show loading state
             submitBtn.classList.add('loading');
             submitBtn.disabled = true;
+            submitBtn.querySelector('span').textContent = 'Transferring...';
+            
+            // Show progress bar
+            transferProgress.style.display = 'block';
+            progressStatus.textContent = 'Preparing files...';
+            
+            // Simulate progress - in a real application, you might use WebSockets for actual progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 95) {
+                    progress = 95; // Hold at 95% until complete
+                    clearInterval(progressInterval);
+                }
+                progressBar.style.width = progress + '%';
+                
+                // Update status messages based on progress
+                if (progress < 30) {
+                    progressStatus.textContent = 'Collecting data...';
+                } else if (progress < 60) {
+                    progressStatus.textContent = 'Generating files...';
+                } else if (progress < 90) {
+                    progressStatus.textContent = 'Sending files...';
+                } else {
+                    progressStatus.textContent = 'Almost done...';
+                }
+            }, 300);
+            
+            // Create FormData object
+            const formData = new FormData(form);
+            
+            // Add any missing checkboxes (unchecked boxes aren't included in FormData)
+            const allDataTypes = ['immunizations', 'vaccines', 'patients'];
+            const selectedDataTypes = Array.from(dataTypeCheckboxes).map(cb => cb.value);
+            
+            const allFormats = ['excel', 'pdf'];
+            const selectedFormats = Array.from(formatCheckboxes).map(cb => cb.value);
+            
+            // Send AJAX request
+            fetch('process_file_transfer.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Clear progress interval
+                clearInterval(progressInterval);
+                
+                // Complete the progress bar
+                progressBar.style.width = '100%';
+                progressStatus.textContent = 'Transfer complete!';
+                
+                // Show success/error message
+                const alertType = data.success ? 'success' : 'error';
+                const alertMessage = data.message;
+                
+                // Create alert
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${alertType}`;
+                alertDiv.innerHTML = alertMessage + '<button type="button" class="alert-close" onclick="this.parentElement.style.display=\'none\';">&times;</button>';
+                
+                // Find the form's parent container
+                const formContainer = form.closest('.admin-section');
+                
+                // Insert alert at the top of the container, after the h3
+                formContainer.insertBefore(alertDiv, formContainer.querySelector('h3').nextSibling);
+                
+                // Reset button state
+                setTimeout(() => {
+                    submitBtn.classList.remove('loading');
+                    submitBtn.disabled = false;
+                    submitBtn.querySelector('span').textContent = 'Transfer Data';
+                    
+                    // Hide progress after a moment
+                    setTimeout(() => {
+                        transferProgress.style.display = 'none';
+                    }, 2000);
+                }, 1000);
+                
+                // Update the recent transfers table if successful
+                if (data.success) {
+                    updateRecentTransfersTable(data);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                clearInterval(progressInterval);
+                
+                // Show error message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-error';
+                alertDiv.innerHTML = 'An error occurred during the transfer. Please try again.' + 
+                    '<button type="button" class="alert-close" onclick="this.parentElement.style.display=\'none\';">&times;</button>';
+                
+                // Find the form's parent container
+                const formContainer = form.closest('.admin-section');
+                
+                // Insert alert at the top of the container, after the h3
+                formContainer.insertBefore(alertDiv, formContainer.querySelector('h3').nextSibling);
+                
+                // Reset button state
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').textContent = 'Transfer Data';
+                transferProgress.style.display = 'none';
+            });
             
             // Store submission timestamp
             localStorage.setItem('lastTransferSubmission', Date.now());
         });
+        
+        // Function to update the recent transfers table
+        function updateRecentTransfersTable(data) {
+            // This function would update the transfers table with the new transfer
+            // For now just log the data
+            console.log('Transfer successful:', data);
+            
+            // In a real implementation, you might:
+            // 1. Get the transfers table
+            // 2. Create a new row with the transfer data
+            // 3. Add it to the top of the table
+        }
 
         // Check for recent submission on page load
         document.addEventListener('DOMContentLoaded', function() {

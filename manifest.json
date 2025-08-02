@@ -1,0 +1,40 @@
+{
+  "name": "ImmuCare",
+  "short_name": "ImmuCare",
+  "description": "Smart Immunization Registry",
+  "start_url": "https://aphid-major-dolphin.ngrok-free.app/mic_new/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4CAF50",
+  "orientation": "portrait",
+  "scope": "https://aphid-major-dolphin.ngrok-free.app/mic_new/",
+  "icons": [
+    {
+      "src": "https://aphid-major-dolphin.ngrok-free.app/mic_new/images/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "https://aphid-major-dolphin.ngrok-free.app/mic_new/images/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "https://aphid-major-dolphin.ngrok-free.app/mic_new/images/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://aphid-major-dolphin.ngrok-free.app/mic_new/images/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://aphid-major-dolphin.ngrok-free.app/mic_new/images/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]}

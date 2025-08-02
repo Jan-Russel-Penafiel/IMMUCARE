@@ -161,14 +161,14 @@ if ($action == 'send' && isset($_POST['send_notification'])) {
                     $result_email = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'email');
                     $result_sms = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'sms');
                     
-                    if ($result_email['email_sent']) {
+                    if ($result_email) {
                         $email_sent++;
                     }
-                    if ($result_sms['sms_sent']) {
+                    if ($result_sms) {
                         $sms_sent++;
                     }
                     
-                    if ($result_email['email_sent'] || $result_sms['sms_sent']) {
+                    if ($result_email || $result_sms) {
                         $success_count++;
                     } else {
                         $failed_count++;
@@ -176,10 +176,14 @@ if ($action == 'send' && isset($_POST['send_notification'])) {
                 } else {
                     $result = $notification_system->sendCustomNotification($recipient_id, $title, $message, $type);
                     
-                    if (($type === 'email' && $result['email_sent']) || 
-                        ($type === 'sms' && $result['sms_sent']) || 
-                        ($type === 'system')) {
+                    if ($result) {
                         $success_count++;
+                        // Count specific delivery types for display
+                        if ($type === 'email') {
+                            $email_sent++;
+                        } elseif ($type === 'sms') {
+                            $sms_sent++;
+                        }
                     } else {
                         $failed_count++;
                     }
@@ -268,16 +272,9 @@ while ($center = $health_centers->fetch_assoc()) {
 }
 
 // Get recent notifications with user information
-$notifications_query = "SELECT n.*, u.name as user_name, u.email as user_email,
-                              CASE 
-                                WHEN n.type = 'email' THEN el.status
-                                WHEN n.type = 'sms' THEN sl.status
-                                ELSE NULL
-                              END as delivery_status
+$notifications_query = "SELECT n.*, u.name as user_name, u.email as user_email
                        FROM notifications n 
                        LEFT JOIN users u ON n.user_id = u.id 
-                       LEFT JOIN email_logs el ON el.user_id = n.user_id AND el.created_at = n.created_at
-                       LEFT JOIN sms_logs sl ON sl.patient_id = (SELECT id FROM patients WHERE user_id = n.user_id) AND sl.created_at = n.created_at
                        ORDER BY n.created_at DESC
                        LIMIT 50";
 $notifications_result = $conn->query($notifications_query);
@@ -768,24 +765,6 @@ function getGroupCount($group, $grouped_users) {
             color: #f57c00;
         }
         
-        .delivery-status {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-        
-        .status-delivered {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-        
-        .status-failed {
-            background-color: #ffebee;
-            color: #c62828;
-        }
-        
         .action-buttons {
             display: flex;
             gap: 10px;
@@ -927,6 +906,7 @@ function getGroupCount($group, $grouped_users) {
             line-height: 1.4;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
@@ -1300,7 +1280,6 @@ function getGroupCount($group, $grouped_users) {
                                 <tr>
                                     <th>Notification</th>
                                     <th>Type</th>
-                                    <th>Delivery Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1356,26 +1335,6 @@ function getGroupCount($group, $grouped_users) {
                                                     <i class="fas <?php echo $type_icon; ?>"></i>
                                                     <?php echo $type_text; ?>
                                                 </div>
-                                            </td>
-                                            <td>
-                                                <?php if ($notification['type'] === 'email_sms'): ?>
-                                                    <div style="display: flex; flex-direction: column; gap: 5px;">
-                                                        <span class="status-badge <?php echo strpos(strtolower($notification['delivery_status']), 'email:sent') !== false ? 'status-sent' : 'status-failed'; ?>">
-                                                            <i class="fas fa-envelope"></i> Email: <?php 
-                                                                echo strpos(strtolower($notification['delivery_status']), 'email:sent') !== false ? 'Sent' : 'Failed'; 
-                                                            ?>
-                                                        </span>
-                                                        <span class="status-badge <?php echo strpos(strtolower($notification['delivery_status']), 'sms:sent') !== false ? 'status-sent' : 'status-failed'; ?>">
-                                                            <i class="fas fa-comment-sms"></i> SMS: <?php 
-                                                                echo strpos(strtolower($notification['delivery_status']), 'sms:sent') !== false ? 'Sent' : 'Failed'; 
-                                                            ?>
-                                                        </span>
-                                                    </div>
-                                                <?php else: ?>
-                                                    <span class="status-badge <?php echo $notification['delivery_status'] === 'sent' ? 'status-sent' : 'status-failed'; ?>">
-                                                        <?php echo ucfirst($notification['delivery_status']); ?>
-                                                    </span>
-                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <div class="action-buttons">

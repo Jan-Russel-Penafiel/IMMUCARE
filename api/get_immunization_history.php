@@ -26,11 +26,12 @@ if ($conn->connect_error) {
 }
 
 // Get immunization history
-$query = "SELECT i.*, v.name as vaccine_name 
+$query = "SELECT i.*, v.name as vaccine_name, u.name as administrator_name
           FROM immunizations i 
           JOIN vaccines v ON i.vaccine_id = v.id 
+          JOIN users u ON i.administered_by = u.id
           WHERE i.patient_id = ? 
-          ORDER BY i.date DESC";
+          ORDER BY i.administered_date DESC";
 
 $stmt = $conn->prepare($query);
 $stmt->bind_param("i", $patient_id);
@@ -40,9 +41,14 @@ $result = $stmt->get_result();
 $immunizations = [];
 while ($row = $result->fetch_assoc()) {
     $immunizations[] = [
+        'id' => $row['id'],
         'vaccine_name' => $row['vaccine_name'],
-        'date' => date('M j, Y', strtotime($row['date'])),
-        'status' => $row['status']
+        'dose_number' => $row['dose_number'],
+        'date' => date('M j, Y', strtotime($row['administered_date'])),
+        'administrator' => $row['administrator_name'],
+        'batch_number' => $row['batch_number'],
+        'next_dose_date' => $row['next_dose_date'] ? date('M j, Y', strtotime($row['next_dose_date'])) : 'N/A',
+        'location' => $row['location']
     ];
 }
 

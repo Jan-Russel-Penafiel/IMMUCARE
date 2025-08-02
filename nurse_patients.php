@@ -300,7 +300,7 @@ $conn->close();
             gap: 10px;
         }
         
-        .view-btn, .edit-btn, .delete-btn {
+        .view-btn, .edit-btn, .delete-btn, .immunization-btn {
             padding: 5px 10px;
             border-radius: 4px;
             font-size: 0.8rem;
@@ -333,6 +333,16 @@ $conn->close();
         
         .delete-btn:hover {
             background-color: #fdd5db;
+        }
+        
+        .immunization-btn {
+            background-color: #e6f2ff;
+            color: #0066cc;
+            cursor: pointer;
+        }
+        
+        .immunization-btn:hover {
+            background-color: #cce5ff;
         }
         
         .pagination {
@@ -591,7 +601,7 @@ $conn->close();
                                         <a href="javascript:void(0)" class="view-btn" data-id="<?php echo $patient['id']; ?>" onclick="loadPatientDetails(this.getAttribute('data-id'))">View</a>
                                         <a href="javascript:void(0)" class="edit-btn" data-id="<?php echo $patient['id']; ?>" onclick="loadPatientForEdit(this.getAttribute('data-id'))">Edit</a>
                                         <a href="javascript:void(0)" class="immunization-btn" data-id="<?php echo $patient['id']; ?>" onclick="loadImmunizationHistory(this.getAttribute('data-id'))">
-                                            <i class="fas fa-syringe"></i>
+                                            <i class="fas fa-syringe"></i> Immunization
                                         </a>
                                     </td>
                                 </tr>
@@ -789,7 +799,7 @@ $conn->close();
 
     <!-- Immunization History Modal -->
     <div id="immunizationHistoryModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="width: 90%; max-width: 1000px;">
             <div class="modal-header">
                 <h3 class="modal-title">Immunization History</h3>
                 <button class="close-modal" onclick="closeModal('immunizationHistoryModal')">&times;</button>
@@ -872,29 +882,57 @@ $conn->close();
         // Function to load immunization history
         async function loadImmunizationHistory(patientId) {
             try {
+                // First get the patient's name
+                const patientResponse = await fetch(`api/get_patient.php?id=${patientId}`);
+                const patientData = await patientResponse.json();
+                let patientName = '';
+                
+                if (patientData.success) {
+                    patientName = `${patientData.patient.first_name} ${patientData.patient.last_name}`;
+                }
+                
                 const response = await fetch(`api/get_immunization_history.php?patient_id=${patientId}`);
                 const data = await response.json();
                 
                 if (data.success) {
                     let historyHtml = '<div class="immunization-history">';
+                    
+                    // Add patient info at the top
+                    if (patientName) {
+                        historyHtml += `<h4>Immunization Records for ${patientName}</h4>`;
+                    }
+                    
+                    // Add button to record new immunization
+                    historyHtml += `<div style="margin-bottom: 20px;">
+                        <a href="nurse_process_immunization.php?patient_id=${patientId}" class="add-btn" style="display: inline-block;">
+                            <i class="fas fa-plus"></i> Record New Immunization
+                        </a>
+                    </div>`;
+                    
                     if (data.immunizations.length > 0) {
                         historyHtml += '<table class="patient-table"><thead><tr>' +
                             '<th>Vaccine</th>' +
-                            '<th>Date</th>' +
-                            '<th>Status</th>' +
+                            '<th>Dose #</th>' +
+                            '<th>Date Administered</th>' +
+                            '<th>Administrator</th>' +
+                            '<th>Batch #</th>' +
+                            '<th>Next Dose</th>' +
                             '</tr></thead><tbody>';
                         
                         data.immunizations.forEach(immunization => {
                             historyHtml += `<tr>
                                 <td>${immunization.vaccine_name}</td>
+                                <td>${immunization.dose_number}</td>
                                 <td>${immunization.date}</td>
-                                <td>${immunization.status}</td>
+                                <td>${immunization.administrator}</td>
+                                <td>${immunization.batch_number || 'N/A'}</td>
+                                <td>${immunization.next_dose_date}</td>
                             </tr>`;
                         });
                         
                         historyHtml += '</tbody></table>';
                     } else {
-                        historyHtml += '<p>No immunization records found.</p>';
+                        historyHtml += '<p>No immunization records found for this patient.</p>';
                     }
                     historyHtml += '</div>';
                     

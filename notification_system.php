@@ -394,22 +394,33 @@ class NotificationSystem {
             'email_sent' => 0,
             'email_failed' => 0,
             'sms_sent' => 0,
-            'sms_failed' => 0
+            'sms_failed' => 0,
+            'successful' => 0,
+            'failed' => 0
         ];
         
         foreach ($user_ids as $user_id) {
             $notification_result = $this->sendCustomNotification($user_id, $title, $message, $type);
             
-            if (isset($notification_result['email_sent']) && $notification_result['email_sent']) {
-                $results['email_sent']++;
-            } else if ($type === 'email' || $type === 'both') {
-                $results['email_failed']++;
-            }
-            
-            if (isset($notification_result['sms_sent']) && $notification_result['sms_sent']) {
-                $results['sms_sent']++;
-            } else if ($type === 'sms' || $type === 'both') {
-                $results['sms_failed']++;
+            if ($notification_result) {
+                $results['successful']++;
+                // Since sendCustomNotification returns true on success, 
+                // we assume both email and SMS were attempted based on the type
+                if ($type === 'email' || $type === 'both') {
+                    $results['email_sent']++;
+                }
+                if ($type === 'sms' || $type === 'both') {
+                    $results['sms_sent']++;
+                }
+            } else {
+                $results['failed']++;
+                // Count failures based on notification type
+                if ($type === 'email' || $type === 'both') {
+                    $results['email_failed']++;
+                }
+                if ($type === 'sms' || $type === 'both') {
+                    $results['sms_failed']++;
+                }
             }
         }
         
@@ -1118,7 +1129,6 @@ class NotificationSystem {
                         $this->sendCustomNotification($user_id, $profile_title, $profile_message, 'both');
                     }
                     return true;
-                    break;
 
                 case 'updated':
                     $title = "IMMUCARE: Account Updated";
@@ -1133,7 +1143,6 @@ class NotificationSystem {
                              "Best regards,\n" .
                              "IMMUCARE Team";
                     return $this->sendCustomNotification($user_id, $title, $message, 'both');
-                    break;
 
                 case 'deleted':
                     $title = "IMMUCARE: Account Deleted";
@@ -1156,7 +1165,6 @@ class NotificationSystem {
                     
                     // Send deletion notification via email only
                     return $this->sendCustomNotification($user_id, $title, $message, 'email');
-                    break;
             }
 
             return true;
