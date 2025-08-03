@@ -343,7 +343,7 @@ function sendOTP($email, $name, $otp) {
                                 <a href="login_password.php" class="btn btn-outline-primary btn-sm-mobile w-100"><i class="fas fa-key me-2"></i>Use Password</a>
                             </div>
                             <div class="col-6 text-center">
-                                <a href="index.php" class="btn btn-outline-secondary btn-sm-mobile w-100"><i class="fas fa-home me-2"></i>Back to Home</a>
+                                <a href="index.html" class="btn btn-outline-secondary btn-sm-mobile w-100"><i class="fas fa-home me-2"></i>Back to Home</a>
                             </div>
                         </div>
                     </div>

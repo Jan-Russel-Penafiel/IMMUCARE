@@ -563,7 +563,7 @@ $conn->close();
                     </div>
                 <?php endif; ?>
                 
-                <div class="action-bar">
+                                <div class="action-bar">
                     <form class="search-form" action="" method="GET">
                         <input type="text" name="search" placeholder="Search appointments..." value="<?php echo htmlspecialchars($search); ?>">
                         <button type="submit"><i class="fas fa-search"></i></button>
@@ -632,11 +632,11 @@ $conn->close();
                                         <span class="status-badge <?php echo $status_class; ?>"><?php echo $status_text; ?></span>
                                     </td>
                                     <td class="action-buttons">
-                                        <a href="view_appointment.php?id=<?php echo $appointment['id']; ?>" class="view-btn">View</a>
+                                        <button type="button" class="view-btn" onclick="viewAppointment(<?php echo $appointment['id']; ?>)">View</button>
                                         
                                         <?php if ($appointment['staff_id'] == $user_id): ?>
                                             <?php if ($appointment['status'] == 'requested' || $appointment['status'] == 'confirmed'): ?>
-                                                <a href="edit_appointment.php?id=<?php echo $appointment['id']; ?>" class="edit-btn">Edit</a>
+                                                <button type="button" class="edit-btn" onclick="editAppointment(<?php echo $appointment['id']; ?>)">Edit</button>
                                             <?php endif; ?>
                                             
                                             <?php if ($appointment['status'] == 'confirmed'): ?>
@@ -647,7 +647,7 @@ $conn->close();
                                                 <a href="update_appointment_status.php?id=<?php echo $appointment['id']; ?>&status=cancelled" class="cancel-btn" onclick="return confirm('Are you sure you want to cancel this appointment?')">Cancel</a>
                                             <?php endif; ?>
                                         <?php elseif (empty($appointment['staff_id'])): ?>
-                                            <form method="POST" action="">
+                                            <form method="POST" action="" style="display: inline;">
                                                 <input type="hidden" name="appointment_id" value="<?php echo $appointment['id']; ?>">
                                                 <button type="submit" name="claim_appointment" class="complete-btn">Claim Appointment</button>
                                             </form>
@@ -685,5 +685,547 @@ $conn->close();
             </div>
         </div>
     </div>
+
+    <!-- View Appointment Modal -->
+    <div id="viewModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Appointment Details</h2>
+                <span class="close" onclick="closeModal('viewModal')">&times;</span>
+            </div>
+            <div class="modal-body" id="viewModalBody">
+                <div class="loading">Loading appointment details...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Appointment Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Appointment</h2>
+                <span class="close" onclick="closeModal('editModal')">&times;</span>
+            </div>
+            <div class="modal-body" id="editModalBody">
+                <div class="loading">Loading appointment details...</div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border: none;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover,
+        .close:focus {
+            opacity: 0.7;
+            text-decoration: none;
+        }
+
+        .modal-body {
+            padding: 30px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--light-text);
+        }
+
+        .appointment-detail {
+            margin-bottom: 15px;
+        }
+
+        .appointment-detail label {
+            font-weight: 600;
+            color: var(--text-color);
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .appointment-detail .value {
+            color: var(--light-text);
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e1e4e8;
+            border-radius: var(--border-radius);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.1);
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .status-badge-large {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+            }
+            
+            .modal-header,
+            .modal-body {
+                padding: 20px;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .modal-body div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+                gap: 10px !important;
+            }
+        }
+    </style>
+
+    <script>
+        function viewAppointment(appointmentId) {
+            const modal = document.getElementById('viewModal');
+            const modalBody = document.getElementById('viewModalBody');
+            
+            modal.style.display = 'block';
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading appointment details...</div>';
+            
+            // Fetch appointment details via AJAX
+            fetch('get_appointment_details.php?id=' + appointmentId)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        modalBody.innerHTML = buildViewContent(data.appointment);
+                    } else {
+                        modalBody.innerHTML = `
+                            <div style="text-align: center; color: #dc3545; padding: 20px;">
+                                <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                                <p>Error loading appointment details: ${data.message}</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    modalBody.innerHTML = `
+                        <div style="text-align: center; color: #dc3545; padding: 20px;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>Error loading appointment details. Please try again.</p>
+                        </div>
+                    `;
+                });
+        }
+
+        function editAppointment(appointmentId) {
+            const modal = document.getElementById('editModal');
+            const modalBody = document.getElementById('editModalBody');
+            
+            modal.style.display = 'block';
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading appointment details...</div>';
+            
+            // Fetch appointment details and vaccines for editing
+            Promise.all([
+                fetch('get_appointment_details.php?id=' + appointmentId),
+                fetch('get_vaccines.php')
+            ])
+            .then(responses => {
+                // Check if all responses are ok
+                responses.forEach(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                });
+                return Promise.all(responses.map(r => r.json()));
+            })
+            .then(([appointmentData, vaccinesData]) => {
+                if (appointmentData.success && vaccinesData.success) {
+                    modalBody.innerHTML = buildEditContent(appointmentData.appointment, vaccinesData.vaccines);
+                } else {
+                    modalBody.innerHTML = `
+                        <div style="text-align: center; color: #dc3545; padding: 20px;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>Error loading appointment details.</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                modalBody.innerHTML = `
+                    <div style="text-align: center; color: #dc3545; padding: 20px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                        <p>Error loading appointment details. Please try again.</p>
+                    </div>
+                `;
+            });
+        }
+
+        function buildViewContent(appointment) {
+            const statusClass = 'status-' + appointment.status;
+            const statusText = appointment.status === 'no_show' ? 'No Show' : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1);
+            
+            return `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div>
+                        <h3 style="color: var(--primary-color); margin-bottom: 15px; border-bottom: 2px solid #e9ecef; padding-bottom: 5px;">Patient Information</h3>
+                        <div class="appointment-detail">
+                            <label>Full Name:</label>
+                            <div class="value">${appointment.patient_name}</div>
+                        </div>
+                        <div class="appointment-detail">
+                            <label>Date of Birth:</label>
+                            <div class="value">${appointment.date_of_birth ? new Date(appointment.date_of_birth).toLocaleDateString() : 'N/A'}</div>
+                        </div>
+                        <div class="appointment-detail">
+                            <label>Gender:</label>
+                            <div class="value">${appointment.gender || 'N/A'}</div>
+                        </div>
+                        <div class="appointment-detail">
+                            <label>Phone Number:</label>
+                            <div class="value">${appointment.patient_phone || 'N/A'}</div>
+                        </div>
+                        <div class="appointment-detail">
+                            <label>Address:</label>
+                            <div class="value">${appointment.patient_address}</div>
+                        </div>
+                        ${appointment.medical_history ? `
+                        <div class="appointment-detail">
+                            <label>Medical History:</label>
+                            <div class="value">${appointment.medical_history}</div>
+                        </div>
+                        ` : ''}
+                        ${appointment.allergies ? `
+                        <div class="appointment-detail">
+                            <label>Allergies:</label>
+                            <div class="value" style="color: #dc3545; font-weight: 500;">${appointment.allergies}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div>
+                        <h3 style="color: var(--primary-color); margin-bottom: 15px; border-bottom: 2px solid #e9ecef; padding-bottom: 5px;">Appointment Details</h3>
+                        <div class="appointment-detail">
+                            <label>Date & Time:</label>
+                            <div class="value">${new Date(appointment.appointment_date).toLocaleString()}</div>
+                        </div>
+                        <div class="appointment-detail">
+                            <label>Purpose:</label>
+                            <div class="value">${appointment.purpose}</div>
+                        </div>
+                        <div class="appointment-detail">
+                            <label>Status:</label>
+                            <div class="value">
+                                <span class="status-badge-large ${statusClass}">${statusText}</span>
+                            </div>
+                        </div>
+                        ${appointment.staff_name ? `
+                        <div class="appointment-detail">
+                            <label>Assigned Staff:</label>
+                            <div class="value">${appointment.staff_name}</div>
+                        </div>
+                        ` : ''}
+                        ${appointment.vaccine_name ? `
+                        <div class="appointment-detail">
+                            <label>Vaccine:</label>
+                            <div class="value">${appointment.vaccine_name}</div>
+                        </div>
+                        ${appointment.vaccine_manufacturer ? `
+                        <div class="appointment-detail">
+                            <label>Manufacturer:</label>
+                            <div class="value">${appointment.vaccine_manufacturer}</div>
+                        </div>
+                        ` : ''}
+                        ${appointment.vaccine_recommended_age ? `
+                        <div class="appointment-detail">
+                            <label>Recommended Age:</label>
+                            <div class="value">${appointment.vaccine_recommended_age}</div>
+                        </div>
+                        ` : ''}
+                        ${appointment.vaccine_doses_required ? `
+                        <div class="appointment-detail">
+                            <label>Doses Required:</label>
+                            <div class="value">${appointment.vaccine_doses_required}</div>
+                        </div>
+                        ` : ''}
+                        ${appointment.vaccine_description ? `
+                        <div class="appointment-detail">
+                            <label>Vaccine Description:</label>
+                            <div class="value">${appointment.vaccine_description}</div>
+                        </div>
+                        ` : ''}
+                        ` : ''}
+                        ${appointment.notes ? `
+                        <div class="appointment-detail">
+                            <label>Notes:</label>
+                            <div class="value">${appointment.notes}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                <div style="border-top: 1px solid #e9ecef; padding-top: 15px; margin-top: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="appointment-detail">
+                            <label>Created:</label>
+                            <div class="value">${new Date(appointment.created_at).toLocaleString()}</div>
+                        </div>
+                        <div class="appointment-detail">
+                            <label>Last Updated:</label>
+                            <div class="value">${new Date(appointment.updated_at).toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildEditContent(appointment, vaccines) {
+            const vaccineOptions = vaccines.map(vaccine => 
+                `<option value="${vaccine.id}" ${appointment.vaccine_id == vaccine.id ? 'selected' : ''}>${vaccine.name}</option>`
+            ).join('');
+            
+            return `
+                <form id="editAppointmentForm">
+                    <input type="hidden" name="appointment_id" value="${appointment.id}">
+                    
+                    <div class="form-group">
+                        <label>Patient Name:</label>
+                        <input type="text" value="${appointment.patient_name}" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="appointment_date">Date & Time:</label>
+                        <input type="datetime-local" name="appointment_date" id="appointment_date" 
+                               value="${appointment.appointment_date.replace(' ', 'T')}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="purpose">Purpose:</label>
+                        <input type="text" name="purpose" id="purpose" value="${appointment.purpose}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vaccine_id">Vaccine:</label>
+                        <select name="vaccine_id" id="vaccine_id">
+                            <option value="">Select Vaccine (Optional)</option>
+                            ${vaccineOptions}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="status">Status:</label>
+                        <select name="status" id="status" required>
+                            <option value="requested" ${appointment.status === 'requested' ? 'selected' : ''}>Requested</option>
+                            <option value="confirmed" ${appointment.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                            <option value="completed" ${appointment.status === 'completed' ? 'selected' : ''}>Completed</option>
+                            <option value="cancelled" ${appointment.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                            <option value="no_show" ${appointment.status === 'no_show' ? 'selected' : ''}>No Show</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes">Notes:</label>
+                        <textarea name="notes" id="notes" placeholder="Additional notes about the appointment...">${appointment.notes || ''}</textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Appointment</button>
+                    </div>
+                </form>
+            `;
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const viewModal = document.getElementById('viewModal');
+            const editModal = document.getElementById('editModal');
+            
+            if (event.target === viewModal) {
+                viewModal.style.display = 'none';
+            }
+            if (event.target === editModal) {
+                editModal.style.display = 'none';
+            }
+        }
+
+        // Handle edit form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('submit', function(e) {
+                if (e.target.id === 'editAppointmentForm') {
+                    e.preventDefault();
+                    
+                    const submitButton = e.target.querySelector('button[type="submit"]');
+                    const originalText = submitButton.innerHTML;
+                    
+                    // Show loading state
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+                    submitButton.disabled = true;
+                    
+                    const formData = new FormData(e.target);
+                    
+                    fetch('update_appointment.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Show success message
+                            const modalBody = document.getElementById('editModalBody');
+                            modalBody.innerHTML = `
+                                <div style="text-align: center; color: #28a745; padding: 40px;">
+                                    <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                                    <h3>Success!</h3>
+                                    <p>Appointment updated successfully.</p>
+                                    <button type="button" class="btn btn-primary" onclick="location.reload()">Close & Refresh</button>
+                                </div>
+                            `;
+                        } else {
+                            // Show error message
+                            alert('Error updating appointment: ' + data.message);
+                            submitButton.innerHTML = originalText;
+                            submitButton.disabled = false;
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error updating appointment. Please try again.');
+                        submitButton.innerHTML = originalText;
+                        submitButton.disabled = false;
+                    });
+                }
+            });
+        });
+    </script>
 </body>
 </html> 

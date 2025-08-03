@@ -72,7 +72,11 @@ $stmt->execute();
 $immunizations = $stmt->get_result();
 
 // Get all vaccines for filter dropdown
-$vaccines = $conn->query("SELECT id, name FROM vaccines ORDER BY name");
+$vaccines_result = $conn->query("SELECT id, name FROM vaccines WHERE is_active = 1 ORDER BY name");
+$vaccines_array = [];
+while ($vaccine = $vaccines_result->fetch_assoc()) {
+    $vaccines_array[] = $vaccine;
+}
 
 // Process logout
 if (isset($_GET['logout'])) {
@@ -101,6 +105,20 @@ $conn->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #4285f4;
+            --primary-dark: #3367d6;
+            --secondary-color: #34a853;
+            --accent-color: #fbbc05;
+            --text-color: #333;
+            --light-text: #666;
+            --bg-light: #f9f9f9;
+            --bg-white: #ffffff;
+            --shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+            --transition: all 0.3s ease;
+        }
+        
         .dashboard-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -300,6 +318,22 @@ $conn->close();
         
         .filter-form button:hover {
             background-color: #e9ecef;
+        }
+        
+        .btn-sm {
+            padding: 8px 15px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .btn-sm:hover {
+            background-color: #5a6268;
         }
         
         .add-btn {
@@ -624,11 +658,11 @@ $conn->close();
                     <form class="filter-form" action="" method="GET">
                         <select name="filter_vaccine">
                             <option value="0">All Vaccines</option>
-                            <?php while ($vaccine = $vaccines->fetch_assoc()): ?>
+                            <?php foreach ($vaccines_array as $vaccine): ?>
                                 <option value="<?php echo $vaccine['id']; ?>" <?php echo ($filter_vaccine == $vaccine['id']) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($vaccine['name']); ?>
                                 </option>
-                            <?php endwhile; ?>
+                            <?php endforeach; ?>
                         </select>
                         
                         <input type="date" name="filter_date" value="<?php echo $filter_date; ?>">
@@ -662,11 +696,11 @@ $conn->close();
                                     <label for="vaccine">Vaccine</label>
                                     <select name="vaccine_id" id="vaccine" required>
                                         <option value="">Select Vaccine</option>
-                                        <?php while ($vaccine = $vaccines->fetch_assoc()): ?>
+                                        <?php foreach ($vaccines_array as $vaccine): ?>
                                             <option value="<?php echo $vaccine['id']; ?>">
                                                 <?php echo htmlspecialchars($vaccine['name']); ?>
                                             </option>
-                                        <?php endwhile; ?>
+                                        <?php endforeach; ?>
                                     </select>
                                 </div>
                                 
@@ -686,13 +720,23 @@ $conn->close();
                                 </div>
                                 
                                 <div class="form-group">
+                                    <label for="expiration_date">Expiration Date</label>
+                                    <input type="date" name="expiration_date" id="expiration_date">
+                                </div>
+                                
+                                <div class="form-group">
                                     <label for="next_dose_date">Next Dose Date</label>
                                     <input type="date" name="next_dose_date" id="next_dose_date">
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="notes">Notes</label>
-                                    <textarea name="notes" id="notes" rows="3"></textarea>
+                                    <label for="location">Location</label>
+                                    <input type="text" name="location" id="location" placeholder="e.g., Health Center, Clinic">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="diagnosis">Diagnosis/Notes</label>
+                                    <textarea name="diagnosis" id="diagnosis" rows="3" placeholder="Additional notes or diagnosis"></textarea>
                                 </div>
                                 
                                 <div class="form-actions">
@@ -700,6 +744,111 @@ $conn->close();
                                     <button type="submit" class="btn-primary">Save Immunization</button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- View Immunization Modal -->
+                <div id="viewModal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Immunization Details</h3>
+                            <span class="close" onclick="closeViewModal()">&times;</span>
+                        </div>
+                        <div class="modal-body" id="viewModalContent">
+                            <!-- Content will be loaded via AJAX -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Edit Immunization Modal -->
+                <div id="editModal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Edit Immunization Record</h3>
+                            <span class="close" onclick="closeEditModal()">&times;</span>
+                        </div>
+                        <div class="modal-body">
+                            <form id="editImmunizationForm" method="POST">
+                                <input type="hidden" name="immunization_id" id="edit_immunization_id">
+                                
+                                <div class="form-group">
+                                    <label for="edit_patient">Patient</label>
+                                    <select name="patient_id" id="edit_patient" required>
+                                        <option value="">Select Patient</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="edit_vaccine">Vaccine</label>
+                                    <select name="vaccine_id" id="edit_vaccine" required>
+                                        <option value="">Select Vaccine</option>
+                                        <?php foreach ($vaccines_array as $vaccine): ?>
+                                            <option value="<?php echo $vaccine['id']; ?>">
+                                                <?php echo htmlspecialchars($vaccine['name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="edit_administered_date">Date Administered</label>
+                                    <input type="date" name="administered_date" id="edit_administered_date" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="edit_dose_number">Dose Number</label>
+                                    <input type="number" name="dose_number" id="edit_dose_number" min="1" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="edit_batch_number">Batch Number</label>
+                                    <input type="text" name="batch_number" id="edit_batch_number" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="edit_expiration_date">Expiration Date</label>
+                                    <input type="date" name="expiration_date" id="edit_expiration_date">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="edit_next_dose_date">Next Dose Date</label>
+                                    <input type="date" name="next_dose_date" id="edit_next_dose_date">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="edit_location">Location</label>
+                                    <input type="text" name="location" id="edit_location">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="edit_diagnosis">Diagnosis/Notes</label>
+                                    <textarea name="diagnosis" id="edit_diagnosis" rows="3"></textarea>
+                                </div>
+                                
+                                <div class="form-actions">
+                                    <button type="button" onclick="closeEditModal()" class="btn-secondary">Cancel</button>
+                                    <button type="submit" class="btn-primary">Update Immunization</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Print Certificate Modal -->
+                <div id="printModal" class="modal">
+                    <div class="modal-content" style="max-width: 800px;">
+                        <div class="modal-header">
+                            <h3>Print Immunization Certificate</h3>
+                            <span class="close" onclick="closePrintModal()">&times;</span>
+                        </div>
+                        <div class="modal-body" id="printModalContent">
+                            <!-- Certificate content will be loaded via AJAX -->
+                        </div>
+                        <div style="padding: 20px; text-align: center; border-top: 1px solid #e1e4e8;">
+                            <button onclick="printCertificate()" class="btn-primary">
+                                <i class="fas fa-print"></i> Print Certificate
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -745,9 +894,9 @@ $conn->close();
                                         ?>
                                     </td>
                                     <td class="action-buttons">
-                                        <a href="view_immunization.php?id=<?php echo $immunization['id']; ?>" class="view-btn">View</a>
-                                        <a href="edit_immunization.php?id=<?php echo $immunization['id']; ?>" class="edit-btn">Edit</a>
-                                        <a href="print_certificate.php?id=<?php echo $immunization['id']; ?>" class="print-btn" title="Print Certificate">
+                                        <a href="#" class="view-btn" onclick="openViewModal(<?php echo $immunization['id']; ?>)">View</a>
+                                        <a href="#" class="edit-btn" onclick="openEditModal(<?php echo $immunization['id']; ?>)">Edit</a>
+                                        <a href="#" class="print-btn" onclick="openPrintModal(<?php echo $immunization['id']; ?>)" title="Print Certificate">
                                             <i class="fas fa-print"></i>
                                         </a>
                                     </td>
@@ -797,12 +946,99 @@ $conn->close();
             document.getElementById('immunizationForm').reset();
         }
         
+        // Function to open view modal
+        function openViewModal(immunizationId) {
+            document.getElementById('viewModal').style.display = 'block';
+            // Load immunization details via AJAX
+            fetch(`get_immunization_details.php?id=${immunizationId}`)
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('viewModalContent').innerHTML = data;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('viewModalContent').innerHTML = '<p>Error loading immunization details.</p>';
+                });
+        }
+        
+        // Function to close view modal
+        function closeViewModal() {
+            document.getElementById('viewModal').style.display = 'none';
+        }
+        
+        // Function to open edit modal
+        function openEditModal(immunizationId) {
+            document.getElementById('editModal').style.display = 'block';
+            loadPatients('edit_patient');
+            // Load immunization data for editing
+            fetch(`get_immunization_data.php?id=${immunizationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const immunization = data.immunization;
+                        document.getElementById('edit_immunization_id').value = immunization.id;
+                        document.getElementById('edit_patient').value = immunization.patient_id;
+                        document.getElementById('edit_vaccine').value = immunization.vaccine_id;
+                        document.getElementById('edit_administered_date').value = immunization.administered_date.split(' ')[0];
+                        document.getElementById('edit_dose_number').value = immunization.dose_number;
+                        document.getElementById('edit_batch_number').value = immunization.batch_number;
+                        document.getElementById('edit_expiration_date').value = immunization.expiration_date;
+                        document.getElementById('edit_next_dose_date').value = immunization.next_dose_date;
+                        document.getElementById('edit_location').value = immunization.location || '';
+                        document.getElementById('edit_diagnosis').value = immunization.diagnosis || '';
+                    } else {
+                        alert('Error loading immunization data');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading immunization data');
+                });
+        }
+        
+        // Function to close edit modal
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+            document.getElementById('editImmunizationForm').reset();
+        }
+        
+        // Function to open print modal
+        function openPrintModal(immunizationId) {
+            document.getElementById('printModal').style.display = 'block';
+            // Load certificate content via AJAX
+            fetch(`get_certificate_content.php?id=${immunizationId}`)
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('printModalContent').innerHTML = data;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('printModalContent').innerHTML = '<p>Error loading certificate.</p>';
+                });
+        }
+        
+        // Function to close print modal
+        function closePrintModal() {
+            document.getElementById('printModal').style.display = 'none';
+        }
+        
+        // Function to print certificate
+        function printCertificate() {
+            const printContent = document.getElementById('printModalContent').innerHTML;
+            const originalContent = document.body.innerHTML;
+            
+            document.body.innerHTML = printContent;
+            window.print();
+            document.body.innerHTML = originalContent;
+            location.reload(); // Reload to restore page functionality
+        }
+        
         // Function to load patients list via AJAX
-        function loadPatients() {
+        function loadPatients(selectId = 'patient') {
             fetch('get_patients.php')
                 .then(response => response.json())
                 .then(data => {
-                    const patientSelect = document.getElementById('patient');
+                    const patientSelect = document.getElementById(selectId);
                     patientSelect.innerHTML = '<option value="">Select Patient</option>';
                     data.forEach(patient => {
                         patientSelect.innerHTML += `<option value="${patient.id}">${patient.first_name} ${patient.last_name}</option>`;
@@ -813,19 +1049,29 @@ $conn->close();
         
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('immunizationModal');
-            if (event.target == modal) {
+            const immunizationModal = document.getElementById('immunizationModal');
+            const viewModal = document.getElementById('viewModal');
+            const editModal = document.getElementById('editModal');
+            const printModal = document.getElementById('printModal');
+            
+            if (event.target == immunizationModal) {
                 closeImmunizationModal();
+            } else if (event.target == viewModal) {
+                closeViewModal();
+            } else if (event.target == editModal) {
+                closeEditModal();
+            } else if (event.target == printModal) {
+                closePrintModal();
             }
         }
         
-        // Handle form submission
+        // Handle add immunization form submission
         document.getElementById('immunizationForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
             const formData = new FormData(this);
             
-            fetch('process_immunization.php', {
+            fetch('nurse_process_immunization.php', {
                 method: 'POST',
                 body: formData
             })
@@ -842,6 +1088,32 @@ $conn->close();
             .catch(error => {
                 console.error('Error:', error);
                 alert('Error saving immunization record');
+            });
+        });
+        
+        // Handle edit immunization form submission
+        document.getElementById('editImmunizationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('update_immunization.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeEditModal();
+                    // Reload the page to show updated immunization
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Error updating immunization record');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating immunization record');
             });
         });
     </script>

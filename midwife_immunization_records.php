@@ -458,7 +458,6 @@ if (isset($_GET['logout'])) {
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(5px);
             animation: fadeIn 0.3s ease-out;
         }
 
@@ -533,6 +532,40 @@ if (isset($_GET['logout'])) {
         .close:hover {
             color: var(--primary-color);
             background-color: #f0f0f0;
+        }
+
+        /* Immunization Details Styles */
+        .immunization-details {
+            padding: 10px 0;
+        }
+
+        .immunization-details h4 {
+            color: var(--primary-color);
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e1e4e8;
+            padding-bottom: 8px;
+        }
+
+        .immunization-details table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .immunization-details td {
+            padding: 8px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .immunization-details td:first-child {
+            font-weight: 500;
+            color: #2c3e50;
+            width: 30%;
+        }
+
+        .immunization-details td:last-child {
+            color: #495057;
         }
 
         .form-group {
@@ -682,17 +715,125 @@ if (isset($_GET['logout'])) {
             document.getElementById('addImmunizationModal').style.display = 'none';
         }
 
+        function openViewModal(immunizationId) {
+            const modal = document.getElementById('viewImmunizationModal');
+            const content = document.getElementById('viewImmunizationContent');
+            
+            // Show modal
+            modal.style.display = 'block';
+            
+            // Show loading indicator
+            content.innerHTML = '<div style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin" style="font-size: 24px; color: var(--primary-color);"></i><br><br>Loading...</div>';
+            
+            // Fetch immunization details
+            fetch(`midwife_get_immunization_details.php?id=${immunizationId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    content.innerHTML = data;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #dc3545;"><i class="fas fa-exclamation-circle"></i><br><br>Error loading immunization details</div>';
+                });
+        }
+
+        function closeViewModal() {
+            document.getElementById('viewImmunizationModal').style.display = 'none';
+        }
+
+        function openEditModal(immunizationId) {
+            const modal = document.getElementById('editImmunizationModal');
+            const form = document.getElementById('editImmunizationForm');
+            
+            // Show modal
+            modal.style.display = 'block';
+            
+            // Disable form while loading
+            const formElements = form.querySelectorAll('input, select, textarea, button');
+            formElements.forEach(element => element.disabled = true);
+            
+            // Fetch immunization data for editing
+            fetch(`midwife_get_immunization_data.php?id=${immunizationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        populateEditForm(data.immunization);
+                        // Re-enable form elements
+                        formElements.forEach(element => element.disabled = false);
+                    } else {
+                        alert('Error loading immunization data: ' + data.message);
+                        closeEditModal();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading immunization data');
+                    closeEditModal();
+                });
+        }
+
+        function populateEditForm(immunization) {
+            document.getElementById('edit_immunization_id').value = immunization.id;
+            document.getElementById('edit_patient').value = immunization.patient_id;
+            document.getElementById('edit_vaccine').value = immunization.vaccine_id;
+            document.getElementById('edit_dose_number').value = immunization.dose_number;
+            document.getElementById('edit_batch_number').value = immunization.batch_number;
+            document.getElementById('edit_expiration_date').value = immunization.expiration_date;
+            document.getElementById('edit_location').value = immunization.location || '';
+            document.getElementById('edit_diagnosis').value = immunization.diagnosis || '';
+            
+            // Format datetime for datetime-local input
+            if (immunization.administered_date) {
+                const adminDate = new Date(immunization.administered_date);
+                const formattedAdminDate = adminDate.toISOString().slice(0, 16);
+                document.getElementById('edit_administered_date').value = formattedAdminDate;
+            }
+            
+            // Format next dose date
+            if (immunization.next_dose_date) {
+                document.getElementById('edit_next_dose_date').value = immunization.next_dose_date;
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById('editImmunizationModal').style.display = 'none';
+            // Reset form
+            document.getElementById('editImmunizationForm').reset();
+        }
+
         // Close modal when clicking outside
         window.onclick = function(event) {
-            var modal = document.getElementById('addImmunizationModal');
-            if (event.target == modal) {
-                modal.style.display = 'none';
+            const addModal = document.getElementById('addImmunizationModal');
+            const viewModal = document.getElementById('viewImmunizationModal');
+            const editModal = document.getElementById('editImmunizationModal');
+            
+            if (event.target == addModal) {
+                addModal.style.display = 'none';
+            } else if (event.target == viewModal) {
+                viewModal.style.display = 'none';
+            } else if (event.target == editModal) {
+                editModal.style.display = 'none';
+                document.getElementById('editImmunizationForm').reset();
             }
         }
 
         // Form validation and submission
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('addImmunizationForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Add any additional client-side validation here
+                
+                // Submit the form
+                this.submit();
+            });
+
+            document.getElementById('editImmunizationForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 
                 // Add any additional client-side validation here
@@ -846,8 +987,8 @@ if (isset($_GET['logout'])) {
                                         <?php endif; ?>
                                     </td>
                                     <td class="record-actions">
-                                        <a href="view_immunization.php?id=<?php echo $record['id']; ?>" class="action-btn view-btn">View</a>
-                                        <a href="edit_immunization.php?id=<?php echo $record['id']; ?>" class="action-btn edit-btn">Edit</a>
+                                        <a href="#" class="action-btn view-btn" onclick="openViewModal(<?php echo $record['id']; ?>)">View</a>
+                                        <a href="#" class="action-btn edit-btn" onclick="openEditModal(<?php echo $record['id']; ?>)">Edit</a>
                                     </td>
                                 </tr>
                             <?php endwhile; ?>
@@ -950,6 +1091,100 @@ if (isset($_GET['logout'])) {
                 <div class="form-actions">
                     <button type="submit" class="submit-btn">Save Record</button>
                     <button type="button" class="cancel-btn" onclick="closeAddImmunizationModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Immunization Modal -->
+    <div id="viewImmunizationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Immunization Record Details</h2>
+                <span class="close" onclick="closeViewModal()">&times;</span>
+            </div>
+            <div id="viewImmunizationContent">
+                <!-- Content will be loaded here via AJAX -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Immunization Modal -->
+    <div id="editImmunizationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Immunization Record</h2>
+                <span class="close" onclick="closeEditModal()">&times;</span>
+            </div>
+            <form id="editImmunizationForm" method="POST" action="midwife_update_immunization.php">
+                <input type="hidden" name="immunization_id" id="edit_immunization_id">
+                
+                <div class="form-group">
+                    <label for="edit_patient">Patient</label>
+                    <select name="patient_id" id="edit_patient" required>
+                        <option value="">Select Patient</option>
+                        <?php 
+                        $patients->data_seek(0);
+                        while ($patient = $patients->fetch_assoc()): ?>
+                            <option value="<?php echo $patient['id']; ?>">
+                                <?php echo htmlspecialchars($patient['last_name'] . ", " . $patient['first_name']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_vaccine">Vaccine</label>
+                    <select name="vaccine_id" id="edit_vaccine" required>
+                        <option value="">Select Vaccine</option>
+                        <?php
+                        $vaccines->data_seek(0);
+                        while ($vaccine = $vaccines->fetch_assoc()): ?>
+                            <option value="<?php echo $vaccine['id']; ?>">
+                                <?php echo htmlspecialchars($vaccine['name']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_dose_number">Dose Number</label>
+                    <input type="number" name="dose_number" id="edit_dose_number" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_batch_number">Batch Number</label>
+                    <input type="text" name="batch_number" id="edit_batch_number" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_expiration_date">Expiration Date</label>
+                    <input type="date" name="expiration_date" id="edit_expiration_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_administered_date">Administered Date</label>
+                    <input type="datetime-local" name="administered_date" id="edit_administered_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_next_dose_date">Next Dose Date</label>
+                    <input type="date" name="next_dose_date" id="edit_next_dose_date">
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_location">Location</label>
+                    <input type="text" name="location" id="edit_location" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_diagnosis">Diagnosis/Notes</label>
+                    <textarea name="diagnosis" id="edit_diagnosis" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn">Update Record</button>
+                    <button type="button" class="cancel-btn" onclick="closeEditModal()">Cancel</button>
                 </div>
             </form>
         </div>

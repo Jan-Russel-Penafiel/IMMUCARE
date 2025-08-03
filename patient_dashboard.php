@@ -782,27 +782,29 @@ if (isset($_GET['logout'])) {
                         </div>
                         <div class="card-body">
                             <?php if ($recent_immunizations->num_rows > 0): ?>
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Vaccine</th>
-                                                <th>Dose</th>
-                                                <th>Administered By</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php while ($immunization = $recent_immunizations->fetch_assoc()): ?>
-                                                <tr>
-                                                    <td class="small"><?php echo date('M j, Y', strtotime($immunization['administered_date'])); ?></td>
-                                                    <td class="small"><?php echo htmlspecialchars($immunization['vaccine_name']); ?></td>
-                                                    <td class="small"><?php echo $immunization['dose_number']; ?></td>
-                                                    <td class="small"><?php echo htmlspecialchars($immunization['administered_by_name']); ?></td>
-                                                </tr>
-                                            <?php endwhile; ?>
-                                        </tbody>
-                                    </table>
+                                <div class="row g-3">
+                                    <?php while ($immunization = $recent_immunizations->fetch_assoc()): ?>
+                                        <div class="col-12 col-md-6 col-lg-4">
+                                            <div class="card border-card h-100">
+                                                <div class="card-body p-3">
+                                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                                        <h6 class="text-primary mb-0"><?php echo htmlspecialchars($immunization['vaccine_name']); ?></h6>
+                                                        <span class="badge bg-light text-dark small">Dose <?php echo $immunization['dose_number']; ?></span>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <div class="text-muted small mb-1">
+                                                            <i class="fas fa-calendar me-1"></i>
+                                                            <?php echo date('M j, Y', strtotime($immunization['administered_date'])); ?>
+                                                        </div>
+                                                        <div class="text-muted small">
+                                                            <i class="fas fa-user-md me-1"></i>
+                                                            <?php echo htmlspecialchars($immunization['administered_by_name']); ?>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endwhile; ?>
                                 </div>
                             <?php else: ?>
                                 <div class="alert alert-info small">
@@ -819,33 +821,36 @@ if (isset($_GET['logout'])) {
                         </div>
                         <div class="card-body">
                             <?php if ($due_immunizations->num_rows > 0): ?>
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Vaccine</th>
-                                                <th>Recommended Age</th>
-                                                <th>Required</th>
-                                                <th>Received</th>
-                                                <th></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php while ($vaccine = $due_immunizations->fetch_assoc()): ?>
-                                                <tr>
-                                                    <td class="small"><?php echo htmlspecialchars($vaccine['name']); ?></td>
-                                                    <td class="small"><?php echo htmlspecialchars($vaccine['recommended_age']); ?></td>
-                                                    <td class="small"><?php echo $vaccine['doses_required']; ?></td>
-                                                    <td class="small"><?php echo $vaccine['doses_received']; ?></td>
-                                                    <td>
-                                                        <button class="btn btn-primary btn-sm schedule-btn" data-vaccine-id="<?php echo $vaccine['id']; ?>">
-                                                            <i class="fas fa-calendar-plus me-1"></i> Schedule
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            <?php endwhile; ?>
-                                        </tbody>
-                                    </table>
+                                <div class="row g-3">
+                                    <?php while ($vaccine = $due_immunizations->fetch_assoc()): ?>
+                                        <div class="col-12 col-md-6 col-lg-4">
+                                            <div class="card border-card h-100">
+                                                <div class="card-body p-3">
+                                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                                        <h6 class="text-primary mb-0"><?php echo htmlspecialchars($vaccine['name']); ?></h6>
+                                                        <span class="badge bg-warning text-dark small">Due</span>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <div class="text-muted small mb-1">
+                                                            <i class="fas fa-calendar-alt me-1"></i>
+                                                            Recommended: <?php echo htmlspecialchars($vaccine['recommended_age']); ?>
+                                                        </div>
+                                                        <div class="text-muted small mb-1">
+                                                            <i class="fas fa-syringe me-1"></i>
+                                                            Required doses: <?php echo $vaccine['doses_required']; ?>
+                                                        </div>
+                                                        <div class="text-muted small">
+                                                            <i class="fas fa-check-circle me-1"></i>
+                                                            Received: <?php echo $vaccine['doses_received']; ?>
+                                                        </div>
+                                                    </div>
+                                                    <button class="btn btn-primary btn-sm w-100 schedule-btn" data-vaccine-id="<?php echo $vaccine['id']; ?>">
+                                                        <i class="fas fa-calendar-plus me-1"></i> Schedule
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endwhile; ?>
                                 </div>
                             <?php else: ?>
                                 <div class="alert alert-success small">
