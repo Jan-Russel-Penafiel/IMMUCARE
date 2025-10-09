@@ -732,6 +732,7 @@ $conn->close();
                     <li><a href="midwife_patients.php" class="active"><i class="fas fa-user-injured"></i> Patients</a></li>
                     <li><a href="midwife_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
                     <li><a href="midwife_immunization_records.php"><i class="fas fa-syringe"></i> Immunization Records</a></li>
+                    <li><a href="midwife_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
                     <li><a href="midwife_notifications.php"><i class="fas fa-bell"></i> Notifications</a></li>
                     <li><a href="midwife_profile.php"><i class="fas fa-user"></i> Profile</a></li>
                 </ul>
@@ -837,19 +838,34 @@ $conn->close();
                 <h3 class="modal-title">Add New Patient</h3>
                 <button class="close-modal" onclick="closeModal('addPatientModal')">&times;</button>
             </div>
-            <form action="process_add_patient.php" method="POST">
-                <div class="modal-body">
+            <div class="modal-body">
+                <form id="addPatientForm" method="POST" action="api/add_patient.php">
+                    <h4>Account Information</h4>
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm Password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" required>
+                    </div>
+
+                    <h4>Personal Information</h4>
                     <div class="form-group">
                         <label for="first_name">First Name</label>
                         <input type="text" id="first_name" name="first_name" required>
                     </div>
                     <div class="form-group">
-                        <label for="last_name">Last Name</label>
-                        <input type="text" id="last_name" name="last_name" required>
-                    </div>
-                    <div class="form-group">
                         <label for="middle_name">Middle Name</label>
                         <input type="text" id="middle_name" name="middle_name">
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" name="last_name" required>
                     </div>
                     <div class="form-group">
                         <label for="date_of_birth">Date of Birth</label>
@@ -859,14 +875,17 @@ $conn->close();
                         <label for="gender">Gender</label>
                         <select id="gender" name="gender" required>
                             <option value="">Select Gender</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="phone_number">Phone Number</label>
                         <input type="tel" id="phone_number" name="phone_number" required>
                     </div>
+
+                    <h4>Address Information</h4>
                     <div class="form-group">
                         <label for="purok">Purok</label>
                         <input type="text" id="purok" name="purok" required>
@@ -879,12 +898,45 @@ $conn->close();
                         <label for="province">Province</label>
                         <input type="text" id="province" name="province" required>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="modal-btn modal-btn-secondary" onclick="closeModal('addPatientModal')">Cancel</button>
-                    <button type="submit" class="modal-btn modal-btn-primary">Add Patient</button>
-                </div>
-            </form>
+                    <div class="form-group">
+                        <label for="postal_code">Postal Code</label>
+                        <input type="text" id="postal_code" name="postal_code">
+                    </div>
+
+                    <h4>Medical Information</h4>
+                    <div class="form-group">
+                        <label for="blood_type">Blood Type</label>
+                        <select id="blood_type" name="blood_type">
+                            <option value="">Select Blood Type</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="diagnosis">Diagnosis</label>
+                        <textarea id="diagnosis" name="diagnosis" rows="3" placeholder="Enter any diagnosed conditions"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="medical_history">Medical History</label>
+                        <textarea id="medical_history" name="medical_history" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="allergies">Allergies</label>
+                        <textarea id="allergies" name="allergies" rows="3"></textarea>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn modal-btn-secondary" onclick="closeModal('addPatientModal')">Cancel</button>
+                        <button type="submit" class="modal-btn modal-btn-primary">Add Patient</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -922,6 +974,10 @@ $conn->close();
                                 <div class="detail-label">Gender</div>
                                 <div class="detail-value"><?php echo htmlspecialchars($patient['gender']); ?></div>
                             </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Blood Type</div>
+                                <div class="detail-value"><?php echo !empty($patient['blood_type']) ? htmlspecialchars($patient['blood_type']) : 'Not specified'; ?></div>
+                            </div>
                         </div>
                     </div>
 
@@ -935,6 +991,24 @@ $conn->close();
                             <div class="detail-item">
                                 <div class="detail-label">Address</div>
                                 <div class="detail-value"><?php echo htmlspecialchars($patient['purok'] . ', ' . $patient['city'] . ', ' . $patient['province']); ?></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h4 class="section-title">Medical Information</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <div class="detail-label">Diagnosis</div>
+                                <div class="detail-value"><?php echo !empty($patient['diagnosis']) ? nl2br(htmlspecialchars($patient['diagnosis'])) : 'No diagnosis recorded'; ?></div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Medical History</div>
+                                <div class="detail-value"><?php echo !empty($patient['medical_history']) ? nl2br(htmlspecialchars($patient['medical_history'])) : 'No medical history recorded'; ?></div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Allergies</div>
+                                <div class="detail-value"><?php echo !empty($patient['allergies']) ? nl2br(htmlspecialchars($patient['allergies'])) : 'No known allergies'; ?></div>
                             </div>
                         </div>
                     </div>
@@ -999,6 +1073,20 @@ $conn->close();
                                     <option value="Female" <?php echo $patient['gender'] === 'Female' ? 'selected' : ''; ?>>Female</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label for="edit_blood_type<?php echo $patient['id']; ?>">Blood Type</label>
+                                <select id="edit_blood_type<?php echo $patient['id']; ?>" name="blood_type">
+                                    <option value="">Select Blood Type</option>
+                                    <option value="A+" <?php echo $patient['blood_type'] === 'A+' ? 'selected' : ''; ?>>A+</option>
+                                    <option value="A-" <?php echo $patient['blood_type'] === 'A-' ? 'selected' : ''; ?>>A-</option>
+                                    <option value="B+" <?php echo $patient['blood_type'] === 'B+' ? 'selected' : ''; ?>>B+</option>
+                                    <option value="B-" <?php echo $patient['blood_type'] === 'B-' ? 'selected' : ''; ?>>B-</option>
+                                    <option value="AB+" <?php echo $patient['blood_type'] === 'AB+' ? 'selected' : ''; ?>>AB+</option>
+                                    <option value="AB-" <?php echo $patient['blood_type'] === 'AB-' ? 'selected' : ''; ?>>AB-</option>
+                                    <option value="O+" <?php echo $patient['blood_type'] === 'O+' ? 'selected' : ''; ?>>O+</option>
+                                    <option value="O-" <?php echo $patient['blood_type'] === 'O-' ? 'selected' : ''; ?>>O-</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -1022,6 +1110,28 @@ $conn->close();
                             <div class="form-group">
                                 <label for="edit_province<?php echo $patient['id']; ?>">Province</label>
                                 <input type="text" id="edit_province<?php echo $patient['id']; ?>" name="province" value="<?php echo htmlspecialchars($patient['province']); ?>" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h4 class="form-section-title">Medical Information</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit_diagnosis<?php echo $patient['id']; ?>">Diagnosis</label>
+                                <textarea id="edit_diagnosis<?php echo $patient['id']; ?>" name="diagnosis" rows="3"><?php echo htmlspecialchars($patient['diagnosis']); ?></textarea>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit_medical_history<?php echo $patient['id']; ?>">Medical History</label>
+                                <textarea id="edit_medical_history<?php echo $patient['id']; ?>" name="medical_history" rows="3"><?php echo htmlspecialchars($patient['medical_history']); ?></textarea>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit_allergies<?php echo $patient['id']; ?>">Allergies</label>
+                                <textarea id="edit_allergies<?php echo $patient['id']; ?>" name="allergies" rows="3"><?php echo htmlspecialchars($patient['allergies']); ?></textarea>
                             </div>
                         </div>
                     </div>

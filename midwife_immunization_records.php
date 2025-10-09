@@ -870,6 +870,7 @@ if (isset($_GET['logout'])) {
                     <li><a href="midwife_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
                     <li><a href="midwife_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
                     <li><a href="midwife_immunization_records.php" class="active"><i class="fas fa-syringe"></i> Immunization Records</a></li>
+                    <li><a href="midwife_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
                     <li><a href="midwife_notifications.php"><i class="fas fa-bell"></i> Notifications</a></li>
                     <li><a href="midwife_profile.php"><i class="fas fa-user"></i> Profile</a></li>
                 </ul>

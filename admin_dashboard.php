@@ -443,36 +443,6 @@ if (isset($_GET['logout'])) {
             margin-bottom: 0;
         }
         
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        
-        .btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 15px;
-            border-radius: var(--border-radius);
-            text-decoration: none;
-            font-weight: 500;
-            transition: var(--transition);
-            text-align: center;
-            color: white;
-        }
-        
-        .btn-primary {
-            background-color: var(--primary-color);
-        }
-        
-        .btn-primary:hover {
-            background-color: #3367d6;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(66, 133, 244, 0.2);
-        }
-        
         @media screen and (max-width: 992px) {
             .dashboard-content {
                 grid-template-columns: 1fr;
@@ -500,10 +470,6 @@ if (isset($_GET['logout'])) {
             
             .stats-grid {
                 grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            }
-            
-            .quick-actions {
-                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -706,30 +672,6 @@ if (isset($_GET['logout'])) {
                                     <?php endif; ?>
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
-                    
-                    <div class="admin-section">
-                        <h3>Quick Actions</h3>
-                        <div class="quick-actions">
-                            <a href="admin_users.php?action=add" class="btn btn-primary" style="margin-right: 10px; margin-bottom: 10px; display: inline-block;">
-                                <i class="fas fa-user-plus"></i> Add New User
-                            </a>
-                            <a href="admin_patients.php?action=add" class="btn btn-primary" style="margin-right: 10px; margin-bottom: 10px; display: inline-block;">
-                                <i class="fas fa-user-plus"></i> Add New Patient
-                            </a>
-                            <a href="admin_vaccines.php?action=add" class="btn btn-primary" style="margin-right: 10px; margin-bottom: 10px; display: inline-block;">
-                                <i class="fas fa-plus-circle"></i> Add New Vaccine
-                            </a>
-                            <a href="admin_reports.php" class="btn btn-primary" style="margin-right: 10px; margin-bottom: 10px; display: inline-block;">
-                                <i class="fas fa-chart-bar"></i> Generate Reports
-                            </a>
-                            <a href="admin_notifications.php?action=send" class="btn btn-primary" style="margin-right: 10px; margin-bottom: 10px; display: inline-block;">
-                                <i class="fas fa-bell"></i> Send Notifications
-                            </a>
-                            <a href="admin_settings.php" class="btn btn-primary" style="margin-right: 10px; margin-bottom: 10px; display: inline-block;">
-                                <i class="fas fa-cog"></i> System Settings
-                            </a>
                         </div>
                     </div>
                 </div>

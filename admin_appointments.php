@@ -479,11 +479,6 @@ $appointments_result = $stmt->get_result();
                                             <button type="button" class="btn-edit" onclick="openStatusModal(<?php echo $appointment['id']; ?>, '<?php echo $appointment['status']; ?>', '<?php echo htmlspecialchars($appointment['notes'] ?? '', ENT_QUOTES); ?>')">
                                                 <i class="fas fa-edit"></i> Update Status
                                             </button>
-                                            <?php if (empty($appointment['staff_id'])): ?>
-                                            <button type="button" class="btn-view" onclick="openAssignStaffModal(<?php echo $appointment['id']; ?>)">
-                                                <i class="fas fa-user-plus"></i> Assign Staff
-                                            </button>
-                                            <?php endif; ?>
                                             <a href="?action=delete&id=<?php echo $appointment['id']; ?>" class="btn-delete" onclick="return confirm('Are you sure you want to delete this appointment?');">
                                                 <i class="fas fa-trash"></i> Delete
                                             </a>
@@ -536,55 +531,10 @@ $appointments_result = $stmt->get_result();
         </div>
     </div>
     
-    <!-- Assign Staff Modal -->
-    <div id="assignStaffModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Assign Staff to Appointment</h3>
-                <span class="close-btn" onclick="closeAssignStaffModal()">&times;</span>
-            </div>
-            <form method="POST" action="" class="modal-form">
-                <input type="hidden" id="assign_appointment_id" name="appointment_id">
-                
-                <div class="form-group">
-                    <label for="staff_id">Select Staff:</label>
-                    <select id="staff_id" name="staff_id" required>
-                        <option value="">-- Select Staff --</option>
-                        <?php
-                        // Fetch midwives and nurses
-                        $staff_query = "SELECT id, name, user_type FROM users WHERE user_type IN ('midwife', 'nurse') ORDER BY user_type, name";
-                        $staff_result = $conn->query($staff_query);
-                        
-                        if ($staff_result && $staff_result->num_rows > 0) {
-                            $current_type = '';
-                            while ($staff = $staff_result->fetch_assoc()) {
-                                if ($current_type != $staff['user_type']) {
-                                    if ($current_type != '') {
-                                        echo "</optgroup>";
-                                    }
-                                    echo "<optgroup label='" . ucfirst($staff['user_type']) . "s'>";
-                                    $current_type = $staff['user_type'];
-                                }
-                                echo "<option value='" . $staff['id'] . "'>" . htmlspecialchars($staff['name']) . "</option>";
-                            }
-                            echo "</optgroup>";
-                        }
-                        ?>
-                    </select>
-                </div>
-                
-                <div class="form-buttons">
-                    <button type="button" onclick="closeAssignStaffModal()" class="btn-cancel">Cancel</button>
-                    <button type="submit" name="assign_staff" class="btn-submit">Assign Staff</button>
-                </div>
-            </form>
-        </div>
-    </div>
     
     <script>
         // Modal functionality
         const statusModal = document.getElementById('statusModal');
-        const assignStaffModal = document.getElementById('assignStaffModal');
         
         function openStatusModal(id, status, notes) {
             document.getElementById('appointment_id').value = id;
@@ -597,22 +547,10 @@ $appointments_result = $stmt->get_result();
             statusModal.style.display = 'none';
         }
         
-        function openAssignStaffModal(id) {
-            document.getElementById('assign_appointment_id').value = id;
-            assignStaffModal.style.display = 'block';
-        }
-        
-        function closeAssignStaffModal() {
-            assignStaffModal.style.display = 'none';
-        }
-        
         // Close modal when clicking outside
         window.onclick = function(event) {
             if (event.target == statusModal) {
                 closeStatusModal();
-            }
-            if (event.target == assignStaffModal) {
-                closeAssignStaffModal();
             }
         }
         

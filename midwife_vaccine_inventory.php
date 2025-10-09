@@ -2,13 +2,13 @@
 session_start();
 require 'config.php';
 
-// Check if user is logged in and is a nurse
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'nurse') {
+// Check if user is logged in and is a midwife
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'midwife') {
     header('Location: login.php');
     exit;
 }
 
-// Get nurse information
+// Get midwife information
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
 $user_email = $_SESSION['user_email'];
@@ -873,15 +873,15 @@ if (isset($_GET['logout'])) {
                     .then(data => {
                         if (data.success) {
                             closeModal('requestVaccineModal');
-                            alert('Vaccine request submitted successfully');
+                            alert('Vaccine added successfully');
                             window.location.reload();
                         } else {
-                            alert(data.message || 'Error submitting vaccine request');
+                            alert(data.message || 'Error adding vaccine');
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Error submitting vaccine request');
+                        alert('Error adding vaccine');
                     });
                 });
             }
@@ -898,7 +898,7 @@ if (isset($_GET['logout'])) {
             <div class="user-menu">
                 <div class="user-info">
                     <div class="user-name"><?php echo htmlspecialchars($user_name); ?></div>
-                    <div class="user-role">Nurse</div>
+                    <div class="user-role">Midwife</div>
                     <div class="user-email"><?php echo htmlspecialchars($user_email); ?></div>
                 </div>
                 <a href="?logout=1" class="logout-btn">
@@ -910,14 +910,12 @@ if (isset($_GET['logout'])) {
         <div class="dashboard-content">
             <div class="sidebar">
                 <ul class="sidebar-menu">
-                    <li><a href="nurse_dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                    <li><a href="nurse_immunizations.php"><i class="fas fa-syringe"></i> Immunizations</a></li>
-                    <li><a href="nurse_vaccine_inventory.php" class="active"><i class="fas fa-vials"></i> Vaccine Inventory</a></li>
-                    <li><a href="nurse_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
-                    <li><a href="nurse_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
-                    <li><a href="nurse_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
-                    <li><a href="nurse_notifications.php"><i class="fas fa-bell"></i> Notifications</a></li>
-                    <li><a href="nurse_profile.php"><i class="fas fa-user"></i> Profile</a></li>
+                    <li><a href="midwife_dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li><a href="midwife_immunization_records.php"><i class="fas fa-syringe"></i> Immunizations</a></li>
+                    <li><a href="midwife_vaccine_inventory.php" class="active"><i class="fas fa-vials"></i> Vaccine Inventory</a></li>
+                    <li><a href="midwife_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
+                    <li><a href="midwife_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
+                    <li><a href="midwife_profile.php"><i class="fas fa-user"></i> Profile</a></li>
                 </ul>
             </div>
             
@@ -1093,4 +1091,4 @@ if (isset($_GET['logout'])) {
         </div>
     </div>
 </body>
-</html> 
+</html>

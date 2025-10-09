@@ -88,7 +88,6 @@ try {
 // Process notification actions
 $action_message = '';
 $action_type = 'success';
-$action = isset($_GET['action']) ? $_GET['action'] : '';
 
 // Check for flash messages
 if (isset($_SESSION['notification_message'])) {
@@ -97,186 +96,12 @@ if (isset($_SESSION['notification_message'])) {
     unset($_SESSION['notification_message'], $_SESSION['notification_type']);
 }
 
-// Send notification
-if ($action == 'send' && isset($_POST['send_notification'])) {
-    // Verify form token
-    if (!isset($_POST['form_token']) || $_POST['form_token'] !== $_SESSION['notification_form_token']) {
-        $action_message = "Invalid form submission.";
-        $action_type = 'error';
-    } else {
-        // Validate required fields
-        $required_fields = ['title_type', 'message', 'notification_type'];
-        $errors = [];
-        
-        foreach ($required_fields as $field) {
-            if (empty($_POST[$field])) {
-                $errors[] = ucfirst(str_replace('_', ' ', $field)) . ' is required.';
-            }
-        }
-        
-        // Validate recipients
-        if (empty($_POST['recipients']) && empty($_POST['recipient_groups'])) {
-            $errors[] = 'Please select at least one recipient or group.';
-        }
-        
-        // Validate title based on title type
-        if ($_POST['title_type'] === 'custom' && empty($_POST['title'])) {
-            $errors[] = 'Custom title is required when selecting Custom Title option.';
-        }
-        
-        if (empty($errors)) {
-            $title = $_POST['title_type'] === 'custom' ? trim($_POST['title']) : trim($_POST['title_type']);
-            $message = trim($_POST['message']);
-            $type = $_POST['notification_type'];
-            
-            // Get all selected recipients
-            $recipients = [];
-            
-            // Individual recipients
-            if (!empty($_POST['recipients'])) {
-                $recipients = array_merge($recipients, $_POST['recipients']);
-            }
-            
-            // Group recipients
-            if (!empty($_POST['recipient_groups'])) {
-                foreach ($_POST['recipient_groups'] as $group) {
-                    foreach ($grouped_users[$group] as $user) {
-                        $recipients[] = $user['id'];
-                    }
-                }
-            }
-            
-            // Remove duplicates
-            $recipients = array_unique($recipients);
-            
-            // Send to all recipients
-            $success_count = 0;
-            $failed_count = 0;
-            $email_sent = 0;
-            $sms_sent = 0;
-            
-            foreach ($recipients as $recipient_id) {
-                if ($type === 'email_sms') {
-                    // Send both email and SMS
-                    $result_email = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'email');
-                    $result_sms = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'sms');
-                    
-                    if ($result_email) {
-                        $email_sent++;
-                    }
-                    if ($result_sms) {
-                        $sms_sent++;
-                    }
-                    
-                    if ($result_email || $result_sms) {
-                        $success_count++;
-                    } else {
-                        $failed_count++;
-                    }
-                } else {
-                    $result = $notification_system->sendCustomNotification($recipient_id, $title, $message, $type);
-                    
-                    if ($result) {
-                        $success_count++;
-                        // Count specific delivery types for display
-                        if ($type === 'email') {
-                            $email_sent++;
-                        } elseif ($type === 'sms') {
-                            $sms_sent++;
-                        }
-                    } else {
-                        $failed_count++;
-                    }
-                }
-            }
-            
-            if ($success_count > 0) {
-                // Generate new token for next submission
-                $_SESSION['notification_form_token'] = bin2hex(random_bytes(32));
-                
-                // Store success message in session
-                $_SESSION['notification_message'] = "Notification sent successfully to {$success_count} recipient(s).";
-                if ($type === 'email_sms') {
-                    $_SESSION['notification_message'] .= " (Email: {$email_sent}, SMS: {$sms_sent})";
-                }
-                if ($failed_count > 0) {
-                    $_SESSION['notification_message'] .= " Failed to send to {$failed_count} recipient(s).";
-                    $_SESSION['notification_type'] = 'warning';
-                } else {
-                    $_SESSION['notification_type'] = 'success';
-                }
-                
-                // Redirect to prevent resubmission
-                header('Location: admin_notifications.php');
-                exit;
-            } else {
-                $action_message = "Error sending notifications. Please try again.";
-                $action_type = 'error';
-            }
-        } else {
-            $action_message = implode('<br>', $errors);
-            $action_type = 'error';
-        }
-    }
-}
-
-// Delete notification
-if ($action == 'delete' && isset($_GET['id'])) {
-    try {
-        $notification_id = $_GET['id'];
-        
-        // First check if notification exists
-        $check_stmt = $conn->prepare("SELECT id FROM notifications WHERE id = ?");
-        $check_stmt->bind_param("i", $notification_id);
-        $check_stmt->execute();
-        $check_result = $check_stmt->get_result();
-        
-        if ($check_result->num_rows === 0) {
-            throw new Exception("Notification not found.");
-        }
-        
-        // Delete the notification
-        $delete_stmt = $conn->prepare("DELETE FROM notifications WHERE id = ?");
-        $delete_stmt->bind_param("i", $notification_id);
-        
-        if (!$delete_stmt->execute()) {
-            throw new Exception("Database error: " . $conn->error);
-        }
-        
-        if ($delete_stmt->affected_rows > 0) {
-            $_SESSION['notification_message'] = "Notification deleted successfully!";
-            $_SESSION['notification_type'] = 'success';
-        } else {
-            throw new Exception("Could not delete notification.");
-        }
-        
-        // Redirect to prevent resubmission
-        header("Location: admin_notifications.php");
-        exit;
-        
-    } catch (Exception $e) {
-        $_SESSION['notification_message'] = "Error: " . $e->getMessage();
-        $_SESSION['notification_type'] = 'error';
-        header("Location: admin_notifications.php");
-        exit;
-    }
-}
-
-// Get health centers for dropdown
-$stmt = $conn->prepare("SELECT id, name FROM health_centers WHERE is_active = 1 ORDER BY name");
-$stmt->execute();
-$health_centers = $stmt->get_result();
-$health_centers_array = [];
-while ($center = $health_centers->fetch_assoc()) {
-    $health_centers_array[$center['id']] = $center['name'];
-}
-
-// Get recent notifications with user information
+// Get all notifications with user information for viewing
 $notifications_query = "SELECT n.*, u.name as user_name, u.email as user_email
                        FROM notifications n 
                        LEFT JOIN users u ON n.user_id = u.id 
                        ORDER BY n.created_at DESC
-                       LIMIT 50";
+                       LIMIT 100";
 $notifications_result = $conn->query($notifications_query);
 
 // Now we can safely close the connection
@@ -1128,10 +953,10 @@ function getGroupCount($group, $grouped_users) {
             
             <div class="main-content">
                 <div class="page-title">
-                    <h2><?php echo $action == 'send' ? 'Send Notification' : 'Notification Management'; ?></h2>
-                    <?php if ($action != 'send'): ?>
-                        <a href="?action=send" class="btn-add"><i class="fas fa-paper-plane"></i> Send Notification</a>
-                    <?php endif; ?>
+                    <h2>Notification History</h2>
+                    <div style="font-size: 0.9rem; color: #666; font-weight: normal;">
+                        <i class="fas fa-info-circle"></i> View-only mode - Notifications are sent by Nurses and Midwives
+                    </div>
                 </div>
                 
                 <?php if (!empty($action_message)): ?>
@@ -1141,141 +966,8 @@ function getGroupCount($group, $grouped_users) {
                     </div>
                 <?php endif; ?>
                 
-                <?php if ($action == 'send'): ?>
-                    <div class="notification-form">
-                        <form method="POST" action="?action=send" class="notification-form">
-                            <input type="hidden" name="form_token" value="<?php echo htmlspecialchars($_SESSION['notification_form_token']); ?>">
-                            <div class="form-section">
-                                <div class="form-section-title">
-                                    <i class="fas fa-envelope"></i> Notification Details
-                                </div>
-                                <div class="form-grid">
-                                    <div class="form-group">
-                                        <label for="title_type">Notification Type</label>
-                                        <select id="title_type" name="title_type" onchange="toggleCustomTitle()" required>
-                                            <option value="">-- Select Type --</option>
-                                            <option value="Appointment Reminder">Appointment Reminder</option>
-                                            <option value="Vaccination Due">Vaccination Due</option>
-                                            <option value="Health Check Reminder">Health Check Reminder</option>
-                                            <option value="Test Results Available">Test Results Available</option>
-                                            <option value="Medication Reminder">Medication Reminder</option>
-                                            <option value="Schedule Change">Schedule Change</option>
-                                            <option value="System Update">System Update</option>
-                                            <option value="custom">Custom Title...</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group" id="custom_title_group" style="display: none;">
-                                        <label for="title">Custom Title</label>
-                                        <input type="text" id="title" name="title" placeholder="Enter custom title">
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="notification_type">Delivery Method</label>
-                                        <select id="notification_type" name="notification_type" required>
-                                            <option value="">-- Select Method --</option>
-                                            <option value="email">Email Only</option>
-                                            <option value="sms">SMS Only</option>
-                                            <option value="email_sms">Email & SMS</option>
-                                            <option value="system">System</option>
-                                        </select>
-                                        <div class="delivery-info" id="delivery_info" style="display: none;">
-                                            <div class="info-icon">
-                                                <i class="fas fa-info-circle"></i>
-                                            </div>
-                                            <div class="info-text"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-section">
-                                <div class="form-section-title">
-                                    <i class="fas fa-users"></i> Recipients
-                                </div>
-                                <div class="recipients-container">
-                                    <div class="recipient-section">
-                                        <div class="recipient-section-title">
-                                            <i class="fas fa-layer-group"></i> Select Groups
-                                        </div>
-                                        <div class="group-list">
-                                            <?php foreach (['patient', 'midwife', 'nurse'] as $group): ?>
-                                                <?php $count = getGroupCount($group, $grouped_users); ?>
-                                                <?php if ($count > 0): ?>
-                                                    <div class="group-checkbox">
-                                                        <input type="checkbox" 
-                                                               id="group_<?php echo $group; ?>" 
-                                                               name="recipient_groups[]" 
-                                                               value="<?php echo $group; ?>"
-                                                               onchange="toggleGroup('<?php echo $group; ?>')">
-                                                        <label for="group_<?php echo $group; ?>">
-                                                            All <?php echo ucfirst($group); ?>s
-                                                            <span class="recipient-count"><?php echo $count; ?></span>
-                                                        </label>
-                                                    </div>
-                                                <?php endif; ?>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    </div>
-
-                                    <div class="recipient-section">
-                                        <div class="recipient-section-title">
-                                            <i class="fas fa-user"></i> Select Individual Recipients
-                                        </div>
-                                        <div class="individual-list">
-                                            <?php foreach (['patient', 'midwife', 'nurse'] as $group): ?>
-                                                <?php if (!empty($grouped_users[$group])): ?>
-                                                    <div class="recipient-group">
-                                                        <h5>
-                                                            <?php echo ucfirst($group); ?>s
-                                                            <input type="text" 
-                                                                   class="search-recipients" 
-                                                                   data-group="<?php echo $group; ?>" 
-                                                                   placeholder="Search <?php echo ucfirst($group); ?>s..."
-                                                                   style="float: right; padding: 4px 8px; font-size: 0.8rem; width: 150px; border: 1px solid #ddd; border-radius: 4px;">
-                                                        </h5>
-                                                        <div class="recipient-list" id="<?php echo $group; ?>-list">
-                                                            <?php foreach ($grouped_users[$group] as $user): ?>
-                                                                <div class="recipient-checkbox" data-name="<?php echo strtolower(htmlspecialchars($user['display_name'])); ?>">
-                                                                    <label>
-                                                                        <input type="checkbox" 
-                                                                               id="recipient_<?php echo $user['id']; ?>" 
-                                                                               name="recipients[]" 
-                                                                               value="<?php echo $user['id']; ?>"
-                                                                               class="<?php echo $group; ?>-checkbox">
-                                                                        <?php echo htmlspecialchars($user['display_name']); ?>
-                                                                    </label>
-                                                                </div>
-                                                            <?php endforeach; ?>
-                                                        </div>
-                                                    </div>
-                                                <?php endif; ?>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-section">
-                                <div class="form-section-title">
-                                    <i class="fas fa-comment-alt"></i> Message
-                                </div>
-                                <div class="form-group">
-                                    <textarea id="message" name="message" placeholder="Enter your message here..." required></textarea>
-                                </div>
-                            </div>
-
-                            <div class="form-buttons">
-                                <a href="admin_notifications.php" class="btn-cancel">Cancel</a>
-                                <button type="submit" name="send_notification" class="btn-submit">
-                                    <i class="fas fa-paper-plane"></i> Send Notification
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                <?php else: ?>
-                    <div class="notifications-list">
-                        <table class="notifications-table">
+                <div class="notifications-list">
+                    <table class="notifications-table">
                             <thead>
                                 <tr>
                                     <th>Notification</th>
@@ -1356,7 +1048,7 @@ function getGroupCount($group, $grouped_users) {
                             </tbody>
                         </table>
                     </div>
-                <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>

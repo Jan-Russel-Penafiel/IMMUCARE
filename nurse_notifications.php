@@ -8,16 +8,16 @@ if (!isset($_SESSION['notification_form_token'])) {
     $_SESSION['notification_form_token'] = bin2hex(random_bytes(32));
 }
 
-// Check if user is logged in and is a midwife
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'midwife') {
+// Check if user is logged in and is a nurse
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'nurse') {
     header('Location: login.php');
     exit;
 }
 
-// Get midwife information
-$midwife_id = $_SESSION['user_id'];
-$midwife_name = $_SESSION['user_name'];
-$midwife_email = $_SESSION['user_email'];
+// Get nurse information
+$nurse_id = $_SESSION['user_id'];
+$nurse_name = $_SESSION['user_name'];
+$nurse_email = $_SESSION['user_email'];
 
 // Initialize notification system
 $notification_system = new NotificationSystem();
@@ -54,7 +54,7 @@ try {
         ORDER BY u.user_type, display_name";
 
     if ($users_stmt = $conn->prepare($users_query)) {
-        $users_stmt->bind_param("i", $midwife_id);
+        $users_stmt->bind_param("i", $nurse_id);
         $users_stmt->execute();
         $users_result = $users_stmt->get_result();
 
@@ -209,7 +209,7 @@ if ($action == 'send' && isset($_POST['send_notification'])) {
                 }
                 
                 // Redirect to prevent resubmission
-                header('Location: midwife_notifications.php');
+                header('Location: nurse_notifications.php');
                 exit;
             } else {
                 $action_message = "Error sending notifications. Please try again.";
@@ -914,11 +914,11 @@ function getGroupCount($group, $grouped_users) {
             </div>
             <div class="user-menu">
                 <div class="user-info">
-                    <div class="user-name"><?php echo htmlspecialchars($midwife_name); ?></div>
-                    <div class="user-role">Midwife</div>
-                    <div class="user-email"><?php echo htmlspecialchars($midwife_email); ?></div>
+                    <div class="user-name"><?php echo htmlspecialchars($nurse_name); ?></div>
+                    <div class="user-role">Nurse</div>
+                    <div class="user-email"><?php echo htmlspecialchars($nurse_email); ?></div>
                 </div>
-                <a href="midwife_dashboard.php?logout=1" class="logout-btn">
+                <a href="nurse_dashboard.php?logout=1" class="logout-btn">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </a>
             </div>
@@ -927,12 +927,14 @@ function getGroupCount($group, $grouped_users) {
         <div class="dashboard-content">
             <div class="sidebar">
                 <ul class="sidebar-menu">
-                    <li><a href="midwife_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-                    <li><a href="midwife_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
-                    <li><a href="midwife_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
-                    <li><a href="midwife_immunization_records.php"><i class="fas fa-syringe"></i> Immunization Records</a></li>
-                    <li><a href="midwife_notifications.php" class="active"><i class="fas fa-bell"></i> Notifications</a></li>
-                    <li><a href="midwife_profile.php"><i class="fas fa-user"></i> Profile</a></li>
+                    <li><a href="nurse_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                    <li><a href="nurse_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
+                    <li><a href="nurse_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
+                    <li><a href="nurse_immunizations.php"><i class="fas fa-syringe"></i> Immunizations</a></li>
+                    <li><a href="nurse_vaccine_inventory.php"><i class="fas fa-boxes"></i> Vaccine Inventory</a></li>
+                    <li><a href="nurse_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                    <li><a href="nurse_notifications.php" class="active"><i class="fas fa-bell"></i> Notifications</a></li>
+                    <li><a href="nurse_profile.php"><i class="fas fa-user"></i> Profile</a></li>
                 </ul>
             </div>
             
@@ -1056,7 +1058,7 @@ function getGroupCount($group, $grouped_users) {
                             </div>
 
                             <div class="form-buttons">
-                                <a href="midwife_notifications.php" class="btn-cancel">Cancel</a>
+                                <a href="nurse_notifications.php" class="btn-cancel">Cancel</a>
                                 <button type="submit" name="send_notification" class="btn-submit">
                                     <i class="fas fa-paper-plane"></i> Send Notification
                                 </button>

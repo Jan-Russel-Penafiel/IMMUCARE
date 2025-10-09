@@ -422,68 +422,6 @@ if (!empty($report_type)) {
             }
             break;
             
-        case 'gender_distribution':
-            $report_title = 'Gender Distribution Report';
-            $base_query = "SELECT p.gender, COUNT(DISTINCT p.id) as count FROM patients p";
-            
-            // Add joins and date conditions based on filters
-            if (!empty($diagnosis_filter)) {
-                $base_query .= " JOIN immunizations i ON i.patient_id = p.id";
-                $filter_condition .= " AND i.diagnosis = '$diagnosis_filter'";
-                
-                // Add date filter on immunizations
-                if ($view_type === 'daily') {
-                    $filter_condition .= " AND DATE(i.administered_date) BETWEEN '$date_from' AND '$date_to'";
-                } else {
-                    $filter_condition .= " AND DATE_FORMAT(i.administered_date, '%Y-%m') BETWEEN DATE_FORMAT('$date_from', '%Y-%m') AND DATE_FORMAT('$date_to', '%Y-%m')";
-                }
-            } else {
-                // Date filter on patients if no diagnosis filter
-                if ($view_type === 'daily') {
-                    $filter_condition .= " AND DATE(p.created_at) BETWEEN '$date_from' AND '$date_to'";
-                } else {
-                    $filter_condition .= " AND DATE_FORMAT(p.created_at, '%Y-%m') BETWEEN DATE_FORMAT('$date_from', '%Y-%m') AND DATE_FORMAT('$date_to', '%Y-%m')";
-                }
-            }
-            
-            $query = $base_query . $filter_condition . " GROUP BY p.gender";
-            $result = $conn->query($query);
-            while ($row = $result->fetch_assoc()) {
-                $report_data[] = $row;
-            }
-            break;
-            
-        case 'purok_distribution':
-            $report_title = 'Purok Distribution Report';
-            $base_query = "SELECT p.purok, COUNT(DISTINCT p.id) as count FROM patients p";
-            
-            // Add joins and date conditions based on filters
-            if (!empty($diagnosis_filter)) {
-                $base_query .= " JOIN immunizations i ON i.patient_id = p.id";
-                $filter_condition .= " AND i.diagnosis = '$diagnosis_filter'";
-                
-                // Add date filter on immunizations
-                if ($view_type === 'daily') {
-                    $filter_condition .= " AND DATE(i.administered_date) BETWEEN '$date_from' AND '$date_to'";
-                } else {
-                    $filter_condition .= " AND DATE_FORMAT(i.administered_date, '%Y-%m') BETWEEN DATE_FORMAT('$date_from', '%Y-%m') AND DATE_FORMAT('$date_to', '%Y-%m')";
-                }
-            } else {
-                // Date filter on patients if no diagnosis filter
-                if ($view_type === 'daily') {
-                    $filter_condition .= " AND DATE(p.created_at) BETWEEN '$date_from' AND '$date_to'";
-                } else {
-                    $filter_condition .= " AND DATE_FORMAT(p.created_at, '%Y-%m') BETWEEN DATE_FORMAT('$date_from', '%Y-%m') AND DATE_FORMAT('$date_to', '%Y-%m')";
-                }
-            }
-            
-            $query = $base_query . $filter_condition . " GROUP BY p.purok ORDER BY count DESC";
-            $result = $conn->query($query);
-            while ($row = $result->fetch_assoc()) {
-                $report_data[] = $row;
-            }
-            break;
-            
         case 'diagnosis_distribution':
             $report_title = 'Diagnosis Distribution Report';
             $base_query = "SELECT i.diagnosis, COUNT(DISTINCT p.id) as count 
@@ -501,53 +439,6 @@ if (!empty($report_type)) {
                      AND i.diagnosis IS NOT NULL
                      GROUP BY i.diagnosis
                      ORDER BY count DESC";
-            $result = $conn->query($query);
-            while ($row = $result->fetch_assoc()) {
-                $report_data[] = $row;
-            }
-            break;
-            
-        case 'age_distribution':
-            $report_title = 'Age Distribution Report';
-            $base_query = "SELECT 
-                     CASE 
-                        WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) < 1 THEN 'Under 1'
-                        WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 1 AND 5 THEN '1-5'
-                        WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 6 AND 12 THEN '6-12'
-                        ELSE 'Over 12'
-                     END as age_group,
-                     COUNT(DISTINCT p.id) as count
-                     FROM patients p";
-            
-            // Add joins and date conditions based on filters
-            if (!empty($diagnosis_filter)) {
-                $base_query .= " JOIN immunizations i ON i.patient_id = p.id";
-                $filter_condition .= " AND i.diagnosis = '$diagnosis_filter'";
-                
-                // Add date filter on immunizations
-                if ($view_type === 'daily') {
-                    $filter_condition .= " AND DATE(i.administered_date) BETWEEN '$date_from' AND '$date_to'";
-                } else {
-                    $filter_condition .= " AND DATE_FORMAT(i.administered_date, '%Y-%m') BETWEEN DATE_FORMAT('$date_from', '%Y-%m') AND DATE_FORMAT('$date_to', '%Y-%m')";
-                }
-            } else {
-                // Date filter on patients if no diagnosis filter
-                if ($view_type === 'daily') {
-                    $filter_condition .= " AND DATE(p.created_at) BETWEEN '$date_from' AND '$date_to'";
-                } else {
-                    $filter_condition .= " AND DATE_FORMAT(p.created_at, '%Y-%m') BETWEEN DATE_FORMAT('$date_from', '%Y-%m') AND DATE_FORMAT('$date_to', '%Y-%m')";
-                }
-            }
-            
-            $query = $base_query . $filter_condition . " 
-                     GROUP BY age_group
-                     ORDER BY 
-                        CASE age_group
-                            WHEN 'Under 1' THEN 1
-                            WHEN '1-5' THEN 2
-                            WHEN '6-12' THEN 3
-                            ELSE 4
-                        END";
             $result = $conn->query($query);
             while ($row = $result->fetch_assoc()) {
                 $report_data[] = $row;
@@ -604,7 +495,15 @@ $conn->close();
         .report-header { margin-bottom: 20px; }
         .report-title { font-size: 1.5rem; color: var(--primary-color); margin-bottom: 10px; }
         .report-meta { font-size: 0.9rem; color: var(--light-text); margin-bottom: 20px; }
-        .report-chart-container { height: 400px; margin-bottom: 30px; }
+        .report-chart-container { height: 400px; margin-bottom: 30px; background-color: #ffffff; padding: 20px; border-radius: var(--border-radius); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .stats-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: var(--border-radius); color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .stat-card.blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .stat-card.green { background: linear-gradient(135deg, #48c6ef 0%, #6f86d6 100%); }
+        .stat-card.orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .stat-card.purple { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .stat-card h4 { margin: 0 0 10px 0; font-size: 0.9rem; opacity: 0.9; }
+        .stat-card .stat-value { font-size: 2rem; font-weight: 700; margin: 0; }
         .report-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .report-table th, .report-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
         .report-table th { font-weight: 600; color: var(--primary-color); background-color: #f8f9fa; }
@@ -754,12 +653,9 @@ $conn->close();
                             <select id="report_type" name="report_type" required>
                                 <option value="">-- Select Report Type --</option>
                                 <option value="patient_list" <?php echo $report_type == 'patient_list' ? 'selected' : ''; ?>>List of Patients</option>
+                                <option value="patient_diagnosis" <?php echo $report_type == 'patient_diagnosis' ? 'selected' : ''; ?>>Patient Information</option>
                                 <option value="appointment_list" <?php echo $report_type == 'appointment_list' ? 'selected' : ''; ?>>List of Appointments</option>
-                                <option value="patient_diagnosis" <?php echo $report_type == 'patient_diagnosis' ? 'selected' : ''; ?>>Patient Information and Diagnosis</option>
-                                <option value="gender_distribution" <?php echo $report_type == 'gender_distribution' ? 'selected' : ''; ?>>Gender Distribution</option>
-                                <option value="purok_distribution" <?php echo $report_type == 'purok_distribution' ? 'selected' : ''; ?>>Purok Distribution</option>
-                                <option value="diagnosis_distribution" <?php echo $report_type == 'diagnosis_distribution' ? 'selected' : ''; ?>>Diagnosis Distribution</option>
-                                <option value="age_distribution" <?php echo $report_type == 'age_distribution' ? 'selected' : ''; ?>>Age Distribution</option>
+                                <option value="diagnosis_distribution" <?php echo $report_type == 'diagnosis_distribution' ? 'selected' : ''; ?>>Diagnosis</option>
                             </select>
                         </div>
                         
@@ -855,6 +751,112 @@ $conn->close();
                                 <div>Generated on: <?php echo date('M d, Y h:i A'); ?></div>
                             </div>
                         </div>
+                        
+                        <?php if (!empty($report_data)): ?>
+                        <!-- Summary Statistics -->
+                        <div class="stats-summary">
+                            <?php if ($report_type == 'patient_list'): ?>
+                                <?php
+                                $total_patients = count($report_data);
+                                $puroks = array_filter(array_column($report_data, 'purok'));
+                                $unique_puroks = count(array_unique($puroks));
+                                $purok_counts = array_count_values($puroks);
+                                arsort($purok_counts);
+                                $most_common_purok = !empty($purok_counts) ? array_key_first($purok_counts) : 'N/A';
+                                $most_common_count = !empty($purok_counts) ? $purok_counts[$most_common_purok] : 0;
+                                ?>
+                                <div class="stat-card blue">
+                                    <h4>Total Patients</h4>
+                                    <p class="stat-value"><?php echo $total_patients; ?></p>
+                                </div>
+                                <div class="stat-card green">
+                                    <h4>Total Puroks</h4>
+                                    <p class="stat-value"><?php echo $unique_puroks; ?></p>
+                                </div>
+                                <div class="stat-card orange" style="grid-column: span 2;">
+                                    <h4>Most Populated Purok</h4>
+                                    <p class="stat-value" style="font-size: 1.3rem;"><?php echo htmlspecialchars($most_common_purok); ?> (<?php echo $most_common_count; ?> patients)</p>
+                                </div>
+                            <?php elseif ($report_type == 'appointment_list'): ?>
+                                <?php
+                                $total_appointments = count($report_data);
+                                $pending_count = count(array_filter($report_data, function($a) { return strtolower($a['status']) == 'pending'; }));
+                                $confirmed_count = count(array_filter($report_data, function($a) { return strtolower($a['status']) == 'confirmed'; }));
+                                $completed_count = count(array_filter($report_data, function($a) { return strtolower($a['status']) == 'completed'; }));
+                                ?>
+                                <div class="stat-card blue">
+                                    <h4>Total Appointments</h4>
+                                    <p class="stat-value"><?php echo $total_appointments; ?></p>
+                                </div>
+                                <div class="stat-card green">
+                                    <h4>Confirmed</h4>
+                                    <p class="stat-value"><?php echo $confirmed_count; ?></p>
+                                </div>
+                                <div class="stat-card orange">
+                                    <h4>Pending</h4>
+                                    <p class="stat-value"><?php echo $pending_count; ?></p>
+                                </div>
+                                <div class="stat-card purple">
+                                    <h4>Completed</h4>
+                                    <p class="stat-value"><?php echo $completed_count; ?></p>
+                                </div>
+                            <?php elseif ($report_type == 'patient_diagnosis'): ?>
+                                <?php
+                                $total_records = count($report_data);
+                                $unique_patients = count(array_unique(array_map(function($r) { return $r['id']; }, $report_data)));
+                                $unique_vaccines = count(array_unique(array_column($report_data, 'vaccine_name')));
+                                $unique_diagnoses = count(array_unique(array_filter(array_column($report_data, 'diagnosis'))));
+                                ?>
+                                <div class="stat-card blue">
+                                    <h4>Total Records</h4>
+                                    <p class="stat-value"><?php echo $total_records; ?></p>
+                                </div>
+                                <div class="stat-card green">
+                                    <h4>Unique Patients</h4>
+                                    <p class="stat-value"><?php echo $unique_patients; ?></p>
+                                </div>
+                                <div class="stat-card orange">
+                                    <h4>Vaccine Types</h4>
+                                    <p class="stat-value"><?php echo $unique_vaccines; ?></p>
+                                </div>
+                                <div class="stat-card purple">
+                                    <h4>Diagnoses Recorded</h4>
+                                    <p class="stat-value"><?php echo $unique_diagnoses; ?></p>
+                                </div>
+                            <?php elseif ($report_type == 'diagnosis_distribution'): ?>
+                                <?php
+                                $total_cases = array_sum(array_column($report_data, 'count'));
+                                $unique_diagnoses = count($report_data);
+                                $most_common = !empty($report_data) ? $report_data[0] : ['diagnosis' => 'N/A', 'count' => 0];
+                                ?>
+                                <div class="stat-card blue">
+                                    <h4>Total Cases</h4>
+                                    <p class="stat-value"><?php echo $total_cases; ?></p>
+                                </div>
+                                <div class="stat-card green">
+                                    <h4>Unique Diagnoses</h4>
+                                    <p class="stat-value"><?php echo $unique_diagnoses; ?></p>
+                                </div>
+                                <div class="stat-card orange" style="grid-column: span 2;">
+                                    <h4>Most Common Diagnosis</h4>
+                                    <p class="stat-value" style="font-size: 1.3rem;"><?php echo htmlspecialchars($most_common['diagnosis']); ?> (<?php echo $most_common['count']; ?>)</p>
+                                </div>
+                            <?php else: ?>
+                                <?php
+                                $total_count = array_sum(array_column($report_data, 'count'));
+                                $categories = count($report_data);
+                                ?>
+                                <div class="stat-card blue">
+                                    <h4>Total Count</h4>
+                                    <p class="stat-value"><?php echo $total_count; ?></p>
+                                </div>
+                                <div class="stat-card green">
+                                    <h4>Categories</h4>
+                                    <p class="stat-value"><?php echo $categories; ?></p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
                         
                         <div class="report-chart-container">
                             <canvas id="reportChart"></canvas>
@@ -1011,18 +1013,18 @@ $conn->close();
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
-                        <?php elseif ($report_type == 'gender_distribution' || $report_type == 'purok_distribution' || $report_type == 'diagnosis_distribution' || $report_type == 'age_distribution'): ?>
+                        <?php elseif ($report_type == 'diagnosis_distribution'): ?>
                             <table class="report-table">
                                 <thead>
                                     <tr>
-                                        <th><?php echo ucfirst(str_replace('_distribution', '', $report_type)); ?></th>
-                                        <th>Number of Patients</th>
+                                        <th>Diagnosis</th>
+                                        <th>Number of Cases</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($report_data as $row): ?>
                                         <tr>
-                                            <td><?php echo htmlspecialchars($row[array_key_first($row)]); ?></td>
+                                            <td><?php echo htmlspecialchars($row['diagnosis']); ?></td>
                                             <td><?php echo $row['count']; ?></td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -1058,11 +1060,175 @@ $conn->close();
                 }
             });
             
-            <?php if (!empty($report_type)): ?>
+            <?php if (!empty($report_type) && !empty($report_data)): ?>
             // Set up Chart.js for report visualization
             const ctx = document.getElementById('reportChart').getContext('2d');
             
-            <?php if ($report_type == 'immunization_summary'): ?>
+            <?php if ($report_type == 'patient_list'): ?>
+                // Chart for patient list - Purok Distribution
+                const purokCounts = {};
+                
+                <?php foreach ($report_data as $patient): ?>
+                    (function() {
+                        const purok = '<?php echo addslashes($patient['purok']); ?>';
+                        
+                        // Count purok
+                        if (!purokCounts[purok]) purokCounts[purok] = 0;
+                        purokCounts[purok]++;
+                    })();
+                <?php endforeach; ?>
+                
+                const purokLabels = Object.keys(purokCounts).sort();
+                const purokData = purokLabels.map(label => purokCounts[label]);
+                
+                // Generate dynamic colors
+                const purokColors = [];
+                const purokBorderColors = [];
+                const colorPalette = [
+                    [54, 162, 235], [255, 99, 132], [255, 206, 86], [75, 192, 192],
+                    [153, 102, 255], [255, 159, 64], [199, 199, 199], [83, 102, 255],
+                    [255, 99, 71], [50, 205, 50], [255, 140, 0], [138, 43, 226]
+                ];
+                
+                for (let i = 0; i < purokData.length; i++) {
+                    const [r, g, b] = colorPalette[i % colorPalette.length];
+                    purokColors.push(`rgba(${r}, ${g}, ${b}, 0.6)`);
+                    purokBorderColors.push(`rgba(${r}, ${g}, ${b}, 1)`);
+                }
+                
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: purokLabels,
+                        datasets: [{
+                            label: 'Number of Patients',
+                            data: purokData,
+                            backgroundColor: purokColors,
+                            borderColor: purokBorderColors,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Purok Distribution'
+                            },
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            <?php elseif ($report_type == 'appointment_list'): ?>
+                // Chart for appointments - Status distribution
+                const statusCounts = {};
+                <?php foreach ($report_data as $appointment): ?>
+                    (function() {
+                        const status = '<?php echo ucfirst($appointment['status']); ?>';
+                        if (!statusCounts[status]) statusCounts[status] = 0;
+                        statusCounts[status]++;
+                    })();
+                <?php endforeach; ?>
+                
+                const statusLabels = Object.keys(statusCounts);
+                const statusData = Object.values(statusCounts);
+                
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: statusLabels,
+                        datasets: [{
+                            data: statusData,
+                            backgroundColor: [
+                                'rgba(75, 192, 192, 0.6)',
+                                'rgba(54, 162, 235, 0.6)',
+                                'rgba(255, 206, 86, 0.6)',
+                                'rgba(255, 99, 132, 0.6)',
+                                'rgba(153, 102, 255, 0.6)'
+                            ],
+                            borderColor: [
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(153, 102, 255, 1)'
+                            ],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Appointment Status Distribution'
+                            },
+                            legend: {
+                                position: 'right'
+                            }
+                        }
+                    }
+                });
+            <?php elseif ($report_type == 'patient_diagnosis'): ?>
+                // Chart for patient diagnosis - Vaccine and diagnosis distribution
+                const vaccineCounts = {};
+                <?php foreach ($report_data as $record): ?>
+                    (function() {
+                        const vaccine = '<?php echo addslashes($record['vaccine_name']); ?>';
+                        if (!vaccineCounts[vaccine]) vaccineCounts[vaccine] = 0;
+                        vaccineCounts[vaccine]++;
+                    })();
+                <?php endforeach; ?>
+                
+                const vaccineLabels = Object.keys(vaccineCounts);
+                const vaccineData = Object.values(vaccineCounts);
+                
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: vaccineLabels,
+                        datasets: [{
+                            label: 'Number of Immunizations',
+                            data: vaccineData,
+                            backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Vaccine Distribution'
+                            }
+                        }
+                    }
+                });
+            <?php elseif ($report_type == 'immunization_summary'): ?>
                 const labels = [<?php echo implode(', ', array_map(function($item) { return '"' . addslashes($item['vaccine_name']) . '"'; }, $report_data)); ?>];
                 const data = [<?php echo implode(', ', array_map(function($item) { return $item['count']; }, $report_data)); ?>];
                 
@@ -1149,43 +1315,56 @@ $conn->close();
                         maintainAspectRatio: false
                     }
                 });
-            <?php elseif ($report_type == 'gender_distribution' || $report_type == 'purok_distribution' || $report_type == 'diagnosis_distribution' || $report_type == 'age_distribution'): ?>
-                const labels = [<?php echo implode(', ', array_map(function($item) { return '"' . addslashes($item[array_key_first($item)]) . '"'; }, $report_data)); ?>];
+            <?php elseif ($report_type == 'diagnosis_distribution'): ?>
+                const labels = [<?php echo implode(', ', array_map(function($item) { return '"' . addslashes($item['diagnosis']) . '"'; }, $report_data)); ?>];
                 const data = [<?php echo implode(', ', array_map(function($item) { return $item['count']; }, $report_data)); ?>];
                 
+                // Generate dynamic colors based on number of items
+                const colors = [];
+                const borderColors = [];
+                const diagnosisColorPalette = [
+                    [54, 162, 235], [255, 99, 132], [255, 206, 86], [75, 192, 192],
+                    [153, 102, 255], [255, 159, 64], [199, 199, 199], [83, 102, 255],
+                    [255, 99, 71], [50, 205, 50]
+                ];
+                
+                for (let i = 0; i < data.length; i++) {
+                    const [r, g, b] = diagnosisColorPalette[i % diagnosisColorPalette.length];
+                    colors.push(`rgba(${r}, ${g}, ${b}, 0.6)`);
+                    borderColors.push(`rgba(${r}, ${g}, ${b}, 1)`);
+                }
+                
                 new Chart(ctx, {
-                    type: '<?php echo $report_type == "purok_distribution" || $report_type == "diagnosis_distribution" ? "bar" : "pie"; ?>',
+                    type: 'bar',
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: 'Number of Patients',
+                            label: 'Number of Cases',
                             data: data,
-                            backgroundColor: [
-                                'rgba(54, 162, 235, 0.6)',
-                                'rgba(75, 192, 192, 0.6)',
-                                'rgba(153, 102, 255, 0.6)',
-                                'rgba(255, 99, 132, 0.6)',
-                                'rgba(255, 159, 64, 0.6)'
-                            ],
-                            borderColor: [
-                                'rgba(54, 162, 235, 1)',
-                                'rgba(75, 192, 192, 1)',
-                                'rgba(153, 102, 255, 1)',
-                                'rgba(255, 99, 132, 1)',
-                                'rgba(255, 159, 64, 1)'
-                            ],
+                            backgroundColor: colors,
+                            borderColor: borderColors,
                             borderWidth: 1
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        indexAxis: 'y',
                         scales: {
-                            y: {
+                            x: {
                                 beginAtZero: true,
                                 ticks: {
                                     precision: 0
                                 }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Diagnosis Distribution'
+                            },
+                            legend: {
+                                display: false
                             }
                         }
                     }

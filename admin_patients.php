@@ -853,10 +853,7 @@ $conn->close();
             
             <div class="main-content">
                 <div class="page-title">
-                    <h2><?php echo $action == 'add' ? 'Add New Patient' : ($action == 'edit' ? 'Edit Patient' : 'Patient Management'); ?></h2>
-                    <?php if ($action == ''): ?>
-                        <a href="?action=add" class="btn-add"><i class="fas fa-user-plus"></i> Add New Patient</a>
-                    <?php endif; ?>
+                    <h2><?php echo $action == 'edit' ? 'Edit Patient' : 'Patient Management'; ?></h2>
                 </div>
                 
                 <?php if (!empty($action_message)): ?>
@@ -865,12 +862,10 @@ $conn->close();
                     </div>
                 <?php endif; ?>
                 
-                <?php if ($action == 'add' || $action == 'edit'): ?>
+                <?php if ($action == 'edit'): ?>
                     <div class="patient-form">
-                        <form method="POST" action="<?php echo $action == 'add' ? '?action=add' : '?action=edit&id='.$edit_patient['id']; ?>">
-                            <?php if ($action == 'edit'): ?>
-                                <input type="hidden" name="patient_id" value="<?php echo $edit_patient['id']; ?>">
-                            <?php endif; ?>
+                        <form method="POST" action="?action=edit&id=<?php echo $edit_patient['id']; ?>">
+                            <input type="hidden" name="patient_id" value="<?php echo $edit_patient['id']; ?>">
                             
                             <div class="form-grid">
                                 <div class="form-group">
@@ -981,8 +976,8 @@ $conn->close();
                             </div>
                             
                             <div class="form-buttons">
-                                <button type="submit" name="<?php echo $action == 'add' ? 'add_patient' : 'edit_patient'; ?>" class="btn-submit">
-                                    <i class="fas fa-save"></i> <?php echo $action == 'add' ? 'Add Patient' : 'Update Patient'; ?>
+                                <button type="submit" name="edit_patient" class="btn-submit">
+                                    <i class="fas fa-save"></i> Update Patient
                                 </button>
                                 <a href="admin_patients.php" class="btn-cancel">Cancel</a>
                             </div>

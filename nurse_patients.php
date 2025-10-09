@@ -542,6 +542,7 @@ $conn->close();
                     <li><a href="nurse_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
                     <li><a href="nurse_patients.php" class="active"><i class="fas fa-user-injured"></i> Patients</a></li>
                     <li><a href="nurse_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                    <li><a href="nurse_notifications.php"><i class="fas fa-bell"></i> Notifications</a></li>
                     <li><a href="nurse_profile.php"><i class="fas fa-user"></i> Profile</a></li>
                 </ul>
             </div>
@@ -710,6 +711,24 @@ $conn->close();
                     </div>
 
                     <h4>Medical Information</h4>
+                    <div class="form-group">
+                        <label for="blood_type">Blood Type</label>
+                        <select id="blood_type" name="blood_type">
+                            <option value="">Select Blood Type</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="diagnosis">Diagnosis</label>
+                        <textarea id="diagnosis" name="diagnosis" rows="3" placeholder="Enter any diagnosed conditions"></textarea>
+                    </div>
                     <div class="form-group">
                         <label for="medical_history">Medical History</label>
                         <textarea id="medical_history" name="medical_history" rows="3"></textarea>

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 25, 2025 at 10:18 AM
+-- Generation Time: Oct 09, 2025 at 10:12 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -36,16 +36,19 @@ CREATE TABLE `appointments` (
   `purpose` varchar(255) NOT NULL,
   `status` enum('requested','confirmed','completed','cancelled','no_show') DEFAULT 'requested',
   `notes` text DEFAULT NULL,
+  `transaction_id` varchar(100) DEFAULT NULL,
+  `transaction_number` varchar(50) DEFAULT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Appointment records with transaction tracking (updated with transaction_id and transaction_number)';
 
 --
 -- Dumping data for table `appointments`
 --
 
-INSERT INTO `appointments` (`id`, `patient_id`, `staff_id`, `appointment_date`, `vaccine_id`, `purpose`, `status`, `notes`, `created_at`, `updated_at`) VALUES
-(1, 12, NULL, '2025-07-03 11:41:00', NULL, 'bjhb', 'requested', 'knbkbkj', '2025-07-01 11:40:20', '2025-07-01 03:40:20');
+INSERT INTO `appointments` (`id`, `patient_id`, `staff_id`, `appointment_date`, `vaccine_id`, `purpose`, `status`, `notes`, `transaction_id`, `transaction_number`, `created_at`, `updated_at`) VALUES
+(1, 12, 2, '2025-07-03 11:41:00', NULL, 'bjhb', 'requested', 'knbkbkj', NULL, NULL, '2025-07-01 11:40:20', '2025-08-02 06:23:08'),
+(2, 12, 3, '2025-08-08 19:31:00', 2, 'sadaass', 'requested', 'asda', NULL, NULL, '2025-08-02 19:29:23', '2025-08-02 11:44:22');
 
 -- --------------------------------------------------------
 
@@ -68,6 +71,15 @@ CREATE TABLE `data_transfers` (
   `created_at` datetime NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `data_transfers`
+--
+
+INSERT INTO `data_transfers` (`id`, `initiated_by`, `destination`, `file_name`, `file_size`, `record_count`, `transfer_type`, `status`, `status_message`, `started_at`, `completed_at`, `created_at`, `updated_at`) VALUES
+(11, 1, 'artiedastephany@gmail.com', 'immucare_health_data_2025-08-02_110206.xlsx, immucare_health_data_2025-08-02_110206.pdf', NULL, NULL, 'manual', 'completed', '', '2025-08-02 17:02:15', '2025-08-02 17:02:15', '2025-08-02 17:02:15', '2025-08-02 09:02:15'),
+(12, 1, 'artiedastephany@gmail.com', 'immucare_health_data_2025-08-02_114626.xlsx, immucare_health_data_2025-08-02_114626.pdf', NULL, NULL, 'manual', 'completed', '', '2025-08-02 17:46:35', '2025-08-02 17:46:35', '2025-08-02 17:46:35', '2025-08-02 09:46:35'),
+(13, 1, 'artiedastephany@gmail.com', 'immucare_health_data_2025-08-02_115631.xlsx, immucare_health_data_2025-08-02_115632.pdf', NULL, NULL, 'manual', 'completed', '', '2025-08-02 17:56:43', '2025-08-02 17:56:43', '2025-08-02 17:56:43', '2025-08-02 09:56:43');
 
 -- --------------------------------------------------------
 
@@ -124,7 +136,10 @@ CREATE TABLE `health_centers` (
 --
 
 INSERT INTO `health_centers` (`id`, `name`, `address`, `city`, `province`, `postal_code`, `phone`, `email`, `contact_person`, `api_key`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'Municipal Health Center', '456 Health Ave', 'Anytown', 'Province', '12345', '+1234567899', 'artiedastephany@gmail.com', 'Dr. Health Director', NULL, 1, '2025-06-30 20:52:14', '2025-06-30 12:52:14');
+(1, 'Municipal Health Center', '456 Health Ave', 'Anytown', 'Province', '12345', '+1234567899', 'artiedastephany@gmail.com', 'Dr. Health Director', NULL, 1, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
+(2, 'Regional Medical Center', '789 Medical Drive', 'MedCity', 'Province', '67890', '+1234567891', 'regional.medical@gmail.com', 'Dr. Regional Director', NULL, 1, '2025-08-02 16:27:46', '2025-08-02 08:27:46'),
+(3, 'Community Health Clinic', '321 Wellness Street', 'Wellness', 'Province', '54321', '+1234567892', 'community.health@gmail.com', 'Dr. Community Director', NULL, 1, '2025-08-02 16:27:46', '2025-08-02 08:27:46'),
+(4, 'Rural Health Unit', '654 Village Road', 'Village', 'Province', '98765', '+1234567893', 'rural.health@gmail.com', 'Dr. Rural Director', NULL, 1, '2025-08-02 16:27:46', '2025-08-02 08:27:46');
 
 -- --------------------------------------------------------
 
@@ -144,9 +159,22 @@ CREATE TABLE `immunizations` (
   `next_dose_date` date DEFAULT NULL,
   `location` varchar(100) DEFAULT NULL,
   `diagnosis` text DEFAULT NULL,
+  `transaction_id` varchar(100) DEFAULT NULL,
+  `transaction_number` varchar(50) DEFAULT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Immunization records with transaction tracking (updated with transaction_id and transaction_number)';
+
+--
+-- Dumping data for table `immunizations`
+--
+
+INSERT INTO `immunizations` (`id`, `patient_id`, `vaccine_id`, `administered_by`, `dose_number`, `batch_number`, `expiration_date`, `administered_date`, `next_dose_date`, `location`, `diagnosis`, `transaction_id`, `transaction_number`, `created_at`, `updated_at`) VALUES
+(1, 12, 3, 2, 1, '20', '2025-08-09', '2025-08-07 14:57:00', '0025-10-21', 'asda', 'as', NULL, NULL, '2025-08-02 14:57:24', '2025-08-02 06:57:24'),
+(2, 1, 1, 1, 1, 'BCG001', NULL, '2025-08-02 15:35:00', NULL, NULL, NULL, NULL, NULL, '2025-08-02 15:35:00', '2025-08-02 07:35:00'),
+(3, 1, 2, 1, 1, 'HEPB001', NULL, '2025-08-02 15:35:00', '2025-09-01', NULL, NULL, NULL, NULL, '2025-08-02 15:35:00', '2025-08-02 07:35:00'),
+(4, 12, 1, 1, 1, 'BCG002', NULL, '2025-08-02 15:35:00', NULL, NULL, NULL, NULL, NULL, '2025-08-02 15:35:00', '2025-08-02 07:35:00'),
+(5, 1, 1, 3, 1, '1', '2025-08-22', '2025-08-02 18:02:00', '2025-08-09', 'asda', 'dada', NULL, NULL, '2025-08-02 18:02:28', '2025-08-02 10:02:28');
 
 -- --------------------------------------------------------
 
@@ -171,7 +199,6 @@ CREATE TABLE `notifications` (
 --
 
 INSERT INTO `notifications` (`id`, `user_id`, `title`, `message`, `type`, `is_read`, `sent_at`, `created_at`, `updated_at`) VALUES
-(2, 5, 'Patient Profile Created', 'IMMUCARE: Patient Profile Created - Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.', 'sms', 0, '2025-06-30 21:40:55', '2025-06-30 21:40:55', '2025-06-30 13:40:55'),
 (4, 5, 'Patient Profile Created', 'IMMUCARE: Patient Profile Created - Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.', 'sms', 0, '2025-06-30 21:43:49', '2025-06-30 21:43:49', '2025-06-30 13:43:49'),
 (6, 5, 'Patient Profile Deleted', 'IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.', 'sms', 0, '2025-06-30 21:44:06', '2025-06-30 21:44:06', '2025-06-30 13:44:06'),
 (8, 5, 'Patient Profile Deleted', 'IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.', 'sms', 0, '2025-06-30 21:44:18', '2025-06-30 21:44:18', '2025-06-30 13:44:18'),
@@ -185,7 +212,9 @@ INSERT INTO `notifications` (`id`, `user_id`, `title`, `message`, `type`, `is_re
 (39, 14, 'Patient Profile and Account Deletion Notice', 'Important Notice: Your ImmuCare patient profile and user account have been deleted.\n\nProfile Details:\n- Patient ID: 11\n- Name: Stephany asdadgd lablab\n- Email: stephanyartieda@sksu.edu.ph\n\nThis means:\n- Your patient records have been removed\n- Your user account has been deactivated\n- Any scheduled appointments have been cancelled\n- You will no longer receive vaccination reminders\n\nIf you believe this was done in error, please contact our support team immediately.\nYou can reach us at +1-800-IMMUCARE or support@immucare.com', 'system', 0, '2025-07-01 11:05:13', '2025-07-01 11:05:13', '2025-07-01 03:05:13'),
 (40, 15, 'Welcome to ImmuCare - Account Created', 'Welcome to ImmuCare!\n\nYour ImmuCare account has been created with the following credentials:\n- Email: stephanyartieda@sksu.edu.ph\n- Phone: 09920157536\n- Password: 12345678\n\nPlease keep these credentials secure and change your password after your first login.\n\nFor assistance, contact our support team:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com', 'system', 0, '2025-07-01 11:06:19', '2025-07-01 11:06:19', '2025-07-01 03:06:19'),
 (42, 2, 'New Appointment Request', 'New appointment request from patient #12 for July 3, 2025 - 11:41 AM', '', 0, NULL, '2025-07-01 11:40:20', '2025-07-01 03:40:20'),
-(43, 3, 'New Appointment Request', 'New appointment request from patient #12 for July 3, 2025 - 11:41 AM', '', 0, NULL, '2025-07-01 11:40:20', '2025-07-01 03:40:20');
+(43, 3, 'New Appointment Request', 'New appointment request from patient #12 for July 3, 2025 - 11:41 AM', '', 0, NULL, '2025-07-01 11:40:20', '2025-07-01 03:40:20'),
+(47, 2, 'New Appointment Request', 'New appointment request from patient #12 for August 8, 2025 - 7:31 PM', '', 0, NULL, '2025-08-02 19:29:23', '2025-08-02 11:29:23'),
+(48, 3, 'New Appointment Request', 'New appointment request from patient #12 for August 8, 2025 - 7:31 PM', '', 0, NULL, '2025-08-02 19:29:23', '2025-08-02 11:29:23');
 
 -- --------------------------------------------------------
 
@@ -201,6 +230,7 @@ CREATE TABLE `patients` (
   `last_name` varchar(50) NOT NULL,
   `date_of_birth` date NOT NULL,
   `gender` enum('male','female','other') NOT NULL,
+  `blood_type` varchar(10) DEFAULT NULL COMMENT 'Patient blood type (A+, A-, B+, B-, AB+, AB-, O+, O-)',
   `purok` text NOT NULL,
   `city` varchar(100) NOT NULL,
   `province` varchar(100) NOT NULL,
@@ -208,6 +238,7 @@ CREATE TABLE `patients` (
   `phone_number` varchar(20) DEFAULT NULL,
   `medical_history` text DEFAULT NULL,
   `allergies` text DEFAULT NULL,
+  `diagnosis` text DEFAULT NULL COMMENT 'Patient diagnosis information',
   `created_at` datetime NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -216,9 +247,9 @@ CREATE TABLE `patients` (
 -- Dumping data for table `patients`
 --
 
-INSERT INTO `patients` (`id`, `user_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth`, `gender`, `purok`, `city`, `province`, `postal_code`, `phone_number`, `medical_history`, `allergies`, `created_at`, `updated_at`) VALUES
-(1, 4, 'Test', 'P', 'Patient', '1990-01-01', 'male', 'Purok 1', 'Anytown', 'Province', '12345', '+1234567893', NULL, NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(12, 15, 'Stephany', 'asdada', 'lablab', '2002-01-20', 'female', 'asda', 'dada', 'asda', '9509as', '09920157536', 'dada', 'dada', '2025-07-01 11:06:58', '2025-07-01 03:06:58');
+INSERT INTO `patients` (`id`, `user_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth`, `gender`, `blood_type`, `purok`, `city`, `province`, `postal_code`, `phone_number`, `medical_history`, `allergies`, `diagnosis`, `created_at`, `updated_at`) VALUES
+(1, 4, 'Test', 'P', 'Patient', '1990-01-01', 'male', NULL, 'Purok 1', 'Anytown', 'Province', '12345', '+1234567893', NULL, NULL, NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
+(12, 15, 'Stephany', 'asdada', 'lablab', '2002-01-20', 'female', NULL, 'asda', 'dada', 'asda', '9509as', '09920157536', 'dada', 'dada', NULL, '2025-07-01 11:06:58', '2025-07-01 03:06:58');
 
 -- --------------------------------------------------------
 
@@ -287,8 +318,8 @@ INSERT INTO `system_settings` (`id`, `setting_key`, `setting_value`, `descriptio
 (1, 'sms_provider', 'philsms', 'SMS gateway provider', NULL, '2025-06-30 20:52:14', '2025-06-30 04:52:14'),
 (2, 'sms_enabled', 'true', 'Enable SMS notifications', NULL, '2025-06-30 20:52:14', '2025-06-30 04:52:14'),
 (3, 'email_enabled', 'true', 'Enable email notifications', NULL, '2025-06-30 20:52:14', '2025-06-30 04:52:14'),
-(4, 'appointment_reminder_days', '2', 'Days before appointment to send reminder', 1, '2025-06-30 20:52:14', '2025-06-30 06:24:58'),
-(5, 'auto_sync_mhc', 'true', 'Automatically sync data with Municipal Health Center', 1, '2025-06-30 20:52:14', '2025-06-30 06:24:52'),
+(4, 'appointment_reminder_days', '2', 'Days before appointment to send reminder', 1, '2025-06-30 20:52:14', '2025-08-02 07:17:30'),
+(5, 'auto_sync_mhc', 'true', 'Automatically sync data with Municipal Health Center', 1, '2025-06-30 20:52:14', '2025-08-02 06:56:29'),
 (6, 'philsms_api_key', '2100|J9BVGEx9FFOJAbHV0xfn6SMOkKBt80HTLjHb6zZX ', 'PhilSMS API Key', 1, '2025-06-30 22:24:52', '2025-06-30 06:24:52'),
 (7, 'philsms_sender_id', 'PhilSMS', 'PhilSMS Sender ID', 1, '2025-06-30 22:24:52', '2025-06-30 06:24:52'),
 (8, 'smtp_host', 'smtp.gmail.com', 'SMTP Server Host', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
@@ -324,11 +355,11 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `role_id`, `user_type`, `name`, `email`, `phone`, `password`, `otp`, `otp_expiry`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '$2y$10$0d0Hn8zfYGEfXFlGrlxL5OMbsAXuft90xp6fb0nGVXmOIA532U7.y', NULL, NULL, 1, '2025-07-21 19:58:13', '2025-06-30 20:52:14', '2025-07-21 11:58:13'),
-(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '$2y$10$1CzcVqbStPe3By1x6i0mOOeSc5d1XppCGPTVeI6F4OvfORO0g1USW', NULL, NULL, 1, '2025-07-21 19:55:26', '2025-06-30 20:52:14', '2025-07-21 11:55:26'),
-(3, 3, 'nurse', 'John Nurse', 'penafielliezl3322@gmail.com', '+1234567892', '', NULL, NULL, 1, '2025-07-21 20:02:26', '2025-06-30 20:52:14', '2025-07-21 12:02:26'),
+(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '12345678', NULL, NULL, 1, '2025-10-09 15:49:13', '2025-06-30 20:52:14', '2025-10-09 07:49:13'),
+(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '12345678', NULL, NULL, 1, '2025-10-09 16:07:02', '2025-06-30 20:52:14', '2025-10-09 08:07:02'),
+(3, 3, 'nurse', 'John Nurse', 'penafielliezl3322@gmail.com', '+1234567892', '12345678', NULL, NULL, 1, '2025-10-09 16:04:49', '2025-06-30 20:52:14', '2025-10-09 08:04:49'),
 (4, 4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '+1234567893', '$2y$10$i4nrJwhdt1o6A.LGZrcWLOAwws.oIQzkAKqI/H9sOglnCZ0xQt1CS', NULL, NULL, 1, '2025-07-21 20:08:04', '2025-06-30 20:52:14', '2025-07-21 12:08:04'),
-(15, 4, 'patient', 'Stephany lablab', 'stephanyartieda@sksu.edu.ph', '09920157536', '12345678', '293049', '2025-07-01 08:04:34', 1, '2025-07-01 13:54:16', '2025-07-01 11:06:19', '2025-07-01 05:54:34');
+(15, 4, 'patient', 'Stephany lablab', 'stephanyartieda@sksu.edu.ph', '09920157536', '12345678', '293049', '2025-07-01 08:04:34', 1, '2025-08-02 19:14:24', '2025-07-01 11:06:19', '2025-08-02 11:14:24');
 
 -- --------------------------------------------------------
 
@@ -371,7 +402,9 @@ ALTER TABLE `appointments`
   ADD PRIMARY KEY (`id`),
   ADD KEY `patient_id` (`patient_id`),
   ADD KEY `staff_id` (`staff_id`),
-  ADD KEY `vaccine_id` (`vaccine_id`);
+  ADD KEY `vaccine_id` (`vaccine_id`),
+  ADD KEY `idx_transaction_id` (`transaction_id`),
+  ADD KEY `idx_transaction_number` (`transaction_number`);
 
 --
 -- Indexes for table `data_transfers`
@@ -401,7 +434,9 @@ ALTER TABLE `immunizations`
   ADD PRIMARY KEY (`id`),
   ADD KEY `patient_id` (`patient_id`),
   ADD KEY `vaccine_id` (`vaccine_id`),
-  ADD KEY `administered_by` (`administered_by`);
+  ADD KEY `administered_by` (`administered_by`),
+  ADD KEY `idx_transaction_id` (`transaction_id`),
+  ADD KEY `idx_transaction_number` (`transaction_number`);
 
 --
 -- Indexes for table `notifications`
@@ -415,7 +450,8 @@ ALTER TABLE `notifications`
 --
 ALTER TABLE `patients`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `idx_blood_type` (`blood_type`);
 
 --
 -- Indexes for table `roles`
@@ -462,13 +498,13 @@ ALTER TABLE `vaccines`
 -- AUTO_INCREMENT for table `appointments`
 --
 ALTER TABLE `appointments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `data_transfers`
 --
 ALTER TABLE `data_transfers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT for table `email_logs`
@@ -480,19 +516,19 @@ ALTER TABLE `email_logs`
 -- AUTO_INCREMENT for table `health_centers`
 --
 ALTER TABLE `health_centers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `immunizations`
 --
 ALTER TABLE `immunizations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
 
 --
 -- AUTO_INCREMENT for table `patients`

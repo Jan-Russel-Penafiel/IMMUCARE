@@ -551,10 +551,7 @@ $conn->close();
             
             <div class="main-content">
                 <div class="page-title">
-                    <h2><?php echo $action == 'add' ? 'Add New Vaccine' : ($action == 'edit' ? 'Edit Vaccine' : 'Vaccine Management'); ?></h2>
-                    <?php if ($action == ''): ?>
-                        <a href="?action=add" class="btn-add"><i class="fas fa-plus-circle"></i> Add New Vaccine</a>
-                    <?php endif; ?>
+                    <h2><?php echo $action == 'edit' ? 'Edit Vaccine' : 'Vaccine Management'; ?></h2>
                 </div>
                 
                 <?php if (!empty($action_message)): ?>
@@ -563,12 +560,10 @@ $conn->close();
                     </div>
                 <?php endif; ?>
                 
-                <?php if ($action == 'add' || $action == 'edit'): ?>
+                <?php if ($action == 'edit'): ?>
                     <div class="vaccine-form">
-                        <form method="POST" action="<?php echo $action == 'add' ? '?action=add' : '?action=edit&id='.$edit_vaccine['id']; ?>">
-                            <?php if ($action == 'edit'): ?>
-                                <input type="hidden" name="vaccine_id" value="<?php echo $edit_vaccine['id']; ?>">
-                            <?php endif; ?>
+                        <form method="POST" action="?action=edit&id=<?php echo $edit_vaccine['id']; ?>">
+                            <input type="hidden" name="vaccine_id" value="<?php echo $edit_vaccine['id']; ?>">
                             
                             <div class="form-grid">
                                 <div class="form-group">
@@ -608,8 +603,8 @@ $conn->close();
                             </div>
                             
                             <div class="form-buttons">
-                                <button type="submit" name="<?php echo $action == 'add' ? 'add_vaccine' : 'edit_vaccine'; ?>" class="btn-submit">
-                                    <i class="fas fa-save"></i> <?php echo $action == 'add' ? 'Add Vaccine' : 'Update Vaccine'; ?>
+                                <button type="submit" name="edit_vaccine" class="btn-submit">
+                                    <i class="fas fa-save"></i> Update Vaccine
                                 </button>
                                 <a href="admin_vaccines.php" class="btn-cancel">Cancel</a>
                             </div>

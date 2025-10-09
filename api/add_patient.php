@@ -125,6 +125,7 @@ try {
             last_name,
             date_of_birth,
             gender,
+            blood_type,
             purok,
             city,
             province,
@@ -132,8 +133,11 @@ try {
             phone_number,
             medical_history,
             allergies,
+            diagnosis,
             created_at
         ) VALUES (
+            ?,
+            ?,
             ?,
             ?,
             ?,
@@ -151,21 +155,38 @@ try {
         )
     ");
 
+    $first_name = $_POST['first_name'];
+    $middle_name = $_POST['middle_name'] ?? null;
+    $last_name = $_POST['last_name'];
+    $date_of_birth = $_POST['date_of_birth'];
+    $gender = $_POST['gender'];
+    $blood_type = $_POST['blood_type'] ?? null;
+    $purok = $_POST['purok'];
+    $city = $_POST['city'];
+    $province = $_POST['province'];
+    $postal_code = $_POST['postal_code'] ?? null;
+    $phone_number = $_POST['phone_number'];
+    $medical_history = $_POST['medical_history'] ?? null;
+    $allergies = $_POST['allergies'] ?? null;
+    $diagnosis = $_POST['diagnosis'] ?? null;
+
     $stmt->bind_param(
-        "issssssssssss",
+        "isssssssssssssss",
         $user_id,
-        $_POST['first_name'],
-        $_POST['middle_name'] ?? null,
-        $_POST['last_name'],
-        $_POST['date_of_birth'],
-        $_POST['gender'],
-        $_POST['purok'],
-        $_POST['city'],
-        $_POST['province'],
-        $_POST['postal_code'] ?? null,
-        $_POST['phone_number'],
-        $_POST['medical_history'] ?? null,
-        $_POST['allergies'] ?? null,
+        $first_name,
+        $middle_name,
+        $last_name,
+        $date_of_birth,
+        $gender,
+        $blood_type,
+        $purok,
+        $city,
+        $province,
+        $postal_code,
+        $phone_number,
+        $medical_history,
+        $allergies,
+        $diagnosis,
         $current_time
     );
 

@@ -453,6 +453,7 @@ $conn->close();
                     <li><a href="nurse_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
                     <li><a href="nurse_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
                     <li><a href="nurse_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                    <li><a href="nurse_notifications.php"><i class="fas fa-bell"></i> Notifications</a></li>
                     <li><a href="nurse_profile.php" class="active"><i class="fas fa-user"></i> Profile</a></li>
                 </ul>
             </div>

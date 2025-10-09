@@ -40,18 +40,37 @@ if ($conn->connect_error) {
     exit;
 }
 
+// Prepare variables
+$first_name = $_POST['first_name'];
+$last_name = $_POST['last_name'];
+$date_of_birth = $_POST['date_of_birth'];
+$gender = $_POST['gender'];
+$blood_type = $_POST['blood_type'] ?? null;
+$phone_number = $_POST['phone_number'];
+$purok = $_POST['purok'];
+$city = $_POST['city'];
+$province = $_POST['province'];
+$medical_history = $_POST['medical_history'] ?? null;
+$allergies = $_POST['allergies'] ?? null;
+$diagnosis = $_POST['diagnosis'] ?? null;
+$patient_id = $_POST['patient_id'];
+
 // Prepare and execute update statement
-$stmt = $conn->prepare("UPDATE patients SET first_name = ?, last_name = ?, date_of_birth = ?, gender = ?, phone_number = ?, purok = ?, city = ?, province = ? WHERE id = ?");
-$stmt->bind_param("ssssssssi", 
-    $_POST['first_name'],
-    $_POST['last_name'],
-    $_POST['date_of_birth'],
-    $_POST['gender'],
-    $_POST['phone_number'],
-    $_POST['purok'],
-    $_POST['city'],
-    $_POST['province'],
-    $_POST['patient_id']
+$stmt = $conn->prepare("UPDATE patients SET first_name = ?, last_name = ?, date_of_birth = ?, gender = ?, blood_type = ?, phone_number = ?, purok = ?, city = ?, province = ?, medical_history = ?, allergies = ?, diagnosis = ? WHERE id = ?");
+$stmt->bind_param("ssssssssssssi", 
+    $first_name,
+    $last_name,
+    $date_of_birth,
+    $gender,
+    $blood_type,
+    $phone_number,
+    $purok,
+    $city,
+    $province,
+    $medical_history,
+    $allergies,
+    $diagnosis,
+    $patient_id
 );
 
 if ($stmt->execute()) {
