@@ -6,7 +6,120 @@
  */
 
 /**
- * Send an SMS using the configured SMS provider
+ * Send SMS using IPROG SMS API
+ * @param string $phone_number Recipient phone number
+ * @param string $message SMS message content
+ * @param string $api_key IPROG SMS API token
+ * @return array Response with status and message
+ */
+function sendSMSUsingIPROG($phone_number, $message, $api_key) {
+    // Prepare the phone number (remove any spaces and ensure 63 format for IPROG)
+    $phone_number = str_replace([' ', '-'], '', $phone_number);
+    if (substr($phone_number, 0, 1) === '0') {
+        $phone_number = '63' . substr($phone_number, 1);
+    } elseif (substr($phone_number, 0, 1) === '+') {
+        $phone_number = substr($phone_number, 1);
+    }
+
+    // Validate phone number format
+    if (!preg_match('/^63[0-9]{10}$/', $phone_number)) {
+        return array(
+            'success' => false,
+            'status' => 'failed',
+            'message' => 'Invalid phone number format. Must be a valid Philippine mobile number.'
+        );
+    }
+
+    // Prepare the request data for IPROG SMS API
+    $data = array(
+        'api_token' => $api_key,
+        'message' => $message,
+        'phone_number' => $phone_number
+    );
+
+    // Initialize cURL session
+    $ch = curl_init("https://sms.iprogtech.com/api/v1/sms_messages");
+
+    // Set cURL options for IPROG SMS
+    curl_setopt_array($ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query($data),
+        CURLOPT_HTTPHEADER => array(
+            'Content-Type: application/x-www-form-urlencoded'
+        ),
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true
+    ));
+
+    // Execute cURL request
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($ch);
+    $curl_errno = curl_errno($ch);
+
+    // Close cURL session
+    curl_close($ch);
+
+    // Log the API request for debugging
+    error_log(sprintf(
+        "IPROG SMS API Request - Number: %s, Status: %d, Response: %s, Error: %s",
+        $phone_number,
+        $http_code,
+        $response,
+        $curl_error
+    ));
+
+    // Handle cURL errors
+    if ($curl_errno) {
+        return array(
+            'success' => false,
+            'status' => 'failed',
+            'message' => 'Connection error: ' . $curl_error,
+            'error_code' => $curl_errno
+        );
+    }
+
+    // Parse response
+    $result = json_decode($response, true);
+
+    // Handle API response for IPROG SMS
+    if ($http_code === 200 || $http_code === 201) {
+        // IPROG SMS typically returns success in different formats
+        // Check for common success indicators
+        if ((isset($result['status']) && $result['status'] === 'success') ||
+            (isset($result['success']) && $result['success'] === true) ||
+            (isset($result['message']) && stripos($result['message'], 'sent') !== false) ||
+            (!isset($result['error']) && !isset($result['errors']))) {
+            return array(
+                'success' => true,
+                'status' => 'sent',
+                'message' => 'SMS sent successfully',
+                'reference_id' => $result['message_id'] ?? $result['id'] ?? $result['reference'] ?? null,
+                'delivery_status' => $result['status'] ?? 'Sent',
+                'timestamp' => $result['timestamp'] ?? date('Y-m-d g:i A'),
+                'response' => $result
+            );
+        }
+    }
+
+    // Handle error responses
+    $error_message = isset($result['message']) ? $result['message'] : 
+                    (isset($result['error']) ? $result['error'] : 
+                    (isset($result['errors']) ? (is_array($result['errors']) ? implode(', ', $result['errors']) : $result['errors']) : 'Unknown error occurred'));
+    
+    return array(
+        'success' => false,
+        'status' => 'failed',
+        'message' => 'API Error: ' . $error_message,
+        'error_code' => $http_code,
+        'error_details' => $result
+    );
+}
+
+/**
+ * Send an SMS using the configured SMS provider (IPROG SMS)
  * 
  * @param string $phone_number Recipient phone number
  * @param string $message SMS message
@@ -14,79 +127,17 @@
  */
 function sendSMS($phone_number, $message) {
     try {
-        // Format phone number (remove any non-numeric characters and ensure it starts with country code)
-        $phone_number = preg_replace('/[^0-9]/', '', $phone_number);
-        if (!preg_match('/^63/', $phone_number)) {
-            $phone_number = '63' . ltrim($phone_number, '0');
-        }
+        // Get API key from constants (IPROG SMS API key)
+        $api_key = defined('IPROG_SMS_API_KEY') ? IPROG_SMS_API_KEY : '1ef3b27ea753780a90cbdf07d027fb7b52791004';
         
-        // Prepare request data
-        $send_data = [
-            'sender_id' => PHILSMS_SENDER_ID,
-            'recipient' => "+{$phone_number}",
-            'message' => $message
-        ];
+        // Use IPROG SMS implementation
+        $result = sendSMSUsingIPROG($phone_number, $message, $api_key);
         
-        // Log request data for debugging
-        error_log("SMS Request Data: " . json_encode($send_data));
-        
-        // Initialize cURL
-        $ch = curl_init();
-        
-        // Set cURL options
-        curl_setopt_array($ch, [
-            CURLOPT_URL => "https://app.philsms.com/api/v3/sms/send",
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($send_data),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_VERBOSE => true,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_HTTPHEADER => [
-                "Content-Type: application/json",
-                "Authorization: Bearer " . PHILSMS_API_KEY
-            ]
-        ]);
-        
-        // Execute cURL request
-        $response = curl_exec($ch);
-        
-        // Check for cURL errors
-        if(curl_errno($ch)) {
-            $error = curl_error($ch);
-            error_log("PhilSMS cURL Error: " . $error);
-            curl_close($ch);
-            return [
-                'status' => 'failed',
-                'message' => "cURL Error: {$error}"
-            ];
-        }
-        
-        // Get HTTP status code
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        // Parse response
-        $response_data = json_decode($response, true);
-        error_log("PhilSMS API Response: " . $response);
-        error_log("PhilSMS API HTTP Status Code: " . $http_code);
-        
-        // Check if the message was sent successfully
-        if ($http_code === 200) {
-            if (isset($response_data['status']) && $response_data['status'] === 'success') {
-                return [
-                    'status' => 'sent',
-                    'message' => 'Message sent successfully',
-                    'response' => $response_data
-                ];
-            }
-        }
-        
-        // If we get here, there was an error
+        // Convert to expected format for backward compatibility
         return [
-            'status' => 'failed',
-            'message' => "API Error: HTTP Code {$http_code}, Response: {$response}",
-            'response' => $response_data
+            'status' => $result['status'],
+            'message' => $result['message'],
+            'response' => $result
         ];
         
     } catch (Exception $e) {

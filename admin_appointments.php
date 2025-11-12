@@ -76,13 +76,32 @@ if (isset($_POST['update_status'])) {
         $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
         $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
         
+        // Get status-specific message
+        $status_specific_message = "";
+        switch($status) {
+            case 'confirmed':
+                $status_specific_message = "Your appointment has been confirmed. Please arrive 15 minutes early.";
+                break;
+            case 'completed':
+                $status_specific_message = "Your appointment has been completed. Thank you for visiting us.";
+                break;
+            case 'cancelled':
+                $status_specific_message = "Your appointment has been cancelled. You may reschedule at your convenience.";
+                break;
+            case 'no_show':
+                $status_specific_message = "You missed your scheduled appointment. Please contact us to reschedule.";
+                break;
+            default:
+                $status_specific_message = "Thank you for scheduling with us.";
+        }
+        
         $status_message = "Your appointment status has been updated.\n\n" .
                          "Appointment Details:\n" .
                          "- Purpose: " . $purpose . "\n" .
                          "- Date: " . $appointment_date . "\n" .
                          "- Time: " . $appointment_time . "\n" .
                          "- New Status: " . ucfirst($status) . "\n\n" .
-                         $this->getStatusSpecificMessage($status) . "\n" .
+                         $status_specific_message . "\n" .
                          (!empty($notes) ? "\nAdditional Notes: " . $notes . "\n" : "") .
                          "\nIf you have any questions or need to make changes, please contact us.";
         
@@ -341,11 +360,11 @@ $appointments_result = $stmt->get_result();
         .status-cancelled { background-color: #ffebee; color: #c62828; }
         .status-no-show { background-color: #fafafa; color: #757575; }
         .action-buttons { display: flex; gap: 10px; }
-        .btn-view, .btn-edit, .btn-delete { padding: 5px 10px; border-radius: 5px; font-size: 0.8rem; text-decoration: none; transition: var(--transition); }
+        .btn-view, .btn-edit, .btn-delete { padding: 8px 12px; border-radius: 5px; font-size: 0.8rem; text-decoration: none; transition: var(--transition); border: none; cursor: pointer; }
         .btn-view { background-color: #e8f5e9; color: #2e7d32; }
         .btn-view:hover { background-color: #c8e6c9; }
-        .btn-edit { background-color: #e3f2fd; color: #1976d2; }
-        .btn-edit:hover { background-color: #bbdefb; }
+        .btn-edit { background-color: #007bff; color: white; }
+        .btn-edit:hover { background-color: #0056b3; }
         .btn-delete { background-color: #ffebee; color: #c62828; }
         .btn-delete:hover { background-color: #ffcdd2; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
@@ -359,6 +378,10 @@ $appointments_result = $stmt->get_result();
         .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: var(--border-radius); font-family: inherit; }
         .form-group textarea { height: 100px; resize: vertical; }
         .form-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn-cancel { background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); font-size: 0.9rem; }
+        .btn-cancel:hover { background-color: #5a6268; }
+        .btn-submit { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); font-size: 0.9rem; }
+        .btn-submit:hover { background-color: #0056b3; }
         @media screen and (max-width: 992px) { .dashboard-content { grid-template-columns: 1fr; } .sidebar { margin-bottom: 20px; } .modal-content { width: 70%; } }
         @media screen and (max-width: 768px) { .dashboard-header { flex-direction: column; align-items: flex-start; } .user-menu { margin-top: 20px; align-self: flex-end; } .filter-bar { flex-direction: column; align-items: flex-start; } .filter-group { width: 100%; } .action-buttons { flex-direction: column; } .modal-content { width: 90%; } }
     </style>

@@ -13,9 +13,9 @@ define('SMTP_SECURE', 'tls');  // tls or ssl
 define('SMTP_PORT', 587);  // 587 for TLS, 465 for SSL
 
 // SMS Configuration
-define('SMS_PROVIDER', 'philsms');  // Default SMS provider
-define('PHILSMS_API_KEY', '2100|J9BVGEx9FFOJAbHV0xfn6SMOkKBt80HTLjHb6zZX');  // Your PhilSMS API key
-define('PHILSMS_SENDER_ID', 'PhilSMS');  // Your registered sender ID
+define('SMS_PROVIDER', 'iprog');  // IPROG SMS provider
+define('IPROG_SMS_API_KEY', '1ef3b27ea753780a90cbdf07d027fb7b52791004');  // Your IPROG SMS API key
+define('SMS_SENDER_ID', 'IMMUCARE');  // Your registered sender ID
 
 // Application Settings
 define('APP_URL', 'http://localhost/mic_new');  // Change to your application URL
