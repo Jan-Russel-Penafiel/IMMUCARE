@@ -1141,7 +1141,7 @@ $conn->close();
                                             <td>
                                                 <?php echo htmlspecialchars($patient['first_name'] . ' ' . $patient['middle_name'] . ' ' . $patient['last_name']); ?>
                                                 <?php if (!empty($patient['user_name'])): ?>
-                                                    <div style="font-size: 0.8rem; color: #666;">
+                                                    <div style="font-size: 0.6rem; color: #666;">
                                                         <i class="fas fa-user"></i> User Account: <?php echo htmlspecialchars($patient['user_email']); ?>
                                                     </div>
                                                 <?php endif; ?>
