@@ -50,8 +50,9 @@ if (isset($_POST['update_status'])) {
         SELECT a.*, 
                p.first_name, 
                p.last_name, 
-               p.phone_number,
+               p.phone_number as patient_phone,
                u.email,
+               u.phone as user_phone,
                u.id as user_id,
                v.name as vaccine_name
         FROM appointments a
@@ -76,34 +77,28 @@ if (isset($_POST['update_status'])) {
         $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
         $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
         
-        // Get status-specific message
+        // Create shorter, concise message for SMS compatibility
         $status_specific_message = "";
         switch($status) {
             case 'confirmed':
-                $status_specific_message = "Your appointment has been confirmed. Please arrive 15 minutes early.";
+                $status_specific_message = "CONFIRMED. Please arrive 15 minutes early.";
                 break;
             case 'completed':
-                $status_specific_message = "Your appointment has been completed. Thank you for visiting us.";
+                $status_specific_message = "COMPLETED. Thank you for visiting us.";
                 break;
             case 'cancelled':
-                $status_specific_message = "Your appointment has been cancelled. You may reschedule at your convenience.";
+                $status_specific_message = "CANCELLED. You may reschedule anytime.";
                 break;
             case 'no_show':
-                $status_specific_message = "You missed your scheduled appointment. Please contact us to reschedule.";
+                $status_specific_message = "MISSED. Please contact us to reschedule.";
                 break;
             default:
-                $status_specific_message = "Thank you for scheduling with us.";
+                $status_specific_message = "UPDATED. Thank you.";
         }
         
-        $status_message = "Your appointment status has been updated.\n\n" .
-                         "Appointment Details:\n" .
-                         "- Purpose: " . $purpose . "\n" .
-                         "- Date: " . $appointment_date . "\n" .
-                         "- Time: " . $appointment_time . "\n" .
-                         "- New Status: " . ucfirst($status) . "\n\n" .
-                         $status_specific_message . "\n" .
-                         (!empty($notes) ? "\nAdditional Notes: " . $notes . "\n" : "") .
-                         "\nIf you have any questions or need to make changes, please contact us.";
+        // Short message format for SMS (removes long details and medical terms)
+        $status_message = "IMMUCARE: Your appointment on " . $appointment_date . " at " . $appointment_time . " is " . $status_specific_message .
+                         (!empty($notes) ? " Note: " . $notes : "");
         
         $notification_system->sendCustomNotification(
             $appointment_data['user_id'],
@@ -124,67 +119,6 @@ if (isset($_POST['update_status'])) {
     }
 }
 
-// Assign staff to appointment
-if (isset($_POST['assign_staff'])) {
-    $appointment_id = $_POST['appointment_id'];
-    $staff_id = $_POST['staff_id'];
-    
-    // Get appointment details before update
-    $stmt = $conn->prepare("
-        SELECT a.*, 
-               p.first_name, 
-               p.last_name,
-               u.id as user_id,
-               s.name as staff_name,
-               v.name as vaccine_name
-        FROM appointments a
-        JOIN patients p ON a.patient_id = p.id
-        JOIN users u ON p.user_id = u.id
-        LEFT JOIN users s ON s.id = ?
-        LEFT JOIN vaccines v ON a.vaccine_id = v.id
-        WHERE a.id = ?
-    ");
-    $stmt->bind_param("ii", $staff_id, $appointment_id);
-    $stmt->execute();
-    $appointment_data = $stmt->get_result()->fetch_assoc();
-    
-    $stmt = $conn->prepare("UPDATE appointments SET staff_id = ?, updated_at = NOW() WHERE id = ?");
-    $stmt->bind_param("ii", $staff_id, $appointment_id);
-    
-    if ($stmt->execute()) {
-        // Send notification about staff assignment
-        $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
-        $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
-        $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
-        $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
-        
-        $assign_message = "A healthcare provider has been assigned to your appointment.\n\n" .
-                         "Appointment Details:\n" .
-                         "- Purpose: " . $purpose . "\n" .
-                         "- Date: " . $appointment_date . "\n" .
-                         "- Time: " . $appointment_time . "\n" .
-                         "- Healthcare Provider: " . $appointment_data['staff_name'] . "\n" .
-                         "- Provider Role: " . ucfirst($appointment_data['staff_type']) . "\n\n" .
-                         "Your provider has been notified and will be prepared for your visit. " .
-                         "If you need to reschedule or have any questions, please contact us.";
-        
-        $notification_system->sendCustomNotification(
-            $appointment_data['user_id'],
-            "Healthcare Provider Assigned to Your Appointment",
-            $assign_message,
-            'both'
-        );
-        
-        $_SESSION['action_message'] = "Staff assigned successfully! Notifications sent via Email and SMS.";
-    } else {
-        $_SESSION['action_message'] = "Error assigning staff: " . $conn->error;
-    }
-    
-    // Redirect to prevent form resubmission
-    header('Location: ' . $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET));
-    exit;
-}
-
 // Delete appointment
 if ($action == 'delete' && isset($_GET['id'])) {
     $appointment_id = $_GET['id'];
@@ -194,7 +128,9 @@ if ($action == 'delete' && isset($_GET['id'])) {
         SELECT a.*, 
                p.first_name, 
                p.last_name,
+               p.phone_number as patient_phone,
                u.id as user_id,
+               u.phone as user_phone,
                v.name as vaccine_name
         FROM appointments a
         JOIN patients p ON a.patient_id = p.id
@@ -211,20 +147,10 @@ if ($action == 'delete' && isset($_GET['id'])) {
         $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
         $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
         $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
-        $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
         
-        $cancel_message = "Important Notice: Your appointment has been cancelled.\n\n" .
-                         "Cancelled Appointment Details:\n" .
-                         "- Purpose: " . $purpose . "\n" .
-                         "- Date: " . $appointment_date . "\n" .
-                         "- Time: " . $appointment_time . "\n\n" .
-                         "This means:\n" .
-                         "- Your scheduled slot has been released\n" .
-                         "- Any preparations for this appointment should be discontinued\n" .
-                         "- You will need to schedule a new appointment if needed\n\n" .
-                         "If you need to reschedule or believe this was done in error, " .
-                         "please contact our scheduling team at " . SCHEDULING_PHONE . " " .
-                         "or visit our online scheduling portal.";
+        // Short, concise cancellation message
+        $cancel_message = "IMMUCARE: Your appointment on " . $appointment_date . " at " . $appointment_time . 
+                         " has been CANCELLED. Please contact " . SCHEDULING_PHONE . " to reschedule if needed.";
         
         $notification_system->sendCustomNotification(
             $appointment_data['user_id'],
@@ -255,7 +181,6 @@ if ($action == 'delete' && isset($_GET['id'])) {
 // Filter appointments
 $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 $date_filter = isset($_GET['date']) ? $_GET['date'] : '';
-$staff_filter = isset($_GET['staff']) ? $_GET['staff'] : '';
 
 // Initialize params array for prepared statement
 $params = array();
@@ -263,12 +188,9 @@ $params = array();
 $query = "SELECT a.*, 
          CONCAT(p.first_name, ' ', p.last_name) as patient_name,
          p.phone_number as patient_phone,
-         u.name as staff_name,
-         u.user_type as staff_type,
          v.name as vaccine_name 
          FROM appointments a 
          LEFT JOIN patients p ON a.patient_id = p.id 
-         LEFT JOIN users u ON a.staff_id = u.id
          LEFT JOIN vaccines v ON a.vaccine_id = v.id 
          WHERE 1=1";
 
@@ -281,15 +203,6 @@ if (!empty($status_filter)) {
 if (!empty($date_filter)) {
     $query .= " AND DATE(a.appointment_date) = ?";
     $params[] = $date_filter;
-}
-
-if (!empty($staff_filter)) {
-    if ($staff_filter === 'unassigned') {
-        $query .= " AND a.staff_id IS NULL";
-    } else {
-        $query .= " AND a.staff_id = ?";
-        $params[] = $staff_filter;
-    }
 }
 
 $query .= " ORDER BY a.appointment_date DESC";
@@ -448,25 +361,6 @@ $appointments_result = $stmt->get_result();
                         <input type="date" id="date" name="date" value="<?php echo $date_filter; ?>">
                     </div>
                     
-                    <div class="filter-group">
-                        <label for="staff">Staff:</label>
-                        <select id="staff" name="staff">
-                            <option value="">All Staff</option>
-                            <option value="unassigned">Unassigned</option>
-                            <?php
-                            // Fetch staff options
-                            $staff_query = "SELECT id, name FROM users WHERE user_type IN ('midwife', 'nurse') ORDER BY name";
-                            $staff_result = $conn->query($staff_query);
-                            if ($staff_result && $staff_result->num_rows > 0) {
-                                while ($staff = $staff_result->fetch_assoc()) {
-                                    $selected = ($staff_filter == $staff['id']) ? 'selected' : '';
-                                    echo "<option value=\"{$staff['id']}\" {$selected}>" . htmlspecialchars($staff['name']) . "</option>";
-                                }
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    
                     <button type="submit" class="filter-btn"><i class="fas fa-filter"></i> Filter</button>
                     <a href="admin_appointments.php" class="reset-btn"><i class="fas fa-redo"></i> Reset</a>
                 </form>
@@ -477,7 +371,6 @@ $appointments_result = $stmt->get_result();
                             <tr>
                                 <th>ID</th>
                                 <th>Patient</th>
-                                <th>Staff</th>
                                 <th>Date & Time</th>
                                 <th>Purpose</th>
                                 <th>Status</th>
@@ -490,7 +383,6 @@ $appointments_result = $stmt->get_result();
                                     <tr>
                                         <td><?php echo $appointment['id']; ?></td>
                                         <td><?php echo htmlspecialchars($appointment['patient_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($appointment['staff_name'] ?? 'Not Assigned'); ?></td>
                                         <td><?php echo date('M d, Y h:i A', strtotime($appointment['appointment_date'])); ?></td>
                                         <td><?php echo htmlspecialchars($appointment['purpose']); ?></td>
                                         <td>

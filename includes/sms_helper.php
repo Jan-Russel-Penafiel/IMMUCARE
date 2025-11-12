@@ -14,28 +14,36 @@
  */
 function sendSMS($phone_number, $message) {
     try {
-        // Format phone number (remove any non-numeric characters and ensure it starts with country code)
-        $phone_number = preg_replace('/[^0-9]/', '', $phone_number);
-        if (!preg_match('/^63/', $phone_number)) {
-            $phone_number = '63' . ltrim($phone_number, '0');
+        // Format phone number (remove any non-numeric characters except +)
+        $phone_number = preg_replace('/[^0-9+]/', '', $phone_number);
+        
+        // If number starts with 0, replace with +63
+        if (substr($phone_number, 0, 1) === '0') {
+            $phone_number = '63' . substr($phone_number, 1);
+        } elseif (substr($phone_number, 0, 3) === '+63') {
+            // Remove + sign for API
+            $phone_number = substr($phone_number, 1);
+        } elseif (!preg_match('/^63/', $phone_number)) {
+            // Add country code if not present
+            $phone_number = '63' . $phone_number;
         }
         
-        // Prepare request data
+        // Prepare request data for IProg SMS API
         $send_data = [
-            'sender_id' => PHILSMS_SENDER_ID,
-            'recipient' => "+{$phone_number}",
+            'api_token' => IPROG_SMS_API_KEY,
+            'phone_number' => $phone_number,
             'message' => $message
         ];
         
         // Log request data for debugging
-        error_log("SMS Request Data: " . json_encode($send_data));
+        error_log("IProg SMS Request Data: " . json_encode($send_data));
         
         // Initialize cURL
         $ch = curl_init();
         
-        // Set cURL options
+        // Set cURL options for IProg SMS API
         curl_setopt_array($ch, [
-            CURLOPT_URL => "https://app.philsms.com/api/v3/sms/send",
+            CURLOPT_URL => "https://sms.iprogtech.com/api/v1/sms_messages",
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => json_encode($send_data),
             CURLOPT_RETURNTRANSFER => true,
@@ -43,8 +51,7 @@ function sendSMS($phone_number, $message) {
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER => [
-                "Content-Type: application/json",
-                "Authorization: Bearer " . PHILSMS_API_KEY
+                "Content-Type: application/json"
             ]
         ]);
         
@@ -54,7 +61,7 @@ function sendSMS($phone_number, $message) {
         // Check for cURL errors
         if(curl_errno($ch)) {
             $error = curl_error($ch);
-            error_log("PhilSMS cURL Error: " . $error);
+            error_log("IProg SMS cURL Error: " . $error);
             curl_close($ch);
             return [
                 'status' => 'failed',
@@ -68,18 +75,17 @@ function sendSMS($phone_number, $message) {
         
         // Parse response
         $response_data = json_decode($response, true);
-        error_log("PhilSMS API Response: " . $response);
-        error_log("PhilSMS API HTTP Status Code: " . $http_code);
+        error_log("IProg SMS API Response: " . $response);
+        error_log("IProg SMS API HTTP Status Code: " . $http_code);
         
         // Check if the message was sent successfully
-        if ($http_code === 200) {
-            if (isset($response_data['status']) && $response_data['status'] === 'success') {
-                return [
-                    'status' => 'sent',
-                    'message' => 'Message sent successfully',
-                    'response' => $response_data
-                ];
-            }
+        if ($http_code === 200 || $http_code === 201) {
+            // IProg SMS typically returns success with status 200 or 201
+            return [
+                'status' => 'sent',
+                'message' => 'Message sent successfully',
+                'response' => $response_data
+            ];
         }
         
         // If we get here, there was an error

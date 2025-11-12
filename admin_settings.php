@@ -24,7 +24,7 @@ $error_message = '';
 // Process form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get current settings to determine what changed
-    $stmt = $conn->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('sms_provider', 'sms_enabled', 'email_enabled', 'appointment_reminder_days', 'auto_sync_mhc', 'philsms_api_key', 'philsms_sender_id')");
+    $stmt = $conn->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('sms_provider', 'sms_enabled', 'email_enabled', 'appointment_reminder_days', 'auto_sync_mhc', 'iprog_sms_api_key', 'iprog_sms_sender_id')");
     $stmt->execute();
     $result = $stmt->get_result();
     
@@ -35,13 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Process each setting
     $settings = [
-        'sms_provider' => isset($_POST['sms_provider']) ? $_POST['sms_provider'] : 'philsms',
+        'sms_provider' => isset($_POST['sms_provider']) ? $_POST['sms_provider'] : 'iprog',
         'sms_enabled' => isset($_POST['sms_enabled']) ? 'true' : 'false',
         'email_enabled' => isset($_POST['email_enabled']) ? 'true' : 'false',
         'appointment_reminder_days' => isset($_POST['appointment_reminder_days']) ? (int)$_POST['appointment_reminder_days'] : 2,
         'auto_sync_mhc' => isset($_POST['auto_sync_mhc']) ? 'true' : 'false',
-        'philsms_api_key' => isset($_POST['philsms_api_key']) ? $_POST['philsms_api_key'] : '',
-        'philsms_sender_id' => isset($_POST['philsms_sender_id']) ? $_POST['philsms_sender_id'] : 'IMMUCARE'
+        'iprog_sms_api_key' => isset($_POST['iprog_sms_api_key']) ? $_POST['iprog_sms_api_key'] : '',
+        'iprog_sms_sender_id' => isset($_POST['iprog_sms_sender_id']) ? $_POST['iprog_sms_sender_id'] : 'IMMUCARE'
     ];
     
     // Update each setting
@@ -58,8 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Insert new setting
             $stmt = $conn->prepare("INSERT INTO system_settings (setting_key, setting_value, description, updated_by, created_at) VALUES (?, ?, ?, ?, NOW())");
             $descriptions = [
-                'philsms_api_key' => 'PhilSMS API Key',
-                'philsms_sender_id' => 'PhilSMS Sender ID'
+                'iprog_sms_api_key' => 'IProg SMS API Key',
+                'iprog_sms_sender_id' => 'IProg SMS Sender ID'
             ];
             $description = isset($descriptions[$key]) ? $descriptions[$key] : '';
             $stmt->bind_param("sssi", $key, $value, $description, $admin_id);
@@ -523,25 +523,25 @@ $conn->close();
                         <div class="form-group">
                             <label for="sms_provider">SMS Provider</label>
                             <select id="sms_provider" name="sms_provider" class="form-control">
-                                <option value="philsms" <?php echo (isset($settings['sms_provider']) && $settings['sms_provider'] === 'philsms') ? 'selected' : ''; ?>>PhilSMS</option>
+                                <option value="iprog" <?php echo (isset($settings['sms_provider']) && $settings['sms_provider'] === 'iprog') ? 'selected' : ''; ?>>IProg SMS</option>
                             </select>
                         </div>
                         
-                        <div id="philsms_settings" class="conditional-field">
+                        <div id="iprog_settings" class="conditional-field">
                             <div class="form-group">
-                                <label for="philsms_api_key">PhilSMS API Key</label>
-                                <input type="password" id="philsms_api_key" name="philsms_api_key" 
+                                <label for="iprog_sms_api_key">IProg SMS API Key</label>
+                                <input type="password" id="iprog_sms_api_key" name="iprog_sms_api_key" 
                                     class="form-control"
-                                    value="<?php echo isset($settings['philsms_api_key']) ? $settings['philsms_api_key'] : ''; ?>">
-                                <div class="form-hint">Enter your PhilSMS API key</div>
+                                    value="<?php echo isset($settings['iprog_sms_api_key']) ? $settings['iprog_sms_api_key'] : ''; ?>">
+                                <div class="form-hint">Enter your IProg SMS API key</div>
                             </div>
                             
                             <div class="form-group">
-                                <label for="philsms_sender_id">PhilSMS Sender ID</label>
-                                <input type="text" id="philsms_sender_id" name="philsms_sender_id" 
+                                <label for="iprog_sms_sender_id">IProg SMS Sender ID</label>
+                                <input type="text" id="iprog_sms_sender_id" name="iprog_sms_sender_id" 
                                     class="form-control"
-                                    value="<?php echo isset($settings['philsms_sender_id']) ? $settings['philsms_sender_id'] : 'IMMUCARE'; ?>">
-                                <div class="form-hint">Your registered sender ID with PhilSMS</div>
+                                    value="<?php echo isset($settings['iprog_sms_sender_id']) ? $settings['iprog_sms_sender_id'] : 'IMMUCARE'; ?>">
+                                <div class="form-hint">Your registered sender ID with IProg SMS</div>
                             </div>
                         </div>
                     </div>
@@ -571,9 +571,9 @@ $conn->close();
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // PhilSMS settings are always shown since it's the only provider
-            const philsmsSettings = document.getElementById('philsms_settings');
-            philsmsSettings.style.display = 'block';
+            // IProg SMS settings are always shown since it's the only provider
+            const iprogSettings = document.getElementById('iprog_settings');
+            iprogSettings.style.display = 'block';
             
             // Auto-hide success messages after 5 seconds
             const alert = document.getElementById('settings-alert');

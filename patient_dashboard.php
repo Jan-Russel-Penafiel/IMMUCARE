@@ -58,10 +58,9 @@ $notification_count = $result->fetch_assoc()['count'];
 
 // Get upcoming appointments
 $stmt = $conn->prepare("
-    SELECT a.*, v.name as vaccine_name, u.name as staff_name 
+    SELECT a.*, v.name as vaccine_name 
     FROM appointments a 
     LEFT JOIN vaccines v ON a.vaccine_id = v.id 
-    LEFT JOIN users u ON a.staff_id = u.id 
     WHERE a.patient_id = ? AND a.status IN ('requested', 'confirmed') AND a.appointment_date >= CURDATE()
     ORDER BY a.appointment_date ASC
     LIMIT 5
@@ -753,10 +752,6 @@ if (isset($_GET['logout'])) {
                                                     <span class="text-muted small">
                                                         <i class="fas fa-map-marker-alt me-1"></i> 
                                                         Barangay Health Center
-                                                    </span>
-                                                    <span class="text-muted small">
-                                                        <i class="fas fa-user-md me-1"></i> 
-                                                        <?php echo $appointment['staff_name'] ? htmlspecialchars($appointment['staff_name']) : 'Not assigned'; ?>
                                                     </span>
                                                 </div>
                                             </div>

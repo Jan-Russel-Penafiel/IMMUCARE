@@ -353,11 +353,12 @@ class NotificationSystem {
                     if (!$this->sendSMS(
                         $phone_to_use, 
                         $sms_message, 
-                        $user['patient_id'] ?? $user_id, 
+                        $user['patient_id'] ?? null, 
                         $user_id, 
                         $notification_id, 
                         $title, 
-                        'custom_notification'
+                        'custom_notification',
+                        null
                     )) {
                         $success = false;
                     }
@@ -441,43 +442,31 @@ class NotificationSystem {
      */
     private function sendSMS($phone_number, $message, $patient_id = NULL, $user_id, $notification_id = NULL, $title = '', $related_to = 'general', $related_id = NULL) {
         try {
-            // Format phone number (remove any non-numeric characters except +)
-            $phone_number = preg_replace('/[^0-9+]/', '', $phone_number);
+            // Sanitize message to remove special characters that iProg API might flag
+            $message = str_replace("ñ", "n", $message);
+            $message = str_replace("Ñ", "N", $message);
             
-            // If number doesn't start with +63, add it (for Philippine numbers)
-            if (substr($phone_number, 0, 1) === '0') {
-                $phone_number = '+63' . substr($phone_number, 1);
-            } elseif (substr($phone_number, 0, 2) === '63') {
-                $phone_number = '+' . $phone_number;
-            }
+            // Replace other special characters
+            $message = str_replace("á", "a", $message);
+            $message = str_replace("é", "e", $message);
+            $message = str_replace("í", "i", $message);
+            $message = str_replace("ó", "o", $message);
+            $message = str_replace("ú", "u", $message);
+            $message = str_replace("Á", "A", $message);
+            $message = str_replace("É", "E", $message);
+            $message = str_replace("Í", "I", $message);
+            $message = str_replace("Ó", "O", $message);
+            $message = str_replace("Ú", "U", $message);
             
-            // Get PhilSMS API key from system settings
-            $settings_stmt = $this->conn->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'philsms_api_key' LIMIT 1");
-            $settings_stmt->execute();
-            $api_key = $settings_stmt->get_result()->fetch_assoc()['setting_value'];
+            // Use the working SMS helper function from includes/sms_helper.php
+            $result = sendSMS($phone_number, $message);
             
-            // Prepare the API request
-            $url = 'https://app.philsms.com/api/v3/sms/send';
-            $data = [
-                'recipient' => $phone_number,
-                'message' => $message,
-                'sender_id' => 'PhilSMS'
-            ];
+            // Determine success based on the result
+            $success = ($result['status'] === 'sent');
+            $status = $success ? 'sent' : 'failed';
+            $provider_response = isset($result['response']) ? json_encode($result['response']) : $result['message'];
             
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'Authorization: Bearer ' . $api_key,
-                'Content-Type: application/json'
-            ]);
-            
-            $response = curl_exec($ch);
-            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            
-            if ($http_code === 200) {
+            if ($success) {
                 // Log the successful SMS
                 $log_stmt = $this->conn->prepare("
                     INSERT INTO sms_logs (
@@ -502,7 +491,7 @@ class NotificationSystem {
                     $user_id,
                     $phone_number,
                     $message,
-                    $response,
+                    $provider_response,
                     $related_to,
                     $related_id
                 );
@@ -537,7 +526,7 @@ class NotificationSystem {
                     $user_id,
                     $phone_number,
                     $message,
-                    $response,
+                    $provider_response,
                     $related_to,
                     $related_id
                 );
