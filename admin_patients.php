@@ -853,7 +853,10 @@ $conn->close();
             
             <div class="main-content">
                 <div class="page-title">
-                    <h2><?php echo $action == 'edit' ? 'Edit Patient' : 'Patient Management'; ?></h2>
+                    <h2><?php echo $action == 'edit' ? 'Edit Patient' : ($action == 'add' ? 'Add New Patient' : 'Patient Management'); ?></h2>
+                    <?php if ($action == ''): ?>
+                        <a href="?action=add" class="btn-add"><i class="fas fa-user-plus"></i> Add New Patient</a>
+                    <?php endif; ?>
                 </div>
                 
                 <?php if (!empty($action_message)): ?>
@@ -978,6 +981,132 @@ $conn->close();
                             <div class="form-buttons">
                                 <button type="submit" name="edit_patient" class="btn-submit">
                                     <i class="fas fa-save"></i> Update Patient
+                                </button>
+                                <a href="admin_patients.php" class="btn-cancel">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                <?php elseif ($action == 'add'): ?>
+                    <div class="patient-form">
+                        <h3>Add New Patient</h3>
+                        <?php if ($preselected_user): ?>
+                            <div class="alert" style="background-color: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb;">
+                                <i class="fas fa-info-circle"></i> Creating patient profile for user: <strong><?php echo htmlspecialchars($preselected_user['name']); ?></strong> (<?php echo htmlspecialchars($preselected_user['email']); ?>)
+                            </div>
+                        <?php endif; ?>
+                        
+                        <form method="POST" action="?action=add">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="user_id">Link to User Account (Optional)</label>
+                                    <select id="user_id" name="user_id" <?php echo ($preselected_user_id) ? 'disabled' : ''; ?>>
+                                        <option value="">-- No User Account --</option>
+                                        <?php 
+                                        // Reset the result pointer
+                                        $users_result->data_seek(0);
+                                        while ($user = $users_result->fetch_assoc()): 
+                                        ?>
+                                            <option value="<?php echo $user['id']; ?>" 
+                                                <?php echo ($preselected_user_id && $preselected_user_id == $user['id']) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($user['name'] . ' (' . $user['email'] . ')'); ?>
+                                            </option>
+                                        <?php endwhile; ?>
+                                    </select>
+                                    <?php if ($preselected_user_id): ?>
+                                        <input type="hidden" name="user_id" value="<?php echo $preselected_user_id; ?>">
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="create_account" name="create_account" 
+                                            <?php echo ($preselected_user_id) ? 'disabled' : ''; ?>>
+                                        Create New User Account
+                                    </label>
+                                </div>
+                                
+                                <div class="form-group user-account-field" style="display: none;">
+                                    <label for="user_email">User Email</label>
+                                    <input type="email" id="user_email" name="user_email">
+                                </div>
+                                
+                                <div class="form-group user-account-field" style="display: none;">
+                                    <label for="user_phone">User Phone</label>
+                                    <input type="text" id="user_phone" name="user_phone">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="first_name">First Name</label>
+                                    <input type="text" id="first_name" name="first_name" value="<?php echo $action == 'add' ? 
+                                        ($preselected_user ? explode(' ', $preselected_user['name'])[0] : '') : ''; ?>" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="middle_name">Middle Name</label>
+                                    <input type="text" id="middle_name" name="middle_name">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="last_name">Last Name</label>
+                                    <input type="text" id="last_name" name="last_name" value="<?php echo $action == 'add' ? 
+                                        ($preselected_user ? (strpos($preselected_user['name'], ' ') !== false ? 
+                                            substr($preselected_user['name'], strpos($preselected_user['name'], ' ') + 1) : '') : '') : ''; ?>" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="date_of_birth">Date of Birth</label>
+                                    <input type="date" id="date_of_birth" name="date_of_birth" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="gender">Gender</label>
+                                    <select id="gender" name="gender" required>
+                                        <option value="">-- Select Gender --</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="phone_number">Phone Number</label>
+                                    <input type="text" id="phone_number" name="phone_number" value="<?php echo $action == 'add' ? 
+                                        ($preselected_user ? $preselected_user['phone'] : '') : ''; ?>" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="purok">Purok/Subdivision</label>
+                                    <input type="text" id="purok" name="purok" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="city">City/Municipality</label>
+                                    <input type="text" id="city" name="city" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="province">Province</label>
+                                    <input type="text" id="province" name="province" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="postal_code">Postal Code</label>
+                                    <input type="text" id="postal_code" name="postal_code">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="medical_history">Medical History (Optional)</label>
+                                <textarea id="medical_history" name="medical_history"></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="allergies">Allergies (Optional)</label>
+                                <textarea id="allergies" name="allergies"></textarea>
+                            </div>
+                            
+                            <div class="form-buttons">
+                                <button type="submit" name="add_patient" class="btn-submit">
+                                    <i class="fas fa-save"></i> Add Patient
                                 </button>
                                 <a href="admin_patients.php" class="btn-cancel">Cancel</a>
                             </div>

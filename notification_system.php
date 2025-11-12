@@ -24,441 +24,6 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
-/**
- * Enhanced SMS Functions integrated from smart system
- */
-
-/**
- * Send SMS using IPROG SMS API with enhanced error handling
- * @param string $phone_number Recipient phone number
- * @param string $message SMS message content
- * @param string $api_key IPROG SMS API token
- * @return array Response with status and message
- */
-function sendSMSUsingIPROGEnhanced($phone_number, $message, $api_key) {
-    // Prepare the phone number (remove any spaces and ensure 63 format for IPROG)
-    $phone_number = str_replace([' ', '-'], '', $phone_number);
-    if (substr($phone_number, 0, 1) === '0') {
-        $phone_number = '63' . substr($phone_number, 1);
-    } elseif (substr($phone_number, 0, 1) === '+') {
-        $phone_number = substr($phone_number, 1);
-    }
-
-    // Validate phone number format
-    if (!preg_match('/^63[0-9]{10}$/', $phone_number)) {
-        return array(
-            'success' => false,
-            'message' => 'Invalid phone number format. Must be a valid Philippine mobile number.'
-        );
-    }
-
-    // Prepare the request data for IPROG SMS API
-    $data = array(
-        'api_token' => $api_key,
-        'message' => $message,
-        'phone_number' => $phone_number
-    );
-
-    // Initialize cURL session
-    $ch = curl_init("https://sms.iprogtech.com/api/v1/sms_messages");
-
-    // Set cURL options for IPROG SMS
-    curl_setopt_array($ch, array(
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => http_build_query($data),
-        CURLOPT_HTTPHEADER => array(
-            'Content-Type: application/x-www-form-urlencoded'
-        ),
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_SSL_VERIFYPEER => true
-    ));
-
-    // Execute cURL request
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curl_error = curl_error($ch);
-    $curl_errno = curl_errno($ch);
-
-    // Close cURL session
-    curl_close($ch);
-
-    // Log the API request for debugging
-    error_log(sprintf(
-        "IPROG SMS API Request - Number: %s, Status: %d, Response: %s, Error: %s",
-        $phone_number,
-        $http_code,
-        $response,
-        $curl_error
-    ));
-
-    // Handle cURL errors
-    if ($curl_errno) {
-        return array(
-            'success' => false,
-            'message' => 'Connection error: ' . $curl_error,
-            'error_code' => $curl_errno
-        );
-    }
-
-    // Parse response
-    $result = json_decode($response, true);
-
-    // Handle API response for IPROG SMS
-    if ($http_code === 200 || $http_code === 201) {
-        // IPROG SMS typically returns success in different formats
-        // Check for common success indicators
-        if ((isset($result['status']) && $result['status'] === 'success') ||
-            (isset($result['success']) && $result['success'] === true) ||
-            (isset($result['message']) && stripos($result['message'], 'sent') !== false) ||
-            (!isset($result['error']) && !isset($result['errors']))) {
-            return array(
-                'success' => true,
-                'message' => 'SMS sent successfully',
-                'reference_id' => $result['message_id'] ?? $result['id'] ?? $result['reference'] ?? null,
-                'delivery_status' => $result['status'] ?? 'Sent',
-                'timestamp' => $result['timestamp'] ?? date('Y-m-d g:i A')
-            );
-        }
-    }
-
-    // Handle error responses
-    $error_message = isset($result['message']) ? $result['message'] : 
-                    (isset($result['error']) ? $result['error'] : 
-                    (isset($result['errors']) ? (is_array($result['errors']) ? implode(', ', $result['errors']) : $result['errors']) : 'Unknown error occurred'));
-    
-    return array(
-        'success' => false,
-        'message' => 'API Error: ' . $error_message,
-        'error_code' => $http_code,
-        'error_details' => $result
-    );
-}
-
-/**
- * Get SMS configuration from system settings
- * @param mysqli $conn Database connection
- * @return array|false SMS configuration or false if not found
- */
-function getSMSConfigEnhanced($conn) {
-    $stmt = $conn->prepare("
-        SELECT setting_key, setting_value 
-        FROM system_settings 
-        WHERE setting_key IN ('sms_enabled', 'sms_api_key', 'sms_provider')
-    ");
-    
-    if (!$stmt) {
-        error_log("Error preparing SMS config query: " . $conn->error);
-        return false;
-    }
-    
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $config = array();
-    while ($row = $result->fetch_assoc()) {
-        $config[$row['setting_key']] = $row['setting_value'];
-    }
-    
-    if (empty($config)) {
-        return false;
-    }
-    
-    return array(
-        'status' => isset($config['sms_enabled']) && $config['sms_enabled'] === 'true' ? 'active' : 'inactive',
-        'api_key' => $config['sms_api_key'] ?? '1ef3b27ea753780a90cbdf07d027fb7b52791004', // IPROG SMS API key
-        'provider' => $config['sms_provider'] ?? 'iprog'
-    );
-}
-
-/**
- * Send SMS notification to patient and store in database
- * @param int $patient_id Recipient patient ID
- * @param string $message SMS message content
- * @param mysqli $conn Database connection
- * @param string $notification_type Type of notification
- * @param string $scheduled_at Optional scheduled datetime
- * @param int $user_id Optional user ID for notifications table
- * @param string $related_to Related entity type
- * @param int $related_id Related entity ID
- * @return array Response with status and message
- */
-function sendSMSNotificationToPatientEnhanced($patient_id, $message, $conn, $notification_type = 'general', $scheduled_at = null, $user_id = null, $related_to = 'general', $related_id = null) {
-    try {
-        // Check if we're in offline mode
-        if (isset($GLOBALS['is_offline_mode']) && $GLOBALS['is_offline_mode']) {
-            return array(
-                'success' => false,
-                'message' => 'SMS service not available - system offline'
-            );
-        }
-
-        // Validate input parameters
-        if (empty($patient_id) || empty($message)) {
-            return array(
-                'success' => false,
-                'message' => 'Invalid input parameters'
-            );
-        }
-
-        // Get patient's phone number
-        $stmt = $conn->prepare("
-            SELECT p.phone_number, p.first_name, p.last_name, u.id as user_id
-            FROM patients p 
-            LEFT JOIN users u ON p.user_id = u.id
-            WHERE p.id = ? AND p.phone_number IS NOT NULL AND p.phone_number != ''
-        ");
-        
-        if (!$stmt) {
-            error_log("Error preparing patient query: " . $conn->error);
-            return array(
-                'success' => false,
-                'message' => 'Database error'
-            );
-        }
-        
-        $stmt->bind_param("i", $patient_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $patient = $result->fetch_assoc();
-
-        if (!$patient || empty($patient['phone_number'])) {
-            error_log("SMS Error: No phone found for patient ID {$patient_id}");
-            return array(
-                'success' => false,
-                'message' => 'Invalid patient or missing phone number'
-            );
-        }
-
-        // Use provided user_id or get from patient
-        $notification_user_id = $user_id ?? $patient['user_id'];
-
-        // Get SMS configuration
-        $sms_config = getSMSConfigEnhanced($conn);
-        if (!$sms_config) {
-            error_log("SMS Error: SMS configuration not found");
-            return array(
-                'success' => false,
-                'message' => 'SMS service is not configured'
-            );
-        }
-
-        if ($sms_config['status'] != 'active') {
-            error_log("SMS Error: SMS service is not active");
-            return array(
-                'success' => false,
-                'message' => 'SMS service is not active'
-            );
-        }
-
-        $api_key = $sms_config['api_key'];
-        if (empty($api_key)) {
-            error_log("SMS Error: SMS API key not configured");
-            return array(
-                'success' => false,
-                'message' => 'SMS API key not configured'
-            );
-        }
-
-        // If scheduled for future, just store in database
-        if (!empty($scheduled_at) && strtotime($scheduled_at) > time()) {
-            try {
-                $sent_at = date('Y-m-d H:i:s');
-            
-                $stmt = $conn->prepare("
-                    INSERT INTO sms_logs 
-                    (patient_id, user_id, phone_number, message, status, notification_type, scheduled_at, sent_at, related_to, related_id, created_at)
-                    VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())
-                ");
-                
-                if (!$stmt) {
-                    error_log("Error preparing scheduled SMS statement: " . $conn->error);
-                    return array(
-                        'success' => false,
-                        'message' => 'Database error'
-                    );
-                }
-                
-                $stmt->bind_param("iisssssi", 
-                    $patient_id,
-                    $notification_user_id,
-                    $patient['phone_number'],
-                    $message,
-                    $notification_type,
-                    $scheduled_at,
-                    $sent_at,
-                    $related_to,
-                    $related_id
-                );
-                
-                if (!$stmt->execute()) {
-                    error_log("Error executing scheduled SMS statement: " . $stmt->error);
-                    return array(
-                        'success' => false,
-                        'message' => 'Failed to schedule SMS'
-                    );
-                }
-
-                error_log("SMS scheduled successfully for patient {$patient_id} to {$patient['phone_number']}");
-                return array(
-                    'success' => true,
-                    'message' => 'SMS scheduled successfully'
-                );
-            } catch (Exception $e) {
-                error_log("SMS Error: Failed to schedule SMS - " . $e->getMessage());
-                return array(
-                    'success' => false,
-                    'message' => 'Failed to schedule SMS: ' . $e->getMessage()
-                );
-            }
-        }
-
-        // Send SMS using IPROG SMS
-        error_log("Sending SMS to {$patient['phone_number']} for patient {$patient_id}: {$message}");
-        $sms_result = sendSMSUsingIPROGEnhanced($patient['phone_number'], $message, $api_key);
-
-        // Store in database with better error handling
-        try {
-            $status = $sms_result['success'] ? 'sent' : 'failed';
-            $error_message = $sms_result['message'];
-            $reference_id = $sms_result['success'] ? ($sms_result['reference_id'] ?? null) : null;
-            
-            // Format timestamp
-            $sent_at = date('Y-m-d H:i:s');
-            
-            $stmt = $conn->prepare("
-                INSERT INTO sms_logs 
-                (patient_id, user_id, phone_number, message, status, notification_type, provider_response, reference_id, sent_at, related_to, related_id, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-            ");
-            
-            if (!$stmt) {
-                error_log("Error preparing SMS log statement: " . $conn->error);
-            } else {
-                $stmt->bind_param("iissssssssi", 
-                    $patient_id,
-                    $notification_user_id,
-                    $patient['phone_number'],
-                    $message,
-                    $status,
-                    $notification_type,
-                    $error_message,
-                    $reference_id,
-                    $sent_at,
-                    $related_to,
-                    $related_id
-                );
-                
-                if (!$stmt->execute()) {
-                    error_log("Error executing SMS log statement: " . $stmt->error);
-                }
-            }
-            
-            // Log the result
-            if ($sms_result['success']) {
-                error_log("SMS sent successfully to {$patient['phone_number']} for patient {$patient_id}");
-            } else {
-                error_log("SMS sending failed to {$patient['phone_number']} for patient {$patient_id}: {$sms_result['message']}");
-            }
-
-        } catch (Exception $e) {
-            error_log("SMS Error: Failed to log SMS in database - " . $e->getMessage());
-            // Still return the SMS result even if logging failed
-        }
-
-        return $sms_result;
-
-    } catch (Exception $e) {
-        error_log("SMS Error (General): " . $e->getMessage());
-        return array(
-            'success' => false,
-            'message' => 'Error sending SMS: ' . $e->getMessage()
-        );
-    }
-}
-
-/**
- * Process scheduled SMS notifications
- * This should be run by a cron job every minute
- * @param mysqli $conn Database connection
- */
-function processScheduledSMSEnhanced($conn) {
-    try {
-        // Get SMS configuration
-        $sms_config = getSMSConfigEnhanced($conn);
-        if (!$sms_config || $sms_config['status'] != 'active') {
-            throw new Exception('SMS service is not active');
-        }
-
-        $api_key = $sms_config['api_key'];
-        if (empty($api_key)) {
-            throw new Exception('SMS API key not configured');
-        }
-
-        // Get due scheduled SMS
-        $stmt = $conn->prepare("
-            SELECT id, patient_id, user_id, phone_number, message, notification_type, related_to, related_id
-            FROM sms_logs
-            WHERE status = 'pending'
-            AND (scheduled_at IS NULL OR scheduled_at <= NOW())
-            ORDER BY created_at ASC
-            LIMIT 50
-        ");
-        
-        if (!$stmt) {
-            throw new Exception('Error preparing scheduled SMS query: ' . $conn->error);
-        }
-        
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        $processed = 0;
-        while ($sms = $result->fetch_assoc()) {
-            // Send SMS using IPROG SMS
-            $sms_result = sendSMSUsingIPROGEnhanced($sms['phone_number'], $sms['message'], $api_key);
-
-            // Update status
-            $status = $sms_result['success'] ? 'sent' : 'failed';
-            $sent_at = date('Y-m-d H:i:s');
-            
-            $update_stmt = $conn->prepare("
-                UPDATE sms_logs
-                SET status = ?,
-                    provider_response = ?,
-                    reference_id = ?,
-                    sent_at = ?
-                WHERE id = ?
-            ");
-            
-            if ($update_stmt) {
-                $error_message = $sms_result['message'];
-                $reference_id = $sms_result['success'] ? ($sms_result['reference_id'] ?? null) : null;
-                
-                $update_stmt->bind_param("ssssi", 
-                    $status,
-                    $error_message,
-                    $reference_id,
-                    $sent_at,
-                    $sms['id']
-                );
-                
-                $update_stmt->execute();
-                $update_stmt->close();
-                $processed++;
-            }
-            
-            // Small delay to avoid rate limiting
-            usleep(100000); // 0.1 seconds
-        }
-
-        error_log("Processed {$processed} scheduled SMS messages");
-
-    } catch (Exception $e) {
-        error_log('Error processing scheduled SMS: ' . $e->getMessage());
-    }
-}
-
 class NotificationSystem {
     private $conn;
     private $max_retries = 3;
@@ -863,7 +428,7 @@ class NotificationSystem {
     }
     
     /**
-     * Send an SMS using the enhanced IPROG SMS implementation and log it
+     * Send an SMS using the configured SMS provider and log it
      * 
      * @param string $phone_number Recipient phone number
      * @param string $message SMS message
@@ -876,82 +441,113 @@ class NotificationSystem {
      */
     private function sendSMS($phone_number, $message, $patient_id = NULL, $user_id, $notification_id = NULL, $title = '', $related_to = 'general', $related_id = NULL) {
         try {
-            // Prepare the phone number (remove any spaces and ensure 63 format for IPROG)
-            $phone_number = str_replace([' ', '-'], '', $phone_number);
+            // Format phone number (remove any non-numeric characters except +)
+            $phone_number = preg_replace('/[^0-9+]/', '', $phone_number);
+            
+            // If number doesn't start with +63, add it (for Philippine numbers)
             if (substr($phone_number, 0, 1) === '0') {
-                $phone_number = '63' . substr($phone_number, 1);
-            } elseif (substr($phone_number, 0, 1) === '+') {
-                $phone_number = substr($phone_number, 1);
+                $phone_number = '+63' . substr($phone_number, 1);
+            } elseif (substr($phone_number, 0, 2) === '63') {
+                $phone_number = '+' . $phone_number;
             }
             
-            $formatted_phone = $phone_number;
+            // Get PhilSMS API key from system settings
+            $settings_stmt = $this->conn->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'philsms_api_key' LIMIT 1");
+            $settings_stmt->execute();
+            $api_key = $settings_stmt->get_result()->fetch_assoc()['setting_value'];
             
-            // Get SMS configuration
-            $sms_config = getSMSConfigEnhanced($this->conn);
-            if (!$sms_config || $sms_config['status'] != 'active') {
-                error_log("SMS Error: SMS service is not active");
-                return false;
-            }
-
-            $api_key = $sms_config['api_key'];
-            if (empty($api_key)) {
-                error_log("SMS Error: SMS API key not configured");
-                return false;
-            }
+            // Prepare the API request
+            $url = 'https://app.philsms.com/api/v3/sms/send';
+            $data = [
+                'recipient' => $phone_number,
+                'message' => $message,
+                'sender_id' => 'PhilSMS'
+            ];
             
-            // Send SMS using enhanced IPROG implementation
-            $sms_result = sendSMSUsingIPROGEnhanced($formatted_phone, $message, $api_key);
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $api_key,
+                'Content-Type: application/json'
+            ]);
             
-            // Store in sms_logs table
-            $status = $sms_result['success'] ? 'sent' : 'failed';
-            $sent_at = date('Y-m-d H:i:s');
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
             
-            $log_stmt = $this->conn->prepare("
-                INSERT INTO sms_logs (
-                    patient_id,
-                    user_id,
-                    phone_number,
-                    message,
-                    status,
-                    provider_response,
-                    reference_id,
-                    notification_type,
-                    related_to,
-                    related_id,
-                    sent_at,
-                    created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-            ");
-            
-            if ($log_stmt) {
-                $provider_response = $sms_result['message'];
-                $reference_id = $sms_result['success'] ? ($sms_result['reference_id'] ?? null) : null;
-                $notification_type = $related_to; // Use related_to as notification_type for consistency
+            if ($http_code === 200) {
+                // Log the successful SMS
+                $log_stmt = $this->conn->prepare("
+                    INSERT INTO sms_logs (
+                        notification_id,
+                        patient_id,
+                        user_id,
+                        phone_number,
+                        message,
+                        status,
+                        provider_response,
+                        related_to,
+                        related_id,
+                        sent_at,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, 'sent', ?, ?, ?, NOW(), NOW())
+                ");
                 
                 $log_stmt->bind_param(
-                    "iisssssssss",
+                    "iiissssi",
+                    $notification_id,
                     $patient_id,
                     $user_id,
-                    $formatted_phone,
+                    $phone_number,
                     $message,
-                    $status,
-                    $provider_response,
-                    $reference_id,
-                    $notification_type,
+                    $response,
                     $related_to,
-                    $related_id,
-                    $sent_at
+                    $related_id
                 );
                 
                 if (!$log_stmt->execute()) {
                     error_log("Failed to log SMS: " . $this->conn->error);
                 }
-                $log_stmt->close();
+                
+                return true;
             } else {
-                error_log("Failed to prepare SMS log statement: " . $this->conn->error);
+                // Log the failed SMS attempt
+                $log_stmt = $this->conn->prepare("
+                    INSERT INTO sms_logs (
+                        notification_id,
+                        patient_id,
+                        user_id,
+                        phone_number,
+                        message,
+                        status,
+                        provider_response,
+                        related_to,
+                        related_id,
+                        sent_at,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, 'failed', ?, ?, ?, NOW(), NOW())
+                ");
+                
+                $log_stmt->bind_param(
+                    "iiissssi",
+                    $notification_id,
+                    $patient_id,
+                    $user_id,
+                    $phone_number,
+                    $message,
+                    $response,
+                    $related_to,
+                    $related_id
+                );
+                
+                if (!$log_stmt->execute()) {
+                    error_log("Failed to log SMS: " . $this->conn->error);
+                }
+                
+                return false;
             }
-            
-            return $sms_result['success'];
             
         } catch (Exception $e) {
             error_log("Error sending SMS: " . $e->getMessage());
@@ -1577,209 +1173,6 @@ class NotificationSystem {
             error_log("Error in sendPatientAccountNotification: " . $e->getMessage());
             throw $e;
         }
-    }
-
-    /**
-     * Send SMS notification using enhanced IPROG implementation
-     * This is a public wrapper method for external use
-     * 
-     * @param int $patient_id Patient ID
-     * @param string $message SMS message content
-     * @param string $notification_type Type of notification
-     * @param string $scheduled_at Optional scheduled datetime
-     * @param string $related_to Related entity type
-     * @param int $related_id Related entity ID
-     * @return array Response with status and message
-     */
-    public function sendPatientSMS($patient_id, $message, $notification_type = 'general', $scheduled_at = null, $related_to = 'general', $related_id = null) {
-        // Get patient and user details
-        $stmt = $this->conn->prepare("
-            SELECT p.phone_number, p.first_name, p.last_name, u.id as user_id
-            FROM patients p 
-            LEFT JOIN users u ON p.user_id = u.id
-            WHERE p.id = ?
-        ");
-        
-        if (!$stmt) {
-            return array(
-                'success' => false,
-                'message' => 'Database error: ' . $this->conn->error
-            );
-        }
-        
-        $stmt->bind_param("i", $patient_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $patient = $result->fetch_assoc();
-        
-        if (!$patient) {
-            return array(
-                'success' => false,
-                'message' => 'Patient not found'
-            );
-        }
-        
-        // Use the enhanced SMS function
-        return sendSMSNotificationToPatientEnhanced(
-            $patient_id, 
-            $message, 
-            $this->conn, 
-            $notification_type, 
-            $scheduled_at, 
-            $patient['user_id'], 
-            $related_to, 
-            $related_id
-        );
-    }
-
-    /**
-     * Process scheduled SMS messages
-     * Public wrapper for the enhanced SMS processing
-     * 
-     * @return array Results of processing
-     */
-    public function processScheduledMessages() {
-        try {
-            processScheduledSMSEnhanced($this->conn);
-            return array(
-                'success' => true,
-                'message' => 'Scheduled SMS messages processed successfully'
-            );
-        } catch (Exception $e) {
-            error_log("Error processing scheduled SMS: " . $e->getMessage());
-            return array(
-                'success' => false,
-                'message' => 'Error processing scheduled SMS: ' . $e->getMessage()
-            );
-        }
-    }
-
-    /**
-     * Get SMS logs for a specific patient or all patients
-     * 
-     * @param int|null $patient_id Optional patient ID to filter by
-     * @param int $limit Number of records to retrieve
-     * @param int $offset Offset for pagination
-     * @return array SMS logs
-     */
-    public function getSMSLogs($patient_id = null, $limit = 50, $offset = 0) {
-        $where_clause = $patient_id ? "WHERE patient_id = ?" : "";
-        
-        $stmt = $this->conn->prepare("
-            SELECT 
-                sl.id,
-                sl.patient_id,
-                sl.user_id,
-                sl.phone_number,
-                sl.message,
-                sl.status,
-                sl.notification_type,
-                sl.provider_response,
-                sl.reference_id,
-                sl.related_to,
-                sl.related_id,
-                sl.sent_at,
-                sl.created_at,
-                CONCAT(p.first_name, ' ', p.last_name) as patient_name
-            FROM sms_logs sl
-            LEFT JOIN patients p ON sl.patient_id = p.id
-            {$where_clause}
-            ORDER BY sl.created_at DESC
-            LIMIT ? OFFSET ?
-        ");
-        
-        if (!$stmt) {
-            return array();
-        }
-        
-        if ($patient_id) {
-            $stmt->bind_param("iii", $patient_id, $limit, $offset);
-        } else {
-            $stmt->bind_param("ii", $limit, $offset);
-        }
-        
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        $logs = array();
-        while ($row = $result->fetch_assoc()) {
-            $logs[] = $row;
-        }
-        
-        return $logs;
-    }
-
-    /**
-     * Get SMS statistics
-     * 
-     * @param string $date_from Optional start date (Y-m-d format)
-     * @param string $date_to Optional end date (Y-m-d format)
-     * @return array SMS statistics
-     */
-    public function getSMSStatistics($date_from = null, $date_to = null) {
-        $where_conditions = array();
-        $params = array();
-        
-        if ($date_from) {
-            $where_conditions[] = "DATE(created_at) >= ?";
-            $params[] = $date_from;
-        }
-        
-        if ($date_to) {
-            $where_conditions[] = "DATE(created_at) <= ?";
-            $params[] = $date_to;
-        }
-        
-        $where_clause = empty($where_conditions) ? "" : "WHERE " . implode(" AND ", $where_conditions);
-        
-        $stmt = $this->conn->prepare("
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
-                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                COUNT(DISTINCT patient_id) as unique_patients,
-                notification_type,
-                COUNT(*) as type_count
-            FROM sms_logs 
-            {$where_clause}
-            GROUP BY notification_type
-        ");
-        
-        if (!$stmt) {
-            return array();
-        }
-        
-        if (!empty($params)) {
-            $types = str_repeat('s', count($params));
-            $stmt->bind_param($types, ...$params);
-        }
-        
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        $stats = array(
-            'total' => 0,
-            'sent' => 0,
-            'failed' => 0,
-            'pending' => 0,
-            'unique_patients' => 0,
-            'by_type' => array()
-        );
-        
-        while ($row = $result->fetch_assoc()) {
-            if ($stats['total'] == 0) { // First row, get overall stats
-                $stats['total'] = $row['total'];
-                $stats['sent'] = $row['sent'];
-                $stats['failed'] = $row['failed'];
-                $stats['pending'] = $row['pending'];
-                $stats['unique_patients'] = $row['unique_patients'];
-            }
-            
-            $stats['by_type'][$row['notification_type']] = $row['type_count'];
-        }
-        
-        return $stats;
     }
 }
 

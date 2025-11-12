@@ -71,6 +71,7 @@ if ($action == 'add' && isset($_POST['add_user'])) {
         
         // If the role is "patient" (role_id = 4), redirect to add new patient page
         if ($role_id == 4) {
+            $_SESSION['action_message'] = "User account created successfully! Now please complete the patient profile below.";
             header("Location: admin_patients.php?action=add&user_id=$new_user_id");
             exit;
         }
