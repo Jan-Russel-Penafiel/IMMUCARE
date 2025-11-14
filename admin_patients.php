@@ -327,17 +327,13 @@ if ($action == 'delete' && isset($_GET['id'])) {
                 exit;
             }
             
-            // Send notification before deletion
-            try {
-                $notification_system->sendPatientAccountNotification(
-                    $patient_data['user_id'],
-                    'deleted',
-                    []
-                );
-            } catch (Exception $e) {
-                // Log notification error but continue with deletion
-                error_log("Failed to send deletion notification: " . $e->getMessage());
-            }
+            // Note: Deletion notifications are disabled as per system policy
+            // try {
+            //     // Notification logic removed - deletions do not send notifications
+            // } catch (Exception $e) {
+            //     // Log notification error but continue with deletion
+            //     error_log("Failed to send deletion notification: " . $e->getMessage());
+            // }
             
             // Delete user account if confirmed
             if (isset($_GET['confirm_user_delete'])) {
@@ -361,8 +357,7 @@ if ($action == 'delete' && isset($_GET['id'])) {
         $conn->commit();
         
         // Store success message in session
-        $_SESSION['action_message'] = "Patient" . (isset($_GET['confirm_user_delete']) ? " and associated user account" : "") . " deleted successfully!" . 
-            (isset($_GET['confirm_user_delete']) ? " A notification has been sent via email." : "");
+        $_SESSION['action_message'] = "Patient" . (isset($_GET['confirm_user_delete']) ? " and associated user account" : "") . " deleted successfully!";
         
         // Redirect
         header("Location: admin_patients.php");

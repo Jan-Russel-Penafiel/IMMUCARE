@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config.php';
+require_once 'transaction_helper.php';
 
 // Establish database connection
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -27,15 +28,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['appointment_id']) && 
     $new_status = $_POST['status'];
     $notes = isset($_POST['notes']) ? $_POST['notes'] : '';
 
+    // Generate transaction data
+    $transactionData = TransactionHelper::generateTransactionData($conn);
+    
     $update_query = "UPDATE appointments SET 
                     status = ?, 
                     notes = ?,
                     staff_id = ?,
+                    transaction_id = ?,
+                    transaction_number = ?,
                     updated_at = NOW() 
                     WHERE id = ?";
     
     $stmt = $conn->prepare($update_query);
-    $stmt->bind_param('ssii', $new_status, $notes, $midwife_id, $appointment_id);
+    $stmt->bind_param('ssissi', $new_status, $notes, $midwife_id, $transactionData['transaction_id'], $transactionData['transaction_number'], $appointment_id);
     
     if ($stmt->execute()) {
         // Send notification to patient
@@ -70,7 +76,9 @@ $query = "SELECT
             p.last_name,
             p.date_of_birth,
             p.phone_number,
-            v.name as vaccine_name
+            v.name as vaccine_name,
+            a.transaction_id,
+            a.transaction_number
           FROM appointments a
           JOIN patients p ON a.patient_id = p.id
           LEFT JOIN vaccines v ON a.vaccine_id = v.id
@@ -618,6 +626,10 @@ if (isset($_GET['logout'])) {
                                             <br>
                                             <i class="fas fa-syringe"></i> Vaccine: <?php echo htmlspecialchars($appointment['vaccine_name']); ?>
                                         <?php endif; ?>
+                                        <br>
+                                        <i class="fas fa-receipt"></i> 
+                                        <span class="badge bg-primary me-2"><?php echo TransactionHelper::formatTransactionNumber($appointment['transaction_number']); ?></span>
+                                        <span class="text-muted small"><?php echo TransactionHelper::formatTransactionId($appointment['transaction_id']); ?></span>
                                     </div>
                                 </div>
                                 <div class="appointment-actions">

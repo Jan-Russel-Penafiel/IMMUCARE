@@ -200,7 +200,7 @@ if ($action === 'delete' && isset($_GET['id'])) {
         // Commit transaction
         $conn->commit();
         
-        $action_message = "User and associated records deleted successfully! A notification has been sent via email.";
+        $action_message = "User and associated records deleted successfully!";
         
     } catch (Exception $e) {
         // Rollback transaction on error

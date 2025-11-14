@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'transaction_helper.php';
 
 // Check if user is logged in and is a nurse
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'nurse') {
@@ -60,7 +61,8 @@ $total_immunizations = $result->fetch_assoc()['count'];
 $total_pages = ceil($total_immunizations / $records_per_page);
 
 // Get immunizations with pagination
-$stmt = $conn->prepare("SELECT i.*, p.first_name, p.last_name, v.name as vaccine_name, v.doses_required 
+$stmt = $conn->prepare("SELECT i.*, p.first_name, p.last_name, v.name as vaccine_name, v.doses_required,
+                        i.transaction_id, i.transaction_number
                         FROM immunizations i 
                         JOIN patients p ON i.patient_id = p.id 
                         JOIN vaccines v ON i.vaccine_id = v.id
@@ -863,6 +865,7 @@ $conn->close();
                             <th>Dose</th>
                             <th>Batch #</th>
                             <th>Next Dose</th>
+                            <th>Transaction Info</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -894,6 +897,12 @@ $conn->close();
                                         }
                                         ?>
                                     </td>
+                                    <td class="transaction-info">
+                                        <div class="small">
+                                            <div class="badge bg-primary mb-1"><?php echo TransactionHelper::formatTransactionNumber($immunization['transaction_number']); ?></div><br>
+                                            <div class="text-muted" style="font-size: 0.65rem;"><?php echo TransactionHelper::formatTransactionId($immunization['transaction_id']); ?></div>
+                                        </div>
+                                    </td>
                                     <td class="action-buttons">
                                         <a href="#" class="view-btn" onclick="openViewModal(<?php echo $immunization['id']; ?>)">View</a>
                                         <a href="#" class="edit-btn" onclick="openEditModal(<?php echo $immunization['id']; ?>)">Edit</a>
@@ -905,7 +914,7 @@ $conn->close();
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7" style="text-align: center;">No immunization records found.</td>
+                                <td colspan="9" style="text-align: center;">No immunization records found.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>

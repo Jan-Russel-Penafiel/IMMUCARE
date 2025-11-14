@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'transaction_helper.php';
 
 // Check if user is logged in and is a patient
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'patient') {
@@ -56,9 +57,9 @@ $stmt->execute();
 $result = $stmt->get_result();
 $notification_count = $result->fetch_assoc()['count'];
 
-// Get upcoming appointments
+// Get upcoming appointments for dashboard
 $stmt = $conn->prepare("
-    SELECT a.*, v.name as vaccine_name 
+    SELECT a.*, v.name as vaccine_name, a.transaction_id, a.transaction_number
     FROM appointments a 
     LEFT JOIN vaccines v ON a.vaccine_id = v.id 
     WHERE a.patient_id = ? AND a.status IN ('requested', 'confirmed') AND a.appointment_date >= CURDATE()
@@ -68,6 +69,18 @@ $stmt = $conn->prepare("
 $stmt->bind_param("i", $patient_id);
 $stmt->execute();
 $upcoming_appointments = $stmt->get_result();
+
+// Get all appointments for the appointments tab
+$stmt = $conn->prepare("
+    SELECT a.*, v.name as vaccine_name, a.transaction_id, a.transaction_number
+    FROM appointments a 
+    LEFT JOIN vaccines v ON a.vaccine_id = v.id 
+    WHERE a.patient_id = ?
+    ORDER BY a.appointment_date DESC
+");
+$stmt->bind_param("i", $patient_id);
+$stmt->execute();
+$all_appointments = $stmt->get_result();
 
 // Get recent immunizations
 $stmt = $conn->prepare("
@@ -379,6 +392,47 @@ if (isset($_GET['logout'])) {
             background-color: #fef3c7;
             color: #92400e;
         }
+        
+        .badge-completed {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .badge-cancelled {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .badge-no_show {
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+        
+        .badge-cancelled {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .badge-no_show {
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+        
+        /* Transaction display styles */
+        .transaction-info {
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            color: #6c757d;
+            border-left: 3px solid var(--primary-color);
+        }
+        
+        .transaction-id {
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            word-break: break-all;
+        }
 
         /* Modal styles */
         .modal-content {
@@ -564,6 +618,17 @@ if (isset($_GET['logout'])) {
                                                 </span>
                                             <?php endif; ?>
                                         </h6>
+                                        <div class="mt-2 transaction-info">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="small">
+                                                    <i class="fas fa-receipt me-1"></i>
+                                                    <?php echo TransactionHelper::formatTransactionNumber($appointment['transaction_number']); ?>
+                                                </span>
+                                                <span class="transaction-id small">
+                                                    <?php echo TransactionHelper::formatTransactionId($appointment['transaction_id']); ?>
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -719,17 +784,27 @@ if (isset($_GET['logout'])) {
                             </button>
                         </div>
                         <div class="card-body">
-                            <?php if ($upcoming_appointments->num_rows > 0): ?>
+                            <?php if ($all_appointments->num_rows > 0): ?>
                                 <div class="row g-4">
-                                <?php while ($appointment = $upcoming_appointments->fetch_assoc()): ?>
+                                <?php while ($appointment = $all_appointments->fetch_assoc()): 
+                                    $appointment_date = new DateTime($appointment['appointment_date']);
+                                    $current_date = new DateTime();
+                                    $is_past = $appointment_date < $current_date;
+                                    $is_today = $appointment_date->format('Y-m-d') === $current_date->format('Y-m-d');
+                                ?>
                                     <div class="col-12">
-                                        <div class="card border-card">
+                                        <div class="card border-card <?php echo $is_past ? 'opacity-75' : ''; ?>">
                                             <div class="card-body">
                                                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start mb-3">
                                                     <div class="mb-2 mb-md-0">
                                                         <div class="text-primary fw-medium mb-1">
                                                             <i class="fas fa-calendar me-1"></i>
                                                             <?php echo date('l, F j, Y', strtotime($appointment['appointment_date'])); ?>
+                                                            <?php if ($is_today): ?>
+                                                                <span class="badge bg-warning ms-2">Today</span>
+                                                            <?php elseif ($is_past): ?>
+                                                                <span class="badge bg-secondary ms-2">Past</span>
+                                                            <?php endif; ?>
                                                         </div>
                                                         <div class="text-muted small">
                                                             <i class="fas fa-clock me-1"></i>
@@ -748,11 +823,32 @@ if (isset($_GET['logout'])) {
                                                         </span>
                                                     <?php endif; ?>
                                                 </h6>
+                                                <?php if ($appointment['notes']): ?>
+                                                <div class="text-muted small mb-3">
+                                                    <i class="fas fa-sticky-note me-1"></i>
+                                                    <?php echo htmlspecialchars($appointment['notes']); ?>
+                                                </div>
+                                                <?php endif; ?>
                                                 <div class="d-flex flex-wrap gap-3">
                                                     <span class="text-muted small">
                                                         <i class="fas fa-map-marker-alt me-1"></i> 
                                                         Barangay Health Center
                                                     </span>
+                                                    <span class="text-muted small">
+                                                        <i class="fas fa-clock me-1"></i>
+                                                        Created: <?php echo date('M j, Y', strtotime($appointment['created_at'])); ?>
+                                                    </span>
+                                                </div>
+                                                <div class="mt-2 transaction-info">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <span class="small">
+                                                            <i class="fas fa-receipt me-1"></i>
+                                                            Transaction #: <?php echo TransactionHelper::formatTransactionNumber($appointment['transaction_number']); ?>
+                                                        </span>
+                                                        <span class="transaction-id small">
+                                                            <?php echo TransactionHelper::formatTransactionId($appointment['transaction_id']); ?>
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -762,7 +858,7 @@ if (isset($_GET['logout'])) {
                             <?php else: ?>
                                 <div class="alert alert-info small">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    No upcoming appointments scheduled.
+                                    No appointments found. Schedule your first appointment using the button above.
                                 </div>
                             <?php endif; ?>
                         </div>

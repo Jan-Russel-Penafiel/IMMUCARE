@@ -2,8 +2,8 @@
 session_start();
 require 'config.php';
 
-// Check if user is logged in and is a nurse
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'nurse') {
+// Check if user is logged in
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type'])) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
@@ -47,10 +47,10 @@ $query = "SELECT a.*,
           JOIN patients p ON a.patient_id = p.id 
           LEFT JOIN vaccines v ON a.vaccine_id = v.id 
           LEFT JOIN users u ON a.staff_id = u.id
-          WHERE a.id = ? AND (a.staff_id = ? OR a.staff_id IS NULL)";
+          WHERE a.id = ?";
 
 $stmt = $conn->prepare($query);
-$stmt->bind_param("ii", $appointment_id, $user_id);
+$stmt->bind_param("i", $appointment_id);
 $stmt->execute();
 $result = $stmt->get_result();
 

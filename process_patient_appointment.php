@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'transaction_helper.php';
 
 // Check if user is logged in and is a patient
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'patient') {
@@ -53,6 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Start transaction
         $conn->begin_transaction();
 
+        // Generate transaction data
+        $transactionData = TransactionHelper::generateTransactionData($conn);
+
         // Create appointment
         $stmt = $conn->prepare("INSERT INTO appointments (
             patient_id, 
@@ -61,10 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             purpose, 
             notes,
             status,
+            transaction_id,
+            transaction_number,
             created_at
-        ) VALUES (?, ?, ?, ?, ?, 'requested', NOW())");
+        ) VALUES (?, ?, ?, ?, ?, 'requested', ?, ?, NOW())");
 
-        $stmt->bind_param("isiss", $patient_id, $appointment_datetime, $vaccine_id, $purpose, $notes);
+        $stmt->bind_param("isissss", $patient_id, $appointment_datetime, $vaccine_id, $purpose, $notes, $transactionData['transaction_id'], $transactionData['transaction_number']);
 
         if (!$stmt->execute()) {
             throw new Exception('Failed to create appointment');

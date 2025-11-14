@@ -3,6 +3,7 @@ session_start();
 require 'config.php';
 require_once 'vendor/autoload.php';
 require_once 'notification_system.php';
+require_once 'transaction_helper.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -63,9 +64,12 @@ if ($action == 'add' && isset($_POST['add_immunization'])) {
     $location = $_POST['location'];
     $diagnosis = isset($_POST['diagnosis']) ? $_POST['diagnosis'] : null;
 
+    // Generate transaction data
+    $transactionData = TransactionHelper::generateTransactionData($conn);
+    
     // Insert new immunization record
-    $stmt = $conn->prepare("INSERT INTO immunizations (patient_id, vaccine_id, administered_by, dose_number, batch_number, expiration_date, administered_date, next_dose_date, location, diagnosis, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-    $stmt->bind_param("iiiissssss", $patient_id, $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $diagnosis);
+    $stmt = $conn->prepare("INSERT INTO immunizations (patient_id, vaccine_id, administered_by, dose_number, batch_number, expiration_date, administered_date, next_dose_date, location, diagnosis, transaction_id, transaction_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+    $stmt->bind_param("iiiissssssss", $patient_id, $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $diagnosis, $transactionData['transaction_id'], $transactionData['transaction_number']);
 
     if ($stmt->execute()) {
         $immunization_id = $conn->insert_id;
@@ -128,9 +132,12 @@ if ($action == 'edit' && isset($_POST['edit_immunization'])) {
     $location = $_POST['location'];
     $diagnosis = isset($_POST['diagnosis']) ? $_POST['diagnosis'] : null;
 
+    // Generate transaction data for update
+    $transactionData = TransactionHelper::generateTransactionData($conn);
+    
     // Update immunization record
-    $stmt = $conn->prepare("UPDATE immunizations SET vaccine_id = ?, administered_by = ?, dose_number = ?, batch_number = ?, expiration_date = ?, administered_date = ?, next_dose_date = ?, location = ?, diagnosis = ? WHERE id = ? AND patient_id = ?");
-    $stmt->bind_param("iiiisssssis", $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $diagnosis, $immunization_id, $patient_id);
+    $stmt = $conn->prepare("UPDATE immunizations SET vaccine_id = ?, administered_by = ?, dose_number = ?, batch_number = ?, expiration_date = ?, administered_date = ?, next_dose_date = ?, location = ?, diagnosis = ?, transaction_id = ?, transaction_number = ? WHERE id = ? AND patient_id = ?");
+    $stmt->bind_param("iiiisssssssis", $vaccine_id, $administered_by, $dose_number, $batch_number, $expiration_date, $administered_date, $next_dose_date, $location, $diagnosis, $transactionData['transaction_id'], $transactionData['transaction_number'], $immunization_id, $patient_id);
 
     if ($stmt->execute()) {
         // Get vaccine name for the notification
@@ -197,28 +204,10 @@ if ($action == 'delete' && isset($_GET['id'])) {
         $delete_stmt->bind_param("ii", $immunization_id, $patient_id);
         
         if ($delete_stmt->execute()) {
-            // Send notification if patient has a user account
-            if ($patient['user_id']) {
-                $delete_message = "Important Notice: An immunization record has been removed from your profile.\n\n" .
-                                 "Deleted Record Details:\n" .
-                                 "- Vaccine: " . $immunization['vaccine_name'] . "\n" .
-                                 "- Dose Number: " . $immunization['dose_number'] . "\n" .
-                                 "- Administration Date: " . date('F j, Y', strtotime($immunization['administered_date'])) . "\n\n" .
-                                 "This record has been permanently removed from your immunization history. " .
-                                 "If you believe this was done in error, please contact our immunization department immediately.\n\n" .
-                                 "Important:\n" .
-                                 "- This may affect your immunization schedule\n" .
-                                 "- You may need to provide alternative proof of this vaccination\n" .
-                                 "- Contact us if you need to verify your current immunization status\n\n" .
-                                 "For questions or concerns, reach our immunization team at " . IMMUNIZATION_PHONE;
-                
-                $notification_system->sendCustomNotification(
-                    $patient['user_id'],
-                    "Immunization Record Removed: " . $immunization['vaccine_name'],
-                    $delete_message,
-                    'both'
-                );
-            }
+            // Note: Deletion notifications are disabled as per system policy
+            // if ($patient['user_id']) {
+            //     // Notification logic removed - deletions do not send notifications
+            // }
         } else {
             $action_message = "Error deleting immunization record: " . $conn->error;
         }
@@ -287,7 +276,9 @@ while ($staff = $staff_result->fetch_assoc()) {
 
 // Fetch patient's immunization records
 $immunizations_query = "SELECT i.*, v.name as vaccine_name, v.manufacturer, 
-                       u.name as administered_by_name
+                       u.name as administered_by_name,
+                       i.transaction_id,
+                       i.transaction_number
                        FROM immunizations i 
                        JOIN vaccines v ON i.vaccine_id = v.id
                        JOIN users u ON i.administered_by = u.id
@@ -1226,6 +1217,7 @@ $conn->close();
                                     <th>Administered Date</th>
                                     <th>Administered By</th>
                                     <th>Next Dose Date</th>
+                                    <th>Transaction Info</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1248,6 +1240,12 @@ $conn->close();
                                                 <?php else: ?>
                                                     N/A
                                                 <?php endif; ?>
+                                            </td>
+                                            <td class="transaction-info">
+                                                <div class="small">
+                                                    <div class="badge bg-primary mb-1"><?php echo TransactionHelper::formatTransactionNumber($immunization['transaction_number']); ?></div><br>
+                                                    <div class="text-muted" style="font-size: 0.65rem;"><?php echo TransactionHelper::formatTransactionId($immunization['transaction_id']); ?></div>
+                                                </div>
                                             </td>
                                             <td class="action-buttons">
                                                 <a href="?action=view&id=<?php echo $immunization['id']; ?>&patient_id=<?php echo $patient_id; ?>" class="btn-view">

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'transaction_helper.php';
 
 // Check if user is logged in and is a nurse
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'nurse') {
@@ -69,17 +70,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Get current datetime for created_at
         $now = date('Y-m-d H:i:s');
         
+        // Generate transaction data
+        $transactionData = TransactionHelper::generateTransactionData($conn);
+        
         // Insert immunization record
         $stmt = $conn->prepare("INSERT INTO immunizations 
                                (patient_id, vaccine_id, administered_by, dose_number, 
                                batch_number, expiration_date, administered_date, 
-                               next_dose_date, location, diagnosis, created_at) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                               next_dose_date, location, diagnosis, transaction_id, transaction_number, created_at) 
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
-        $stmt->bind_param("iiiisssssss", 
+        $stmt->bind_param("iiiissssssss", 
                          $patient_id, $vaccine_id, $user_id, $dose_number, 
                          $batch_number, $expiration_date, $administered_date, 
-                         $next_dose_date, $location, $diagnosis, $now);
+                         $next_dose_date, $location, $diagnosis, $transactionData['transaction_id'], $transactionData['transaction_number'], $now);
         
         if ($stmt->execute()) {
             $message = 'Immunization record added successfully.';

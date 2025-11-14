@@ -2,6 +2,7 @@
 session_start();
 require 'config.php';
 require_once 'notification_system.php';
+require_once 'transaction_helper.php';
 
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
@@ -45,6 +46,9 @@ if (isset($_POST['update_status'])) {
     $status = $_POST['status'];
     $notes = isset($_POST['notes']) ? $_POST['notes'] : '';
     
+    // Generate transaction data
+    $transactionData = TransactionHelper::generateTransactionData($conn);
+    
     // Get appointment and patient details
     $stmt = $conn->prepare("
         SELECT a.*, 
@@ -67,8 +71,8 @@ if (isset($_POST['update_status'])) {
     $appointment_data = $appointment_result->fetch_assoc();
     
     // Update appointment status
-    $stmt = $conn->prepare("UPDATE appointments SET status = ?, notes = ?, updated_at = NOW() WHERE id = ?");
-    $stmt->bind_param("ssi", $status, $notes, $appointment_id);
+    $stmt = $conn->prepare("UPDATE appointments SET status = ?, notes = ?, transaction_id = ?, transaction_number = ?, updated_at = NOW() WHERE id = ?");
+    $stmt->bind_param("ssssi", $status, $notes, $transactionData['transaction_id'], $transactionData['transaction_number'], $appointment_id);
     
     if ($stmt->execute()) {
         // Send notification using the notification system
@@ -109,12 +113,32 @@ if (isset($_POST['update_status'])) {
         
         $_SESSION['action_message'] = "Appointment status updated successfully! Notifications sent via Email and SMS.";
         
-        // Redirect to prevent form resubmission
-        header('Location: ' . $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET));
+        // Redirect to prevent form resubmission (remove action parameters)
+        $redirect_params = $_GET;
+        unset($redirect_params['action']);
+        unset($redirect_params['id']);
+        
+        $redirect_url = $_SERVER['PHP_SELF'];
+        if (!empty($redirect_params)) {
+            $redirect_url .= '?' . http_build_query($redirect_params);
+        }
+        
+        header('Location: ' . $redirect_url);
         exit;
     } else {
         $_SESSION['action_message'] = "Error updating appointment status: " . $conn->error;
-        header('Location: ' . $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET));
+        
+        // Redirect to prevent form resubmission (remove action parameters)
+        $redirect_params = $_GET;
+        unset($redirect_params['action']);
+        unset($redirect_params['id']);
+        
+        $redirect_url = $_SERVER['PHP_SELF'];
+        if (!empty($redirect_params)) {
+            $redirect_url .= '?' . http_build_query($redirect_params);
+        }
+        
+        header('Location: ' . $redirect_url);
         exit;
     }
 }
@@ -142,39 +166,31 @@ if ($action == 'delete' && isset($_GET['id'])) {
     $stmt->execute();
     $appointment_data = $stmt->get_result()->fetch_assoc();
     
-    // Send cancellation notification before deleting
-    if ($appointment_data) {
-        $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
-        $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
-        $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
-        
-        // Short, concise cancellation message
-        $cancel_message = "IMMUCARE: Your appointment on " . $appointment_date . " at " . $appointment_time . 
-                         " has been CANCELLED. Please contact " . SCHEDULING_PHONE . " to reschedule if needed.";
-        
-        $notification_system->sendCustomNotification(
-            $appointment_data['user_id'],
-            "Appointment Cancellation Notice",
-            $cancel_message,
-            'both'
-        );
-    }
+    // Note: Deletion notifications are disabled as per system policy
+    // if ($appointment_data) {
+    //     // Notification logic removed - deletions do not send notifications
+    // }
     
     $stmt = $conn->prepare("DELETE FROM appointments WHERE id = ?");
     $stmt->bind_param("i", $appointment_id);
     
     if ($stmt->execute()) {
-        if ($appointment_data) {
-            $_SESSION['action_message'] = "Appointment deleted successfully! Notifications sent via Email and SMS.";
-        } else {
-            $_SESSION['action_message'] = "Appointment deleted successfully! (Notifications failed)";
-        }
+        $_SESSION['action_message'] = "Appointment deleted successfully!";
     } else {
         $_SESSION['action_message'] = "Error deleting appointment: " . $conn->error;
     }
     
-    // Redirect to prevent form resubmission
-    header('Location: ' . $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET));
+    // Redirect to prevent form resubmission (remove action and id parameters)
+    $redirect_params = $_GET;
+    unset($redirect_params['action']);
+    unset($redirect_params['id']);
+    
+    $redirect_url = $_SERVER['PHP_SELF'];
+    if (!empty($redirect_params)) {
+        $redirect_url .= '?' . http_build_query($redirect_params);
+    }
+    
+    header('Location: ' . $redirect_url);
     exit;
 }
 
@@ -188,7 +204,9 @@ $params = array();
 $query = "SELECT a.*, 
          CONCAT(p.first_name, ' ', p.last_name) as patient_name,
          p.phone_number as patient_phone,
-         v.name as vaccine_name 
+         v.name as vaccine_name,
+         a.transaction_id,
+         a.transaction_number
          FROM appointments a 
          LEFT JOIN patients p ON a.patient_id = p.id 
          LEFT JOIN vaccines v ON a.vaccine_id = v.id 
@@ -374,6 +392,7 @@ $appointments_result = $stmt->get_result();
                                 <th>Date & Time</th>
                                 <th>Purpose</th>
                                 <th>Status</th>
+                                <th>Transaction Info</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -389,6 +408,12 @@ $appointments_result = $stmt->get_result();
                                             <span class="appointment-status status-<?php echo $appointment['status']; ?>">
                                                 <?php echo ucfirst($appointment['status']); ?>
                                             </span>
+                                        </td>
+                                        <td class="transaction-info">
+                                            <div class="small">
+                                                <div class="badge bg-primary mb-1"><?php echo TransactionHelper::formatTransactionNumber($appointment['transaction_number']); ?></div><br>
+                                                <div class="text-muted" style="font-size: 0.65rem;"><?php echo TransactionHelper::formatTransactionId($appointment['transaction_id']); ?></div>
+                                            </div>
                                         </td>
                                         <td class="action-buttons">
                                             <button type="button" class="btn-edit" onclick="openStatusModal(<?php echo $appointment['id']; ?>, '<?php echo $appointment['status']; ?>', '<?php echo htmlspecialchars($appointment['notes'] ?? '', ENT_QUOTES); ?>')">

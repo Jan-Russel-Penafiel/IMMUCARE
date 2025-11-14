@@ -314,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                                 <a href="login.php" class="btn btn-outline-primary btn-sm-mobile w-100"><i class="fas fa-mobile-alt me-2"></i>Use OTP</a>
                             </div>
                             <div class="col-6 text-center">
-                                <a href="index.php" class="btn btn-outline-secondary btn-sm-mobile w-100"><i class="fas fa-home me-2"></i>Back to Home</a>
+                                <a href="index.html" class="btn btn-outline-secondary btn-sm-mobile w-100"><i class="fas fa-home me-2"></i>Back to Home</a>
                             </div>
                         </div>
                     </div>

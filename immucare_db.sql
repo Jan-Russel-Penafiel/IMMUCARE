@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 09, 2025 at 10:12 AM
+-- Generation Time: Nov 14, 2025 at 07:23 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -34,6 +34,7 @@ CREATE TABLE `appointments` (
   `appointment_date` datetime NOT NULL,
   `vaccine_id` int(11) DEFAULT NULL,
   `purpose` varchar(255) NOT NULL,
+  `location` varchar(255) DEFAULT 'Main Clinic',
   `status` enum('requested','confirmed','completed','cancelled','no_show') DEFAULT 'requested',
   `notes` text DEFAULT NULL,
   `transaction_id` varchar(100) DEFAULT NULL,
@@ -46,9 +47,30 @@ CREATE TABLE `appointments` (
 -- Dumping data for table `appointments`
 --
 
-INSERT INTO `appointments` (`id`, `patient_id`, `staff_id`, `appointment_date`, `vaccine_id`, `purpose`, `status`, `notes`, `transaction_id`, `transaction_number`, `created_at`, `updated_at`) VALUES
-(1, 12, 2, '2025-07-03 11:41:00', NULL, 'bjhb', 'requested', 'knbkbkj', NULL, NULL, '2025-07-01 11:40:20', '2025-08-02 06:23:08'),
-(2, 12, 3, '2025-08-08 19:31:00', 2, 'sadaass', 'requested', 'asda', NULL, NULL, '2025-08-02 19:29:23', '2025-08-02 11:44:22');
+INSERT INTO `appointments` (`id`, `patient_id`, `staff_id`, `appointment_date`, `vaccine_id`, `purpose`, `location`, `status`, `notes`, `transaction_id`, `transaction_number`, `created_at`, `updated_at`) VALUES
+(1, 12, 2, '2025-07-03 11:41:00', NULL, 'bjhb', 'Main Clinic', 'confirmed', 'knbkbkj', NULL, NULL, '2025-07-01 11:40:20', '2025-11-12 19:35:23'),
+(2, 12, 3, '2025-08-08 19:31:00', 2, 'sadaass', 'Main Clinic', 'completed', 'asda', NULL, NULL, '2025-08-02 19:29:23', '2025-11-14 17:06:05'),
+(3, 13, NULL, '2025-11-14 03:59:00', 2, 'sada', 'Main Clinic', 'requested', 'da', NULL, NULL, '2025-11-13 03:56:11', '2025-11-12 21:16:47'),
+(5, 13, NULL, '2025-11-05 01:58:00', 2, 'sada', 'Main Clinic', 'requested', 'dasda', NULL, NULL, '2025-11-15 01:55:50', '2025-11-14 17:55:50'),
+(6, 13, NULL, '2025-10-29 01:56:00', 1, 'asd', 'Main Clinic', 'requested', 'adada', NULL, NULL, '2025-11-15 01:56:08', '2025-11-14 17:56:08'),
+(7, 13, NULL, '2025-11-06 02:16:00', 2, 'asda', 'Main Clinic', 'requested', 'ada', 'TXN_20251114_191317_6917713d31b84', 'TXN_000001', '2025-11-15 02:13:17', '2025-11-14 18:13:17');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `contact_messages`
+--
+
+CREATE TABLE `contact_messages` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `subject` varchar(500) NOT NULL,
+  `message` text NOT NULL,
+  `status` enum('new','read','replied') DEFAULT 'new',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -79,7 +101,8 @@ CREATE TABLE `data_transfers` (
 INSERT INTO `data_transfers` (`id`, `initiated_by`, `destination`, `file_name`, `file_size`, `record_count`, `transfer_type`, `status`, `status_message`, `started_at`, `completed_at`, `created_at`, `updated_at`) VALUES
 (11, 1, 'artiedastephany@gmail.com', 'immucare_health_data_2025-08-02_110206.xlsx, immucare_health_data_2025-08-02_110206.pdf', NULL, NULL, 'manual', 'completed', '', '2025-08-02 17:02:15', '2025-08-02 17:02:15', '2025-08-02 17:02:15', '2025-08-02 09:02:15'),
 (12, 1, 'artiedastephany@gmail.com', 'immucare_health_data_2025-08-02_114626.xlsx, immucare_health_data_2025-08-02_114626.pdf', NULL, NULL, 'manual', 'completed', '', '2025-08-02 17:46:35', '2025-08-02 17:46:35', '2025-08-02 17:46:35', '2025-08-02 09:46:35'),
-(13, 1, 'artiedastephany@gmail.com', 'immucare_health_data_2025-08-02_115631.xlsx, immucare_health_data_2025-08-02_115632.pdf', NULL, NULL, 'manual', 'completed', '', '2025-08-02 17:56:43', '2025-08-02 17:56:43', '2025-08-02 17:56:43', '2025-08-02 09:56:43');
+(13, 1, 'artiedastephany@gmail.com', 'immucare_health_data_2025-08-02_115631.xlsx, immucare_health_data_2025-08-02_115632.pdf', NULL, NULL, 'manual', 'completed', '', '2025-08-02 17:56:43', '2025-08-02 17:56:43', '2025-08-02 17:56:43', '2025-08-02 09:56:43'),
+(14, 1, 'artiedastephany@gmail.com', 'immucare_health_data_2025-11-12_222101.xlsx, immucare_health_data_2025-11-12_222102.pdf', NULL, NULL, 'manual', 'completed', '', '2025-11-13 05:21:07', '2025-11-13 05:21:07', '2025-11-13 05:21:07', '2025-11-12 21:21:07');
 
 -- --------------------------------------------------------
 
@@ -107,7 +130,8 @@ CREATE TABLE `email_logs` (
 --
 
 INSERT INTO `email_logs` (`id`, `notification_id`, `user_id`, `email_address`, `subject`, `message`, `status`, `provider_response`, `related_to`, `related_id`, `sent_at`, `created_at`) VALUES
-(39, 40, 15, 'stephanyartieda@sksu.edu.ph', 'Welcome to ImmuCare - Account Created', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e1e4e8; border-radius: 8px; background-color: #ffffff;\">\n                <!-- Header with Logo -->\n                <div style=\"text-align: center; margin-bottom: 30px;\">\n                    <img src=\"http://localhost/mic_new/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px; height: auto;\">\n                </div>\n                \n                <!-- Title -->\n                <h2 style=\"color: #4285f4; font-size: 24px; font-weight: 600; margin: 0 0 20px 0; text-align: left;\">Welcome to ImmuCare - Account Created</h2>\n                \n                <!-- Greeting -->\n                <p style=\"color: #333333; font-size: 16px; line-height: 1.5; margin: 0 0 20px 0;\">Hello Stephany lablab,</p>\n                \n                <!-- Message Content -->\n                <div style=\"background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;\">\n                    <div style=\"color: #333333; font-size: 16px; line-height: 1.6;\">\n                        Welcome to ImmuCare!<br />\n<br />\nYour ImmuCare account has been created with the following credentials:<br />\n- Email: stephanyartieda@sksu.edu.ph<br />\n- Phone: 09920157536<br />\n- Password: 12345678<br />\n<br />\nPlease keep these credentials secure and change your password after your first login.<br />\n<br />\nFor assistance, contact our support team:<br />\nPhone: +1-800-IMMUCARE<br />\nEmail: support@immucare.com\n                    </div>\n                </div>\n                \n                <!-- Footer -->\n                <div style=\"margin-top: 30px; padding-top: 20px; border-top: 1px solid #e1e4e8;\">\n                    <p style=\"color: #666666; font-size: 14px; margin: 0;\">Thank you,<br>ImmuCare Team</p>\n                    \n                    <!-- Contact Info -->\n                    <div style=\"margin-top: 20px; color: #666666; font-size: 12px;\">\n                        <p style=\"margin: 5px 0;\">Need help? Contact us at support@immucare.com</p>\n                        <p style=\"margin: 5px 0;\">Phone: +1-800-IMMUCARE</p>\n                    </div>\n                </div>\n            </div>\n        ', 'sent', NULL, 'general', NULL, '2025-07-01 11:06:19', '2025-07-01 11:06:19');
+(41, NULL, 21, 'penafielliezl99991111@gmail.com', 'Welcome to ImmuCare - Account Created', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                <div style=\"text-align: center; margin-bottom: 20px;\">\n                    <img src=\"http://localhost/mic_new/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                </div>\n                <h2 style=\"color: #4285f4;\">Welcome to ImmuCare!</h2>\n                <p>Hello Jan Russel Peñafiel,</p>\n                <p>Your account has been successfully created. You can now log in to manage your appointments and immunization records.</p>\n                <div style=\"background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;\">\n                    <p><strong>Email:</strong> penafielliezl99991111@gmail.com</p>\n                    <p><strong>Password:</strong> KH!dF;k@_9</p>\n                </div>\n                <p>We recommend changing your password after your first login.</p>\n                <div style=\"text-align: center; margin-top: 30px;\">\n                    <a href=\"http://localhost/mic_new/login.php\" style=\"background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Login to Your Account</a>\n                </div>\n                <p style=\"margin-top: 30px;\">Thank you for choosing ImmuCare for your immunization needs.</p>\n                <p>Best regards,<br>ImmuCare Team</p>\n            </div>\n        ', 'sent', NULL, 'general', NULL, '2025-11-15 01:42:13', '2025-11-15 01:42:13'),
+(42, NULL, 21, 'penafielliezl99991111@gmail.com', 'ImmuCare - Appointment Request Received', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                <div style=\"text-align: center; margin-bottom: 20px;\">\n                    <img src=\"http://localhost/mic_new/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                </div>\n                <h2 style=\"color: #4285f4;\">Appointment Request Received</h2>\n                <p>Hello Jan Russel Peñafiel,</p>\n                <p>Thank you for requesting an appointment with ImmuCare. Your appointment request has been received and is pending confirmation.</p>\n                <div style=\"background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;\">\n                    <p><strong>Date:</strong> Friday, December 5, 2025</p>\n                    <p><strong>Time:</strong> 1:43 AM</p>\n                    <p><strong>Purpose:</strong> Prenatal Checkup</p>\n                </div>\n                <p>Our staff will review your request and confirm your appointment shortly. You will receive another email once your appointment is confirmed.</p>\n                <p style=\"margin-top: 30px;\">Thank you for choosing ImmuCare for your healthcare needs.</p>\n                <p>Best regards,<br>ImmuCare Team</p>\n            </div>\n        ', 'sent', NULL, 'general', NULL, '2025-11-15 01:42:19', '2025-11-15 01:42:19');
 
 -- --------------------------------------------------------
 
@@ -171,10 +195,11 @@ CREATE TABLE `immunizations` (
 
 INSERT INTO `immunizations` (`id`, `patient_id`, `vaccine_id`, `administered_by`, `dose_number`, `batch_number`, `expiration_date`, `administered_date`, `next_dose_date`, `location`, `diagnosis`, `transaction_id`, `transaction_number`, `created_at`, `updated_at`) VALUES
 (1, 12, 3, 2, 1, '20', '2025-08-09', '2025-08-07 14:57:00', '0025-10-21', 'asda', 'as', NULL, NULL, '2025-08-02 14:57:24', '2025-08-02 06:57:24'),
-(2, 1, 1, 1, 1, 'BCG001', NULL, '2025-08-02 15:35:00', NULL, NULL, NULL, NULL, NULL, '2025-08-02 15:35:00', '2025-08-02 07:35:00'),
-(3, 1, 2, 1, 1, 'HEPB001', NULL, '2025-08-02 15:35:00', '2025-09-01', NULL, NULL, NULL, NULL, '2025-08-02 15:35:00', '2025-08-02 07:35:00'),
 (4, 12, 1, 1, 1, 'BCG002', NULL, '2025-08-02 15:35:00', NULL, NULL, NULL, NULL, NULL, '2025-08-02 15:35:00', '2025-08-02 07:35:00'),
-(5, 1, 1, 3, 1, '1', '2025-08-22', '2025-08-02 18:02:00', '2025-08-09', 'asda', 'dada', NULL, NULL, '2025-08-02 18:02:28', '2025-08-02 10:02:28');
+(6, 14, 3, 2, 1, '1', '2025-11-13', '2025-11-15 00:40:00', '2025-11-22', 'sdasd', 'asda', NULL, NULL, '2025-11-15 00:40:59', '2025-11-14 16:40:59'),
+(7, 12, 1, 3, 1, '1', '2025-11-20', '2025-11-14 16:50:00', '2025-11-29', 'asda', 'sadad', NULL, NULL, '2025-11-14 17:50:34', '2025-11-14 16:50:34'),
+(8, 14, 3, 3, 1, '1', '2025-11-21', '2025-11-14 16:52:00', '2025-12-18', 'sada', 'sadada', NULL, NULL, '2025-11-14 17:53:05', '2025-11-14 16:53:05'),
+(9, 12, 2, 3, 1, '2', '2025-11-28', '2025-11-14 17:05:00', '2025-11-28', 'sadada', 'sadada', NULL, NULL, '2025-11-14 18:06:05', '2025-11-14 17:06:05');
 
 -- --------------------------------------------------------
 
@@ -199,22 +224,48 @@ CREATE TABLE `notifications` (
 --
 
 INSERT INTO `notifications` (`id`, `user_id`, `title`, `message`, `type`, `is_read`, `sent_at`, `created_at`, `updated_at`) VALUES
-(4, 5, 'Patient Profile Created', 'IMMUCARE: Patient Profile Created - Your patient profile has been created successfully. You can now access your immunization records and schedule appointments through our system.', 'sms', 0, '2025-06-30 21:43:49', '2025-06-30 21:43:49', '2025-06-30 13:43:49'),
-(6, 5, 'Patient Profile Deleted', 'IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.', 'sms', 0, '2025-06-30 21:44:06', '2025-06-30 21:44:06', '2025-06-30 13:44:06'),
-(8, 5, 'Patient Profile Deleted', 'IMMUCARE: Patient Profile Deleted - Your patient profile has been deleted by an administrator. If you believe this was done in error, please contact support immediately.', 'sms', 0, '2025-06-30 21:44:18', '2025-06-30 21:44:18', '2025-06-30 13:44:18'),
-(9, 5, 'Schedule Change', 'IMMUCARE: Schedule Change - dsada dad a', 'sms', 0, '2025-06-30 22:22:04', '2025-06-30 22:22:04', '2025-06-30 14:22:04'),
-(14, 8, 'Welcome to ImmuCare - Account Created', 'Welcome to ImmuCare! Your account has been created as a Patient. You can now access our system using your email (stephanyartieda@sksu.edu.ph) and the provided password. For security reasons, please change your password after your first login. If you need any assistance, please contact our support team.', 'system', 0, '2025-07-01 09:06:48', '2025-07-01 09:06:48', '2025-07-01 01:06:48'),
-(15, 8, 'Patient Profile Linked to Your Account', 'Your existing ImmuCare account has been linked to a new patient profile.\n\nAccount Details:\n- Name: Stephany lablab\n- Email: stephanyartieda@sksu.edu.ph\n- Phone: 09319750668\n\nPatient Profile Details:\n- Full Name: Stephany asdadgd lablab\n- Date of Birth: September 8, 2004\n- Gender: Female\n- Contact: 09319750668\n- Address: Purok sada, Santo Niño, Provinces\n\nYou can now access your health records and schedule appointments through your existing account.\n\nIf you did not expect this change, please contact our support team immediately at support@immucare.com', 'system', 0, '2025-07-01 09:07:27', '2025-07-01 09:07:27', '2025-07-01 01:07:27'),
-(16, 8, 'Patient Profile Created Successfully', 'Your patient profile has been successfully created in the ImmuCare system.\n\nProfile Details:\n- Patient ID: 5\n- Full Name: Stephany asdadgd lablab\n- Date of Birth: September 8, 2004\n- Gender: Female\n- Contact: 09319750668\n- Address: Purok sada, Santo Niño, Provinces\n\nMedical Information:\n- Medical History: sadada\n- Allergies: dada\n\nYou can now:\n- View your immunization records\n- Schedule appointments\n- Receive vaccination reminders\n- Update your medical information\n\nPlease verify all information and contact us if any corrections are needed.\nFor support, reach us at support@immucare.com or +1-800-IMMUCARE', 'system', 0, '2025-07-01 09:07:34', '2025-07-01 09:07:34', '2025-07-01 01:07:34'),
-(29, 11, 'Patient Profile and Account Deletion Notice', 'Important Notice: Your ImmuCare patient profile and user account have been deleted.\n\nProfile Details:\n- Patient ID: 8\n- Name: Stephany asdadgd lablab\n- Email: stephanyartieda@sksu.edu.ph\n\nThis means:\n- Your patient records have been removed\n- Your user account has been deactivated\n- Any scheduled appointments have been cancelled\n- You will no longer receive vaccination reminders\n\nIf you believe this was done in error, please contact our support team immediately.\nYou can reach us at +1-800-IMMUCARE or support@immucare.com', 'system', 0, '2025-07-01 10:38:19', '2025-07-01 10:38:19', '2025-07-01 02:38:19'),
-(33, 12, 'Patient Profile and Account Deletion Notice', 'Important Notice: Your ImmuCare patient profile and user account have been deleted.\n\nProfile Details:\n- Patient ID: 9\n- Name: Stephany sadada lablab\n- Email: stephanyartieda@sksu.edu.ph\n\nThis means:\n- Your patient records have been removed\n- Your user account has been deactivated\n- Any scheduled appointments have been cancelled\n- You will no longer receive vaccination reminders\n\nIf you believe this was done in error, please contact our support team immediately.\nYou can reach us at +1-800-IMMUCARE or support@immucare.com', 'system', 0, '2025-07-01 10:54:06', '2025-07-01 10:54:06', '2025-07-01 02:54:06'),
-(36, 13, 'Patient Profile and Account Deletion Notice', 'Important Notice: Your ImmuCare patient profile and user account have been deleted.\n\nProfile Details:\n- Patient ID: 10\n- Name: Stephany asdadgd lablab\n- Email: stephanyartieda@sksu.edu.ph\n\nThis means:\n- Your patient records have been removed\n- Your user account has been deactivated\n- Any scheduled appointments have been cancelled\n- You will no longer receive vaccination reminders\n\nIf you believe this was done in error, please contact our support team immediately.\nYou can reach us at +1-800-IMMUCARE or support@immucare.com', 'system', 0, '2025-07-01 10:59:16', '2025-07-01 10:59:16', '2025-07-01 02:59:16'),
-(39, 14, 'Patient Profile and Account Deletion Notice', 'Important Notice: Your ImmuCare patient profile and user account have been deleted.\n\nProfile Details:\n- Patient ID: 11\n- Name: Stephany asdadgd lablab\n- Email: stephanyartieda@sksu.edu.ph\n\nThis means:\n- Your patient records have been removed\n- Your user account has been deactivated\n- Any scheduled appointments have been cancelled\n- You will no longer receive vaccination reminders\n\nIf you believe this was done in error, please contact our support team immediately.\nYou can reach us at +1-800-IMMUCARE or support@immucare.com', 'system', 0, '2025-07-01 11:05:13', '2025-07-01 11:05:13', '2025-07-01 03:05:13'),
-(40, 15, 'Welcome to ImmuCare - Account Created', 'Welcome to ImmuCare!\n\nYour ImmuCare account has been created with the following credentials:\n- Email: stephanyartieda@sksu.edu.ph\n- Phone: 09920157536\n- Password: 12345678\n\nPlease keep these credentials secure and change your password after your first login.\n\nFor assistance, contact our support team:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com', 'system', 0, '2025-07-01 11:06:19', '2025-07-01 11:06:19', '2025-07-01 03:06:19'),
-(42, 2, 'New Appointment Request', 'New appointment request from patient #12 for July 3, 2025 - 11:41 AM', '', 0, NULL, '2025-07-01 11:40:20', '2025-07-01 03:40:20'),
-(43, 3, 'New Appointment Request', 'New appointment request from patient #12 for July 3, 2025 - 11:41 AM', '', 0, NULL, '2025-07-01 11:40:20', '2025-07-01 03:40:20'),
-(47, 2, 'New Appointment Request', 'New appointment request from patient #12 for August 8, 2025 - 7:31 PM', '', 0, NULL, '2025-08-02 19:29:23', '2025-08-02 11:29:23'),
-(48, 3, 'New Appointment Request', 'New appointment request from patient #12 for August 8, 2025 - 7:31 PM', '', 0, NULL, '2025-08-02 19:29:23', '2025-08-02 11:29:23');
+(55, 15, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: bjhb\n- Date: Thursday, July 3, 2025\n- Time: 11:41 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: knbkbkj\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 03:05:58', '2025-11-13 03:05:58', '2025-11-12 19:05:58'),
+(56, 15, 'Appointment Status Update: Requested', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: bjhb\n- Date: Thursday, July 3, 2025\n- Time: 11:41 AM\n- New Status: Requested\n\nThank you for scheduling with us.\n\nAdditional Notes: knbkbkj\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 03:15:08', '2025-11-13 03:15:08', '2025-11-12 19:15:08'),
+(57, 17, 'IMMUCARE: Account Created Successfully', 'Dear hunter,\n\nYour IMMUCARE account has been successfully created.\n\nAccount Details:\nEmail: artiedastephany@gmail.com\nPhone: 09677726912\nPassword: 12345678\n\nFor security reasons, please change your password after logging in.\n\nNeed help? Contact us:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com\n\nBest regards,\nIMMUCARE Team', 'system', 0, '2025-11-13 03:48:21', '2025-11-13 03:48:21', '2025-11-12 19:48:21'),
+(58, 17, 'IMMUCARE: Account Deleted', 'Dear hunter,\n\nYour IMMUCARE account and patient profile have been deleted.\n\nAccount Details:\nPatient ID: \nName:  \nEmail: artiedastephany@gmail.com\n\nThis means:\n1. Patient records removed\n2. User account deactivated\n3. Appointments cancelled\n4. Vaccination reminders stopped\n\nIf this was done in error, contact us:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com\n\nBest regards,\nIMMUCARE Team', 'system', 0, '2025-11-13 03:54:11', '2025-11-13 03:54:11', '2025-11-12 19:54:11'),
+(59, 18, 'IMMUCARE: Account Created Successfully', 'Dear hunter,\n\nYour IMMUCARE account has been successfully created.\n\nAccount Details:\nEmail: artiedastephany@gmail.com\nPhone: 09677726912\nPassword: 12345678\n\nFor security reasons, please change your password after logging in.\n\nNeed help? Contact us:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com\n\nBest regards,\nIMMUCARE Team', 'system', 0, '2025-11-13 03:54:51', '2025-11-13 03:54:51', '2025-11-12 19:54:51'),
+(61, 2, 'New Appointment Request', 'New appointment request from patient #13 for November 14, 2025 - 3:59 AM', '', 0, NULL, '2025-11-13 03:56:11', '2025-11-12 19:56:11'),
+(62, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 14, 2025 - 3:59 AM', '', 0, NULL, '2025-11-13 03:56:11', '2025-11-12 19:56:11'),
+(63, 15, 'IMMUCARE: Account Deleted', 'Dear Stephany lablab,\n\nYour IMMUCARE account and patient profile have been deleted.\n\nAccount Details:\nPatient ID: \nName:  \nEmail: janrusselpenafiel01172005@gmail.com\n\nThis means:\n1. Patient records removed\n2. User account deactivated\n3. Appointments cancelled\n4. Vaccination reminders stopped\n\nIf this was done in error, contact us:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com\n\nBest regards,\nIMMUCARE Team', 'system', 0, '2025-11-13 04:05:43', '2025-11-13 04:05:43', '2025-11-12 20:05:43'),
+(64, 19, 'IMMUCARE: Account Created Successfully', 'Dear asdada,\n\nYour IMMUCARE account has been successfully created.\n\nAccount Details:\nEmail: janrusselpenafiel01172005@gmail.com\nPhone: 09677726912\nPassword: 12345678\n\nFor security reasons, please change your password after logging in.\n\nNeed help? Contact us:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com\n\nBest regards,\nIMMUCARE Team', 'system', 0, '2025-11-13 04:06:00', '2025-11-13 04:06:00', '2025-11-12 20:06:00'),
+(65, 19, 'IMMUCARE: Account Deleted', 'Dear asdada,\n\nYour IMMUCARE account and patient profile have been deleted.\n\nAccount Details:\nPatient ID: \nName:  \nEmail: janrusselpenafiel01172005@gmail.com\n\nThis means:\n1. Patient records removed\n2. User account deactivated\n3. Appointments cancelled\n4. Vaccination reminders stopped\n\nIf this was done in error, contact us:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com\n\nBest regards,\nIMMUCARE Team', 'system', 0, '2025-11-13 04:09:48', '2025-11-13 04:09:48', '2025-11-12 20:09:48'),
+(66, 20, 'IMMUCARE: Account Created Successfully', 'Dear sasdad ada,\n\nYour IMMUCARE account has been successfully created.\n\nAccount Details:\nEmail: janrusselpenafiel01172005@gmail.com\nPhone: 09677726912\nPassword: 12345678\n\nFor security reasons, please change your password after logging in.\n\nNeed help? Contact us:\nPhone: +1-800-IMMUCARE\nEmail: support@immucare.com\n\nBest regards,\nIMMUCARE Team', 'system', 0, '2025-11-13 04:10:08', '2025-11-13 04:10:08', '2025-11-12 20:10:08'),
+(68, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 04:34:46', '2025-11-13 04:34:46', '2025-11-12 20:34:46'),
+(70, 18, 'Test SMS Notification', 'This is a test message to verify SMS functionality.', 'system', 0, '2025-11-13 04:40:45', '2025-11-13 04:40:45', '2025-11-12 20:40:45'),
+(71, 18, 'Appointment Status Update: Requested', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Requested\n\nThank you for scheduling with us.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 04:42:24', '2025-11-13 04:42:24', '2025-11-12 20:42:24'),
+(73, 18, 'Test SMS Notification', 'This is a test message to verify SMS functionality.', 'system', 0, '2025-11-13 04:46:18', '2025-11-13 04:46:18', '2025-11-12 20:46:18'),
+(74, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: Test notification from admin system\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 04:47:05', '2025-11-13 04:47:05', '2025-11-12 20:47:05'),
+(75, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 04:53:42', '2025-11-13 04:53:42', '2025-11-12 20:53:42'),
+(76, 18, 'Appointment Status Update: Requested', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Requested\n\nThank you for scheduling with us.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 04:56:25', '2025-11-13 04:56:25', '2025-11-12 20:56:25'),
+(77, 18, 'Test Notification', 'Testing iProg SMS integration via NotificationSystem class.', 'system', 0, '2025-11-13 05:00:36', '2025-11-13 05:00:36', '2025-11-12 21:00:36'),
+(78, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 05:01:09', '2025-11-13 05:01:09', '2025-11-12 21:01:09'),
+(79, 18, 'Appointment Status Update: Requested', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Requested\n\nThank you for scheduling with us.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 05:04:00', '2025-11-13 05:04:00', '2025-11-12 21:04:00'),
+(80, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 05:05:21', '2025-11-13 05:05:21', '2025-11-12 21:05:21'),
+(81, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 05:09:05', '2025-11-13 05:09:05', '2025-11-12 21:09:05'),
+(82, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 05:10:12', '2025-11-13 05:10:12', '2025-11-12 21:10:12'),
+(83, 18, 'Appointment Confirmed', 'Appointment status updated.\n\nDetails:\nPurpose: Hepatitis B vaccination\nDate: Friday, November 14, 2025\nTime: 03:59 AM\nStatus: Confirmed\n\nYour appointment is confirmed. Please arrive 15 minutes early.\n\nNotes: This is a test notification.\n\nQuestions? Please contact us.', 'system', 0, '2025-11-13 05:10:52', '2025-11-13 05:10:52', '2025-11-12 21:10:52'),
+(84, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 05:12:05', '2025-11-13 05:12:05', '2025-11-12 21:12:05'),
+(85, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 05:12:38', '2025-11-13 05:12:38', '2025-11-12 21:12:38'),
+(86, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 05:13:59', '2025-11-13 05:13:59', '2025-11-12 21:13:59'),
+(87, 18, 'Appointment Status Update: Confirmed', 'Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', 'system', 0, '2025-11-13 05:15:22', '2025-11-13 05:15:22', '2025-11-12 21:15:22'),
+(88, 18, 'Appointment Status Update: Confirmed', 'IMMUCARE: Your appointment on Friday, November 14, 2025 at 03:59 AM is CONFIRMED. Please arrive 15 minutes early. Note: This is a test notification.', 'system', 0, '2025-11-13 05:15:57', '2025-11-13 05:15:57', '2025-11-12 21:15:57'),
+(89, 18, 'Appointment Status Update: Requested', 'IMMUCARE: Your appointment on Friday, November 14, 2025 at 03:59 AM is UPDATED. Thank you. Note: da', 'system', 0, '2025-11-13 05:16:47', '2025-11-13 05:16:47', '2025-11-12 21:16:47'),
+(91, 18, 'Health Check Reminder', 'asdada', 'system', 0, '2025-11-15 00:46:59', '2025-11-15 00:46:59', '2025-11-14 16:46:59'),
+(92, 18, 'Health Check Reminder', 'asdada', 'system', 0, '2025-11-15 00:47:04', '2025-11-15 00:47:04', '2025-11-14 16:47:04'),
+(93, 18, 'Vaccination Due', 'sadada', 'system', 0, '2025-11-15 00:47:57', '2025-11-15 00:47:57', '2025-11-14 16:47:57'),
+(94, 18, 'Test Results Available', 'sada', 'system', 0, '2025-11-15 00:48:38', '2025-11-15 00:48:38', '2025-11-14 16:48:38'),
+(96, 2, 'New Appointment Request', 'New appointment request from patient #13 for November 5, 2025 - 1:58 AM', '', 0, NULL, '2025-11-15 01:55:50', '2025-11-14 17:55:50'),
+(97, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 5, 2025 - 1:58 AM', '', 0, NULL, '2025-11-15 01:55:50', '2025-11-14 17:55:50'),
+(98, 2, 'New Appointment Request', 'New appointment request from patient #13 for October 29, 2025 - 1:56 AM', '', 0, NULL, '2025-11-15 01:56:08', '2025-11-14 17:56:08'),
+(99, 3, 'New Appointment Request', 'New appointment request from patient #13 for October 29, 2025 - 1:56 AM', '', 0, NULL, '2025-11-15 01:56:08', '2025-11-14 17:56:08'),
+(100, 21, 'Appointment Cancellation Notice', 'IMMUCARE: Your appointment on Friday, December 5, 2025 at 01:43 AM has been CANCELLED. Please contact +1-800-SCHEDULE to reschedule if needed.', 'system', 0, '2025-11-15 02:02:48', '2025-11-15 02:02:48', '2025-11-14 18:02:48'),
+(101, 2, 'New Appointment Request', 'New appointment request from patient #13 for November 6, 2025 - 2:16 AM', '', 0, NULL, '2025-11-15 02:13:17', '2025-11-14 18:13:17'),
+(102, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 6, 2025 - 2:16 AM', '', 0, NULL, '2025-11-15 02:13:17', '2025-11-14 18:13:17');
 
 -- --------------------------------------------------------
 
@@ -236,6 +287,7 @@ CREATE TABLE `patients` (
   `province` varchar(100) NOT NULL,
   `postal_code` varchar(20) DEFAULT NULL,
   `phone_number` varchar(20) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
   `medical_history` text DEFAULT NULL,
   `allergies` text DEFAULT NULL,
   `diagnosis` text DEFAULT NULL COMMENT 'Patient diagnosis information',
@@ -247,9 +299,11 @@ CREATE TABLE `patients` (
 -- Dumping data for table `patients`
 --
 
-INSERT INTO `patients` (`id`, `user_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth`, `gender`, `blood_type`, `purok`, `city`, `province`, `postal_code`, `phone_number`, `medical_history`, `allergies`, `diagnosis`, `created_at`, `updated_at`) VALUES
-(1, 4, 'Test', 'P', 'Patient', '1990-01-01', 'male', NULL, 'Purok 1', 'Anytown', 'Province', '12345', '+1234567893', NULL, NULL, NULL, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
-(12, 15, 'Stephany', 'asdada', 'lablab', '2002-01-20', 'female', NULL, 'asda', 'dada', 'asda', '9509as', '09920157536', 'dada', 'dada', NULL, '2025-07-01 11:06:58', '2025-07-01 03:06:58');
+INSERT INTO `patients` (`id`, `user_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth`, `gender`, `blood_type`, `purok`, `city`, `province`, `postal_code`, `phone_number`, `email`, `medical_history`, `allergies`, `diagnosis`, `created_at`, `updated_at`) VALUES
+(12, NULL, 'Stephany', 'asdada', 'lablab', '2002-01-20', 'male', 'B+', 'asda', 'dada', 'asda', '', '09677726912', NULL, 'dada', 'dada', '', '2025-07-01 11:06:58', '2025-11-12 19:27:06'),
+(13, 18, 'hunter', 'Elizares', 'Peñafiel', '2013-06-12', 'male', NULL, 'asda', 'Santo Niño', 'Davao', '9509', '09677726912', NULL, 'asda', 'dada', NULL, '2025-11-13 03:55:39', '2025-11-12 19:55:39'),
+(14, NULL, 'sasdad', 'Elizares', 'ada', '2025-11-25', 'male', 'B-', 'asd', 'Santo Niño', 'adada', '9509', '09677726912', NULL, 'dasda', 'asda', NULL, '2025-11-13 04:10:43', '2025-11-14 16:19:56'),
+(15, 21, 'Jan Russel', NULL, 'Peñafiel', '2025-11-27', 'male', 'AB-', '12312', 'Santo Niño', 'Davao', '9509', '09677726912', NULL, NULL, NULL, NULL, '2025-11-15 01:42:08', '2025-11-14 17:42:08');
 
 -- --------------------------------------------------------
 
@@ -284,15 +338,53 @@ CREATE TABLE `sms_logs` (
   `id` int(11) NOT NULL,
   `notification_id` int(11) DEFAULT NULL,
   `patient_id` int(11) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
   `phone_number` varchar(20) NOT NULL,
   `message` text NOT NULL,
+  `reference_id` varchar(100) DEFAULT NULL,
   `status` varchar(50) DEFAULT NULL,
+  `retry_count` int(11) DEFAULT 0,
+  `notification_type` varchar(50) DEFAULT 'general',
   `provider_response` text DEFAULT NULL,
   `related_to` varchar(50) DEFAULT 'general',
   `related_id` int(11) DEFAULT NULL,
+  `scheduled_at` datetime DEFAULT NULL,
   `sent_at` datetime NOT NULL,
-  `created_at` datetime NOT NULL
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `sms_logs`
+--
+
+INSERT INTO `sms_logs` (`id`, `notification_id`, `patient_id`, `user_id`, `phone_number`, `message`, `reference_id`, `status`, `retry_count`, `notification_type`, `provider_response`, `related_to`, `related_id`, `scheduled_at`, `sent_at`, `created_at`, `updated_at`) VALUES
+(18, NULL, 12, 15, '639920157536', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: bjhb\n- Date: Thursday, July 3, 2025\n- Time: 11:41 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: knbkbkj\n\nIf you have any questions or need to make changes, please contact us.', 'iSms-01Hi0l', 'sent', 0, 'custom_notification', 'SMS sent successfully', 'custom_notification', NULL, NULL, '2025-11-12 20:06:06', '2025-11-13 03:06:06', '2025-11-13 03:06:06'),
+(19, NULL, 12, 15, '639920157536', 'IMMUCARE: Appointment Status Update: Requested - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: bjhb\n- Date: Thursday, July 3, 2025\n- Time: 11:41 AM\n- New Status: Requested\n\nThank you for scheduling with us.\n\nAdditional Notes: knbkbkj\n\nIf you have any questions or need to make changes, please contact us.', 'iSms-n6SCd9', 'sent', 0, 'custom_notification', 'SMS sent successfully', 'custom_notification', NULL, NULL, '2025-11-12 20:15:14', '2025-11-13 03:15:14', '2025-11-13 03:15:14'),
+(22, 68, 13, 18, '639677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 04:34:52', '2025-11-13 04:34:52', '2025-11-13 04:34:52'),
+(23, 70, 13, 18, '639677726912', 'IMMUCARE: Test SMS Notification - This is a test message to verify SMS functionality.', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-2GfhbG\",\"message_status_link\":\"https://sms.iprogtech.com/api/v1/sms_messages/status?api_token=12345\\u0026message_id=iSms-2GfhbG\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1.0}', 'custom_notification', NULL, NULL, '2025-11-13 04:40:46', '2025-11-13 04:40:46', '2025-11-13 04:40:46'),
+(24, 71, 13, 18, '639677726912', 'IMMUCARE: Appointment Status Update: Requested - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Requested\n\nThank you for scheduling with us.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 04:42:30', '2025-11-13 04:42:30', '2025-11-13 04:42:30'),
+(25, 73, 13, 18, '09677726912', 'IMMUCARE: Test SMS Notification - This is a test message to verify SMS functionality.', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-iVYpjm\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-iVYpjm\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-13 04:46:19', '2025-11-13 04:46:19', '2025-11-13 04:46:19'),
+(26, 74, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: Test notification from admin system\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 04:47:11', '2025-11-13 04:47:11', '2025-11-13 04:47:11'),
+(27, 75, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 04:53:48', '2025-11-13 04:53:48', '2025-11-13 04:53:48'),
+(28, 76, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Requested - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Requested\n\nThank you for scheduling with us.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 04:56:32', '2025-11-13 04:56:32', '2025-11-13 04:56:32'),
+(29, 77, 13, 18, '09677726912', 'IMMUCARE: Test Notification - Testing iProg SMS integration via NotificationSystem class.', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-Em2p5z\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-Em2p5z\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-13 05:00:37', '2025-11-13 05:00:37', '2025-11-13 05:00:37'),
+(30, 78, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:01:14', '2025-11-13 05:01:14', '2025-11-13 05:01:14'),
+(31, 79, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Requested - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Requested\n\nThank you for scheduling with us.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:04:05', '2025-11-13 05:04:05', '2025-11-13 05:04:05'),
+(32, 80, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:05:27', '2025-11-13 05:05:27', '2025-11-13 05:05:27'),
+(33, 81, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:09:11', '2025-11-13 05:09:11', '2025-11-13 05:09:11'),
+(34, 82, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:10:18', '2025-11-13 05:10:18', '2025-11-13 05:10:18'),
+(35, 83, 13, 18, '09677726912', 'IMMUCARE: Appointment Confirmed - Appointment status updated.\n\nDetails:\nPurpose: Hepatitis B vaccination\nDate: Friday, November 14, 2025\nTime: 03:59 AM\nStatus: Confirmed\n\nYour appointment is confirmed. Please arrive 15 minutes early.\n\nNotes: This is a test notification.\n\nQuestions? Please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:10:58', '2025-11-13 05:10:58', '2025-11-13 05:10:58'),
+(36, 84, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:12:11', '2025-11-13 05:12:11', '2025-11-13 05:12:11'),
+(37, 85, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:12:45', '2025-11-13 05:12:45', '2025-11-13 05:12:45'),
+(38, 86, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: da\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:14:05', '2025-11-13 05:14:05', '2025-11-13 05:14:05'),
+(39, 87, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - Your appointment status has been updated.\n\nAppointment Details:\n- Purpose: Hepatitis B vaccination\n- Date: Friday, November 14, 2025\n- Time: 03:59 AM\n- New Status: Confirmed\n\nYour appointment has been confirmed. Please arrive 15 minutes early.\n\nAdditional Notes: This is a test notification.\n\nIf you have any questions or need to make changes, please contact us.', NULL, 'sent', 0, 'general', '{\"status\":500,\"message\":[\"Your input contains inappropriate language.\"]}', 'custom_notification', NULL, NULL, '2025-11-13 05:15:27', '2025-11-13 05:15:27', '2025-11-13 05:15:27'),
+(40, 88, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - IMMUCARE: Your appointment on Friday, November 14, 2025 at 03:59 AM is CONFIRMED. Please arrive 15 minutes early. Note: This is a test notification.', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-zwLvZm\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-zwLvZm\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-13 05:16:02', '2025-11-13 05:16:02', '2025-11-13 05:16:02'),
+(41, 89, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Requested - IMMUCARE: Your appointment on Friday, November 14, 2025 at 03:59 AM is UPDATED. Thank you. Note: da', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-NYhYVq\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-NYhYVq\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-13 05:16:52', '2025-11-13 05:16:52', '2025-11-13 05:16:52'),
+(42, 92, 13, 18, '09677726912', 'IMMUCARE: Health Check Reminder - asdada', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-ydP9Am\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-ydP9Am\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 00:47:06', '2025-11-15 00:47:06', '2025-11-15 00:47:06'),
+(43, 93, 13, 18, '09677726912', 'IMMUCARE: Vaccination Due - sadada', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-rZgrcC\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-rZgrcC\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 00:47:58', '2025-11-15 00:47:58', '2025-11-15 00:47:58'),
+(44, 94, 13, 18, '09677726912', 'IMMUCARE: Test Results Available - sada', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-KM2xkX\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-KM2xkX\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 00:48:39', '2025-11-15 00:48:39', '2025-11-15 00:48:39'),
+(45, 100, 15, 21, '09677726912', 'IMMUCARE: Appointment Cancellation Notice - IMMUCARE: Your appointment on Friday, December 5, 2025 at 01:43 AM has been CANCELLED. Please contact +1-800-SCHEDULE to reschedule if needed.', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-Yz8jdG\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-Yz8jdG\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 02:02:55', '2025-11-15 02:02:55', '2025-11-15 02:02:55');
 
 -- --------------------------------------------------------
 
@@ -305,6 +397,8 @@ CREATE TABLE `system_settings` (
   `setting_key` varchar(100) NOT NULL,
   `setting_value` text DEFAULT NULL,
   `description` text DEFAULT NULL,
+  `setting_type` enum('text','boolean','number','json') DEFAULT 'text',
+  `is_public` tinyint(1) DEFAULT 0,
   `updated_by` int(11) DEFAULT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -314,19 +408,25 @@ CREATE TABLE `system_settings` (
 -- Dumping data for table `system_settings`
 --
 
-INSERT INTO `system_settings` (`id`, `setting_key`, `setting_value`, `description`, `updated_by`, `created_at`, `updated_at`) VALUES
-(1, 'sms_provider', 'philsms', 'SMS gateway provider', NULL, '2025-06-30 20:52:14', '2025-06-30 04:52:14'),
-(2, 'sms_enabled', 'true', 'Enable SMS notifications', NULL, '2025-06-30 20:52:14', '2025-06-30 04:52:14'),
-(3, 'email_enabled', 'true', 'Enable email notifications', NULL, '2025-06-30 20:52:14', '2025-06-30 04:52:14'),
-(4, 'appointment_reminder_days', '2', 'Days before appointment to send reminder', 1, '2025-06-30 20:52:14', '2025-08-02 07:17:30'),
-(5, 'auto_sync_mhc', 'true', 'Automatically sync data with Municipal Health Center', 1, '2025-06-30 20:52:14', '2025-08-02 06:56:29'),
-(6, 'philsms_api_key', '2100|J9BVGEx9FFOJAbHV0xfn6SMOkKBt80HTLjHb6zZX ', 'PhilSMS API Key', 1, '2025-06-30 22:24:52', '2025-06-30 06:24:52'),
-(7, 'philsms_sender_id', 'PhilSMS', 'PhilSMS Sender ID', 1, '2025-06-30 22:24:52', '2025-06-30 06:24:52'),
-(8, 'smtp_host', 'smtp.gmail.com', 'SMTP Server Host', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
-(9, 'smtp_port', '587', 'SMTP Server Port', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
-(10, 'smtp_user', 'vmctaccollege@gmail.com', 'SMTP Username', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
-(11, 'smtp_pass', 'tqqs fkkh lbuz jbeg', 'SMTP Password', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
-(12, 'smtp_secure', 'tls', 'SMTP Security Type (tls/ssl)', 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09');
+INSERT INTO `system_settings` (`id`, `setting_key`, `setting_value`, `description`, `setting_type`, `is_public`, `updated_by`, `created_at`, `updated_at`) VALUES
+(1, 'sms_provider', 'iprog', 'SMS service provider (iprog)', 'text', 0, NULL, '2025-06-30 20:52:14', '2025-11-12 20:33:28'),
+(2, 'sms_enabled', 'true', 'Enable/disable SMS notifications', 'boolean', 0, NULL, '2025-06-30 20:52:14', '2025-11-12 16:22:07'),
+(3, 'email_enabled', 'true', 'Enable/disable email notifications', 'boolean', 0, NULL, '2025-06-30 20:52:14', '2025-11-12 16:22:07'),
+(4, 'appointment_reminder_days', '2', 'Days before appointment to send reminder', 'number', 1, 1, '2025-06-30 20:52:14', '2025-11-12 16:22:07'),
+(5, 'auto_sync_mhc', 'true', 'Automatically sync data with Municipal Health Center', 'text', 0, 1, '2025-06-30 20:52:14', '2025-08-02 06:56:29'),
+(8, 'smtp_host', 'smtp.gmail.com', 'SMTP Server Host', 'text', 0, 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
+(9, 'smtp_port', '587', 'SMTP Server Port', 'text', 0, 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
+(10, 'smtp_user', 'vmctaccollege@gmail.com', 'SMTP Username', 'text', 0, 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
+(11, 'smtp_pass', 'tqqs fkkh lbuz jbeg', 'SMTP Password', 'text', 0, 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
+(12, 'smtp_secure', 'tls', 'SMTP Security Type (tls/ssl)', 'text', 0, 1, '2025-07-01 09:04:09', '2025-07-01 01:04:09'),
+(15, 'sms_api_key', '1ef3b27ea753780a90cbdf07d027fb7b52791004', 'IPROG SMS API key', 'text', 0, NULL, '0000-00-00 00:00:00', '2025-11-12 16:22:07'),
+(18, 'immunization_reminder_days', '7', 'Days before due date to send immunization reminder', 'number', 1, NULL, '0000-00-00 00:00:00', '2025-11-12 16:22:07'),
+(19, 'max_sms_retries', '3', 'Maximum number of SMS retry attempts', 'number', 0, NULL, '0000-00-00 00:00:00', '2025-11-12 16:22:07'),
+(20, 'sms_rate_limit', '100', 'Maximum SMS messages per hour', 'number', 0, NULL, '0000-00-00 00:00:00', '2025-11-12 16:22:07'),
+(29, 'iprogsms_api_key', '1ef3b27ea753780a90cbdf07d027fb7b52791004', 'iProgSMS API Key for sending SMS notifications', 'text', 0, NULL, '2025-11-13 03:59:49', '2025-11-12 20:00:46'),
+(30, 'iprogsms_sender_id', 'IMMUCARE', 'Sender ID for iProgSMS', 'text', 0, NULL, '2025-11-13 03:59:49', '2025-11-12 20:00:46'),
+(35, 'iprog_sms_api_key', '1ef3b27ea753780a90cbdf07d027fb7b52791004', 'IProg SMS API Key', 'text', 0, NULL, '2025-11-13 04:33:28', '2025-11-12 20:33:28'),
+(36, 'iprog_sms_sender_id', 'IMMUCARE', 'IProg SMS Sender ID', 'text', 0, NULL, '2025-11-13 04:33:28', '2025-11-12 20:33:28');
 
 -- --------------------------------------------------------
 
@@ -355,11 +455,13 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `role_id`, `user_type`, `name`, `email`, `phone`, `password`, `otp`, `otp_expiry`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '12345678', NULL, NULL, 1, '2025-10-09 15:49:13', '2025-06-30 20:52:14', '2025-10-09 07:49:13'),
-(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '12345678', NULL, NULL, 1, '2025-10-09 16:07:02', '2025-06-30 20:52:14', '2025-10-09 08:07:02'),
-(3, 3, 'nurse', 'John Nurse', 'penafielliezl3322@gmail.com', '+1234567892', '12345678', NULL, NULL, 1, '2025-10-09 16:04:49', '2025-06-30 20:52:14', '2025-10-09 08:04:49'),
-(4, 4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '+1234567893', '$2y$10$i4nrJwhdt1o6A.LGZrcWLOAwws.oIQzkAKqI/H9sOglnCZ0xQt1CS', NULL, NULL, 1, '2025-07-21 20:08:04', '2025-06-30 20:52:14', '2025-07-21 12:08:04'),
-(15, 4, 'patient', 'Stephany lablab', 'stephanyartieda@sksu.edu.ph', '09920157536', '12345678', '293049', '2025-07-01 08:04:34', 1, '2025-08-02 19:14:24', '2025-07-01 11:06:19', '2025-08-02 11:14:24');
+(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '12345678', NULL, NULL, 1, '2025-11-15 02:13:25', '2025-06-30 20:52:14', '2025-11-14 18:13:25'),
+(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '12345678', NULL, NULL, 1, '2025-11-15 02:21:53', '2025-06-30 20:52:14', '2025-11-14 18:21:53'),
+(3, 3, 'nurse', 'John Nurse', 'penafielliezl3322@gmail.com', '+1234567892', '12345678', NULL, NULL, 1, '2025-11-15 02:20:19', '2025-06-30 20:52:14', '2025-11-14 18:20:19'),
+(4, 4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '09677726912', '$2y$10$i4nrJwhdt1o6A.LGZrcWLOAwws.oIQzkAKqI/H9sOglnCZ0xQt1CS', NULL, NULL, 1, '2025-07-21 20:08:04', '2025-06-30 20:52:14', '2025-11-12 16:08:17'),
+(18, 4, 'patient', 'hunter', 'artiedastephany@gmail.com', '09677726912', '12345678', NULL, NULL, 1, '2025-11-15 02:13:08', '2025-11-13 03:54:51', '2025-11-14 18:13:08'),
+(20, 4, 'patient', 'sasdad ada', 'janrusselpenafiel01172005@gmail.com', '09677726912', '12345678', NULL, NULL, 1, '2025-11-15 00:34:49', '2025-11-13 04:10:08', '2025-11-14 16:34:49'),
+(21, 4, 'patient', 'Jan Russel Peñafiel', 'penafielliezl99991111@gmail.com', '09677726912', '$2y$10$aW.lsU2WIuztNnHIFbG/5eIBTWpjBVcY/VAQg5vaWC6ZH9FkT6X/u', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-11-15 01:42:08', '2025-11-14 17:42:08');
 
 -- --------------------------------------------------------
 
@@ -405,6 +507,15 @@ ALTER TABLE `appointments`
   ADD KEY `vaccine_id` (`vaccine_id`),
   ADD KEY `idx_transaction_id` (`transaction_id`),
   ADD KEY `idx_transaction_number` (`transaction_number`);
+
+--
+-- Indexes for table `contact_messages`
+--
+ALTER TABLE `contact_messages`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `email` (`email`),
+  ADD KEY `status` (`status`),
+  ADD KEY `created_at` (`created_at`);
 
 --
 -- Indexes for table `data_transfers`
@@ -466,7 +577,10 @@ ALTER TABLE `roles`
 ALTER TABLE `sms_logs`
   ADD PRIMARY KEY (`id`),
   ADD KEY `patient_id` (`patient_id`),
-  ADD KEY `notification_id` (`notification_id`);
+  ADD KEY `notification_id` (`notification_id`),
+  ADD KEY `idx_sms_logs_patient_status` (`patient_id`,`status`),
+  ADD KEY `idx_sms_logs_type_created` (`notification_type`,`created_at`),
+  ADD KEY `idx_sms_logs_scheduled_status` (`scheduled_at`,`status`);
 
 --
 -- Indexes for table `system_settings`
@@ -498,19 +612,25 @@ ALTER TABLE `vaccines`
 -- AUTO_INCREMENT for table `appointments`
 --
 ALTER TABLE `appointments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- AUTO_INCREMENT for table `contact_messages`
+--
+ALTER TABLE `contact_messages`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `data_transfers`
 --
 ALTER TABLE `data_transfers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `email_logs`
 --
 ALTER TABLE `email_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
 
 --
 -- AUTO_INCREMENT for table `health_centers`
@@ -522,19 +642,19 @@ ALTER TABLE `health_centers`
 -- AUTO_INCREMENT for table `immunizations`
 --
 ALTER TABLE `immunizations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=103;
 
 --
 -- AUTO_INCREMENT for table `patients`
 --
 ALTER TABLE `patients`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `roles`
@@ -546,19 +666,19 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT for table `sms_logs`
 --
 ALTER TABLE `sms_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
 
 --
 -- AUTO_INCREMENT for table `system_settings`
 --
 ALTER TABLE `system_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `vaccines`

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'transaction_helper.php';
 
 // Check if user is logged in and is a midwife
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'midwife') {
@@ -56,6 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
+    // Generate transaction data
+    $transactionData = TransactionHelper::generateTransactionData($conn);
+    
     // Insert the immunization record
     $stmt = $conn->prepare("INSERT INTO immunizations (
         patient_id, 
@@ -67,12 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         administered_date, 
         next_dose_date, 
         location, 
-        diagnosis, 
+        diagnosis,
+        transaction_id,
+        transaction_number,
         created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
     
     $stmt->bind_param(
-        "iiiiisssss",
+        "iiiiisssssis",
         $patient_id,
         $vaccine_id,
         $user_id,
@@ -82,7 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $administered_date,
         $next_dose_date,
         $location,
-        $diagnosis
+        $diagnosis,
+        $transactionData['transaction_id'],
+        $transactionData['transaction_number']
     );
     
     if ($stmt->execute()) {

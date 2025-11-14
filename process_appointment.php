@@ -6,15 +6,15 @@ require_once 'vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-// Check if user is logged in and has appropriate role
-$allowed_user_types = ['midwife', 'nurse', 'admin'];
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || !in_array($_SESSION['user_type'], $allowed_user_types)) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
-    exit;
-}
-
-// Handle POST request for rescheduling
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Handle POST request for rescheduling (requires authentication)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['appointmentId']) || isset($_POST['newDate']))) {
+    // Check if user is logged in and has appropriate role for rescheduling
+    $allowed_user_types = ['midwife', 'nurse', 'admin'];
+    if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || !in_array($_SESSION['user_type'], $allowed_user_types)) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+        exit;
+    }
+    
     // Get the data from the form
     $appointmentId = $_POST['appointmentId'] ?? '';
     $newDate = $_POST['newDate'] ?? '';
@@ -81,11 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $conn->close();
-} else {
-    echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+    exit;
 }
 
-// Check if form is submitted
+// Handle public appointment booking
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.php');
     exit;
@@ -110,6 +109,7 @@ $email = $_POST['email'];
 $phone = $_POST['phone'];
 $date_of_birth = $_POST['date_of_birth'];
 $gender = $_POST['gender'];
+$blood_type = isset($_POST['blood_type']) ? $_POST['blood_type'] : '';
 $purok = $_POST['purok'];
 $city = $_POST['city'];
 $province = $_POST['province'];
@@ -144,8 +144,8 @@ if ($email_result->num_rows > 0) {
         $patient_id = $patient_result->fetch_assoc()['id'];
     } else {
         // Create new patient record for existing user
-        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        $stmt->bind_param("isssssssss", $user_id, $first_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone);
+        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, last_name, date_of_birth, gender, blood_type, purok, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->bind_param("issssssssss", $user_id, $first_name, $last_name, $date_of_birth, $gender, $blood_type, $purok, $city, $province, $postal_code, $phone);
         
         if ($stmt->execute()) {
             $patient_id = $conn->insert_id;
@@ -166,8 +166,8 @@ if ($email_result->num_rows > 0) {
         $user_id = $conn->insert_id;
         
         // Create patient record
-        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        $stmt->bind_param("isssssssss", $user_id, $first_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone);
+        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, last_name, date_of_birth, gender, blood_type, purok, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->bind_param("issssssssss", $user_id, $first_name, $last_name, $date_of_birth, $gender, $blood_type, $purok, $city, $province, $postal_code, $phone);
         
         if ($stmt->execute()) {
             $patient_id = $conn->insert_id;
@@ -182,8 +182,8 @@ if ($email_result->num_rows > 0) {
     }
 } else {
     // Create patient record without user account
-    $stmt = $conn->prepare("INSERT INTO patients (first_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-    $stmt->bind_param("sssssssss", $first_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone);
+    $stmt = $conn->prepare("INSERT INTO patients (first_name, last_name, date_of_birth, gender, blood_type, purok, city, province, postal_code, phone_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+    $stmt->bind_param("ssssssssss", $first_name, $last_name, $date_of_birth, $gender, $blood_type, $purok, $city, $province, $postal_code, $phone);
     
     if ($stmt->execute()) {
         $patient_id = $conn->insert_id;

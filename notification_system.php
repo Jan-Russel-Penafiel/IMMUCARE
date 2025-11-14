@@ -281,10 +281,16 @@ class NotificationSystem {
      * @param string $title Notification title
      * @param string $message Notification message
      * @param string $channel Notification type (email, sms, or both)
+     * @param bool $skip_deletion_notifications Skip sending notifications for deletion actions
      * @return bool Whether the notification was sent successfully
      */
-    public function sendCustomNotification($user_id, $title, $message, $channel = 'both') {
+    public function sendCustomNotification($user_id, $title, $message, $channel = 'both', $skip_deletion_notifications = false) {
         try {
+            // Skip deletion-related notifications if requested
+            if ($skip_deletion_notifications && (stripos($title, 'deleted') !== false || stripos($message, 'deleted') !== false || stripos($title, 'cancelled') !== false)) {
+                return true; // Return true to indicate "success" without actually sending
+            }
+            
             // Start transaction
             $this->conn->begin_transaction();
         
@@ -442,6 +448,10 @@ class NotificationSystem {
      */
     private function sendSMS($phone_number, $message, $patient_id = NULL, $user_id, $notification_id = NULL, $title = '', $related_to = 'general', $related_id = NULL) {
         try {
+            // Skip SMS for deletion-related notifications
+            if ($this->shouldSkipDeletionNotification('', $title, $message)) {
+                return false; // Return false to indicate no SMS was sent
+            }
             // Sanitize message to remove special characters that iProg API might flag
             $message = str_replace("ñ", "n", $message);
             $message = str_replace("Ñ", "N", $message);
@@ -554,6 +564,10 @@ class NotificationSystem {
      */
     private function sendEmail($to, $subject, $body) {
         try {
+            // Skip email for deletion-related notifications
+            if ($this->shouldSkipDeletionNotification('', $subject, $body)) {
+                return false; // Return false to indicate no email was sent
+            }
             $mail = new PHPMailer(true);
             $mail->isSMTP();
             $mail->Host = SMTP_HOST;
@@ -641,6 +655,21 @@ class NotificationSystem {
     }
     
     /**
+     * Send appointment deletion notification (disabled)
+     * 
+     * @param int $appointment_id Appointment ID
+     * @return array Results indicating no notifications sent
+     */
+    public function sendAppointmentDeletionNotification($appointment_id) {
+        // Deletion notifications are disabled as per system policy
+        return [
+            'email_sent' => false,
+            'sms_sent' => false,
+            'message' => 'Deletion notifications are disabled'
+        ];
+    }
+    
+    /**
      * Send appointment status update notification
      * 
      * @param int $appointment_id Appointment ID
@@ -648,6 +677,14 @@ class NotificationSystem {
      * @return array Results of the notification process
      */
     public function sendAppointmentStatusNotification($appointment_id, $new_status) {
+        // Skip notifications for deletion-related status changes
+        if (in_array($new_status, ['deleted', 'cancelled'])) {
+            return [
+                'email_sent' => false,
+                'sms_sent' => false,
+                'message' => 'Deletion/cancellation notifications are disabled'
+            ];
+        }
         // Get appointment details
         $stmt = $this->conn->prepare("
             SELECT 
@@ -819,6 +856,21 @@ class NotificationSystem {
         }
         
         return $results;
+    }
+    
+    /**
+     * Send immunization deletion notification (disabled)
+     * 
+     * @param int $immunization_id Immunization record ID
+     * @return array Results indicating no notifications sent
+     */
+    public function sendImmunizationDeletionNotification($immunization_id) {
+        // Deletion notifications are disabled as per system policy
+        return [
+            'email_sent' => false,
+            'sms_sent' => false,
+            'message' => 'Deletion notifications are disabled'
+        ];
     }
     
     /**
@@ -1021,6 +1073,32 @@ class NotificationSystem {
     }
 
     /**
+     * Check if notification should be skipped for deletion actions
+     * 
+     * @param string $action The action being performed
+     * @param string $title The notification title
+     * @param string $message The notification message
+     * @return bool Whether to skip the notification
+     */
+    private function shouldSkipDeletionNotification($action, $title, $message) {
+        $deletion_keywords = ['delete', 'deleted', 'remove', 'removed', 'cancel', 'cancelled'];
+        
+        // Check if action is deletion-related
+        if (in_array(strtolower($action), $deletion_keywords)) {
+            return true;
+        }
+        
+        // Check if title or message contains deletion keywords
+        foreach ($deletion_keywords as $keyword) {
+            if (stripos($title, $keyword) !== false || stripos($message, $keyword) !== false) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
      * Send notification for patient account-related actions
      * 
      * @param int $user_id User ID
@@ -1134,26 +1212,8 @@ class NotificationSystem {
                     return $this->sendCustomNotification($user_id, $title, $message, 'both');
 
                 case 'deleted':
-                    $title = "IMMUCARE: Account Deleted";
-                    $message = "Dear " . $user['user_name'] . ",\n\n" .
-                             "Your IMMUCARE account and patient profile have been deleted.\n\n" .
-                             "Account Details:\n" .
-                             "Patient ID: " . $user['patient_id'] . "\n" .
-                             "Name: " . $user['first_name'] . ' ' . $user['last_name'] . "\n" .
-                             "Email: " . $user['user_email'] . "\n\n" .
-                             "This means:\n" .
-                             "1. Patient records removed\n" .
-                             "2. User account deactivated\n" .
-                             "3. Appointments cancelled\n" .
-                             "4. Vaccination reminders stopped\n\n" .
-                             "If this was done in error, contact us:\n" .
-                             "Phone: " . SUPPORT_PHONE . "\n" .
-                             "Email: " . SUPPORT_EMAIL . "\n\n" .
-                             "Best regards,\n" .
-                             "IMMUCARE Team";
-                    
-                    // Send deletion notification via email only
-                    return $this->sendCustomNotification($user_id, $title, $message, 'email');
+                    // Skip sending deletion notifications as per system policy
+                    return true;
             }
 
             return true;

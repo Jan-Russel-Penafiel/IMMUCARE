@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'transaction_helper.php';
 
 // Check if user is logged in and is a midwife
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'midwife') {
@@ -52,7 +53,8 @@ $total_records = $result->fetch_assoc()['count'];
 $total_pages = ceil($total_records / $records_per_page);
 
 // Get immunization records with pagination
-$stmt = $conn->prepare("SELECT i.*, p.first_name, p.last_name, p.date_of_birth, v.name as vaccine_name, v.doses_required 
+$stmt = $conn->prepare("SELECT i.*, p.first_name, p.last_name, p.date_of_birth, v.name as vaccine_name, v.doses_required,
+                        i.transaction_id, i.transaction_number
                         FROM immunizations i 
                         JOIN patients p ON i.patient_id = p.id 
                         JOIN vaccines v ON i.vaccine_id = v.id
@@ -933,6 +935,7 @@ if (isset($_GET['logout'])) {
                             <th>Dose</th>
                             <th>Date Administered</th>
                             <th>Next Dose</th>
+                            <th>Transaction Info</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -987,6 +990,12 @@ if (isset($_GET['logout'])) {
                                             <div class="patient-info">No next dose</div>
                                         <?php endif; ?>
                                     </td>
+                                    <td class="transaction-info">
+                                        <div class="small">
+                                            <div class="badge bg-primary mb-1"><?php echo TransactionHelper::formatTransactionNumber($record['transaction_number']); ?></div><br>
+                                            <div class="text-muted" style="font-size: 0.65rem;"><?php echo TransactionHelper::formatTransactionId($record['transaction_id']); ?></div>
+                                        </div>
+                                    </td>
                                     <td class="record-actions">
                                         <a href="#" class="action-btn view-btn" onclick="openViewModal(<?php echo $record['id']; ?>)">View</a>
                                         <a href="#" class="action-btn edit-btn" onclick="openEditModal(<?php echo $record['id']; ?>)">Edit</a>
@@ -995,7 +1004,7 @@ if (isset($_GET['logout'])) {
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="6" style="text-align: center; padding: 20px;">No immunization records found</td>
+                                <td colspan="8" style="text-align: center; padding: 20px;">No immunization records found</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>

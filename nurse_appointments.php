@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'transaction_helper.php';
 
 // Check if user is logged in and is a nurse
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'nurse') {
@@ -27,8 +28,7 @@ if (!empty($search)) {
     $search_condition = " AND (p.first_name LIKE '%$search%' OR p.last_name LIKE '%$search%' OR a.purpose LIKE '%$search%')";
 }
 
-// Add option to view unassigned appointments
-$show_unassigned = isset($_GET['show_unassigned']) && $_GET['show_unassigned'] == '1';
+
 
 // Handle filters
 $filter_date = isset($_GET['filter_date']) ? $_GET['filter_date'] : '';
@@ -51,50 +51,30 @@ $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $records_per_page = 10;
 $offset = ($page - 1) * $records_per_page;
 
-// Base query for appointments
+// Base query for appointments - show all appointments
 $base_query = "FROM appointments a 
                JOIN patients p ON a.patient_id = p.id 
                LEFT JOIN vaccines v ON a.vaccine_id = v.id 
-               WHERE ";
-
-// Condition for assigned appointments
-$assigned_condition = "a.staff_id = ?";
-
-// Condition for unassigned appointments (vaccination-related)
-$unassigned_condition = "a.staff_id IS NULL AND (a.purpose LIKE '%Vaccination%' OR a.purpose LIKE '%Immunization%')";
+               WHERE 1=1";
 
 // Get total number of appointments
-if ($show_unassigned) {
-    $count_query = "SELECT COUNT(*) as count $base_query ($assigned_condition OR ($unassigned_condition)) $search_condition $date_condition $status_condition";
-    $stmt = $conn->prepare($count_query);
-    $stmt->bind_param("i", $user_id);
-} else {
-    $count_query = "SELECT COUNT(*) as count $base_query $assigned_condition $search_condition $date_condition $status_condition";
-    $stmt = $conn->prepare($count_query);
-    $stmt->bind_param("i", $user_id);
-}
+$count_query = "SELECT COUNT(*) as count $base_query $search_condition $date_condition $status_condition";
+$stmt = $conn->prepare($count_query);
+$stmt->execute();
 
 $stmt->execute();
 $result = $stmt->get_result();
 $total_appointments = $result->fetch_assoc()['count'];
 $total_pages = ceil($total_appointments / $records_per_page);
 
-// Get appointments with pagination
-if ($show_unassigned) {
-    $query = "SELECT a.*, p.first_name, p.last_name, v.name as vaccine_name 
-              $base_query ($assigned_condition OR ($unassigned_condition)) $search_condition $date_condition $status_condition
-              ORDER BY a.appointment_date ASC 
-              LIMIT ?, ?";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("iii", $user_id, $offset, $records_per_page);
-} else {
-    $query = "SELECT a.*, p.first_name, p.last_name, v.name as vaccine_name 
-              $base_query $assigned_condition $search_condition $date_condition $status_condition
-              ORDER BY a.appointment_date ASC 
-              LIMIT ?, ?";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("iii", $user_id, $offset, $records_per_page);
-}
+// Get appointments with pagination - show all appointments
+$query = "SELECT a.*, p.first_name, p.last_name, v.name as vaccine_name,
+          a.transaction_id, a.transaction_number
+          $base_query $search_condition $date_condition $status_condition
+          ORDER BY a.appointment_date ASC 
+          LIMIT ?, ?";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("ii", $offset, $records_per_page);
 
 $stmt->execute();
 $appointments = $stmt->get_result();
@@ -112,18 +92,7 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
-// Handle appointment claim
-if (isset($_POST['claim_appointment']) && isset($_POST['appointment_id'])) {
-    $appointment_id = $_POST['appointment_id'];
-    
-    $stmt = $conn->prepare("UPDATE appointments SET staff_id = ? WHERE id = ? AND staff_id IS NULL");
-    $stmt->bind_param("ii", $user_id, $appointment_id);
-    $stmt->execute();
-    
-    // Redirect to avoid form resubmission
-    header("Location: nurse_appointments.php?search=$search&filter_status=$filter_status&filter_date=$filter_date&page=$page&claimed=1");
-    exit;
-}
+
 
 $conn->close();
 ?>
@@ -558,11 +527,7 @@ $conn->close();
             <div class="main-content">
                 <h2 class="page-title">Manage Appointments</h2>
                 
-                <?php if (isset($_GET['claimed']) && $_GET['claimed'] == 1): ?>
-                    <div class="alert" style="padding: 15px; margin-bottom: 20px; border-radius: 5px; color: #0c5460; background-color: #d1ecf1; border: 1px solid #bee5eb;">
-                        Appointment has been claimed successfully.
-                    </div>
-                <?php endif; ?>
+
                 
                                 <div class="action-bar">
                     <form class="search-form" action="" method="GET">
@@ -582,10 +547,7 @@ $conn->close();
                         
                         <input type="date" name="filter_date" value="<?php echo $filter_date; ?>">
                         
-                        <div style="display: flex; align-items: center; margin-right: 10px;">
-                            <input type="checkbox" id="show_unassigned" name="show_unassigned" value="1" <?php echo $show_unassigned ? 'checked' : ''; ?> style="margin-right: 5px;">
-                            <label for="show_unassigned">Show Unassigned</label>
-                        </div>
+
                         
                         <button type="submit">Filter</button>
                         <a href="nurse_appointments.php" class="btn-sm">Reset</a>
@@ -602,6 +564,7 @@ $conn->close();
                             <th>Purpose</th>
                             <th>Vaccine</th>
                             <th>Status</th>
+                            <th>Transaction Info</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -630,31 +593,28 @@ $conn->close();
                                     <td>
                                         <span class="status-badge <?php echo $status_class; ?>"><?php echo $status_text; ?></span>
                                     </td>
+                                    <td class="transaction-info">
+                                        <div class="small">
+                                            <div class="badge bg-primary mb-1"><?php echo TransactionHelper::formatTransactionNumber($appointment['transaction_number']); ?></div><br>
+                                            <div class="text-muted" style="font-size: 0.65rem;"><?php echo TransactionHelper::formatTransactionId($appointment['transaction_id']); ?></div>
+                                        </div>
+                                    </td>
                                     <td class="action-buttons">
                                         <button type="button" class="view-btn" onclick="viewAppointment(<?php echo $appointment['id']; ?>)">View</button>
                                         
-                                        <?php if ($appointment['staff_id'] == $user_id): ?>
-                                            <?php if ($appointment['status'] == 'requested' || $appointment['status'] == 'confirmed'): ?>
-                                                <button type="button" class="edit-btn" onclick="editAppointment(<?php echo $appointment['id']; ?>)">Edit</button>
-                                            <?php endif; ?>
-                                            
-                                            <?php // Removed administer vaccine button ?>
-                                            
-                                            <?php if ($appointment['status'] == 'requested' || $appointment['status'] == 'confirmed'): ?>
-                                                <a href="update_appointment_status.php?id=<?php echo $appointment['id']; ?>&status=cancelled" class="cancel-btn" onclick="return confirm('Are you sure you want to cancel this appointment?')">Cancel</a>
-                                            <?php endif; ?>
-                                        <?php elseif (empty($appointment['staff_id'])): ?>
-                                            <form method="POST" action="" style="display: inline;">
-                                                <input type="hidden" name="appointment_id" value="<?php echo $appointment['id']; ?>">
-                                                <button type="submit" name="claim_appointment" class="complete-btn">Claim Appointment</button>
-                                            </form>
+                                        <?php if ($appointment['status'] == 'requested' || $appointment['status'] == 'confirmed'): ?>
+                                            <button type="button" class="edit-btn" onclick="editAppointment(<?php echo $appointment['id']; ?>)">Edit</button>
+                                        <?php endif; ?>
+                                        
+                                        <?php if ($appointment['status'] == 'requested' || $appointment['status'] == 'confirmed'): ?>
+                                            <a href="update_appointment_status.php?id=<?php echo $appointment['id']; ?>&status=cancelled" class="cancel-btn" onclick="return confirm('Are you sure you want to cancel this appointment?')">Cancel</a>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="6" style="text-align: center;">No appointments found.</td>
+                                <td colspan="7" style="text-align: center;">No appointments found.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
