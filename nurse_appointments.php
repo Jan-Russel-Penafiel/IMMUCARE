@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'notification_system.php';
 require_once 'transaction_helper.php';
 
 // Check if user is logged in and is a nurse
@@ -14,10 +15,150 @@ $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
 $user_email = $_SESSION['user_email'];
 
+// Initialize notification system
+$notification_system = new NotificationSystem();
+
 // Connect to database
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
+}
+
+// Process appointment actions
+$action_message = '';
+$action = isset($_GET['action']) ? $_GET['action'] : '';
+
+// Initialize session message if not exists
+if (!isset($_SESSION['action_message'])) {
+    $_SESSION['action_message'] = '';
+}
+
+// Get message from session if exists
+if (!empty($_SESSION['action_message'])) {
+    $action_message = $_SESSION['action_message'];
+    // Clear the message after displaying
+    $_SESSION['action_message'] = '';
+}
+
+// Update appointment status
+if (isset($_POST['update_status'])) {
+    $appointment_id = $_POST['appointment_id'];
+    $status = $_POST['status'];
+    $notes = isset($_POST['notes']) ? $_POST['notes'] : '';
+    
+    // Generate transaction data
+    $transactionData = TransactionHelper::generateTransactionData($conn);
+    
+    // Get appointment and patient details
+    $stmt = $conn->prepare("
+        SELECT a.*, 
+               p.first_name, 
+               p.last_name, 
+               p.phone_number as patient_phone,
+               u.email,
+               u.phone as user_phone,
+               u.id as user_id,
+               v.name as vaccine_name
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        JOIN users u ON p.user_id = u.id
+        LEFT JOIN vaccines v ON a.vaccine_id = v.id
+        WHERE a.id = ?
+    ");
+    $stmt->bind_param("i", $appointment_id);
+    $stmt->execute();
+    $appointment_result = $stmt->get_result();
+    $appointment_data = $appointment_result->fetch_assoc();
+    
+    // Check if appointment exists
+    if (!$appointment_data) {
+        $_SESSION['action_message'] = "Error: Appointment not found.";
+        
+        // Redirect to prevent form resubmission
+        $redirect_params = $_GET;
+        unset($redirect_params['action']);
+        unset($redirect_params['id']);
+        
+        $redirect_url = $_SERVER['PHP_SELF'];
+        if (!empty($redirect_params)) {
+            $redirect_url .= '?' . http_build_query($redirect_params);
+        }
+        
+        header('Location: ' . $redirect_url);
+        exit;
+    }
+    
+    // Update appointment status
+    $stmt = $conn->prepare("UPDATE appointments SET status = ?, notes = ?, transaction_id = ?, transaction_number = ?, updated_at = NOW() WHERE id = ?");
+    $stmt->bind_param("ssssi", $status, $notes, $transactionData['transaction_id'], $transactionData['transaction_number'], $appointment_id);
+    
+    if ($stmt->execute()) {
+        // Send notification using the notification system
+        $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
+        $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
+        $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
+        $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
+        
+        // Create shorter, concise message for SMS compatibility
+        $status_specific_message = "";
+        switch($status) {
+            case 'confirmed':
+                $status_specific_message = "CONFIRMED. Please arrive 15 minutes early.";
+                break;
+            case 'completed':
+                $status_specific_message = "COMPLETED. Thank you for visiting us.";
+                break;
+            case 'cancelled':
+                $status_specific_message = "CANCELLED. You may reschedule anytime.";
+                break;
+            case 'no_show':
+                $status_specific_message = "MISSED. Please contact us to reschedule.";
+                break;
+            default:
+                $status_specific_message = "UPDATED. Thank you.";
+        }
+        
+        // Short message format for SMS (removes long details and medical terms)
+        $status_message = "IMMUCARE: Your appointment on " . $appointment_date . " at " . $appointment_time . " is " . $status_specific_message .
+                         (!empty($notes) ? " Note: " . $notes : "");
+        
+        $notification_system->sendCustomNotification(
+            $appointment_data['user_id'],
+            "Appointment Status Update: " . ucfirst($status),
+            $status_message,
+            'both'
+        );
+        
+        $_SESSION['action_message'] = "Appointment status updated successfully! Notifications sent via Email and SMS.";
+        
+        // Redirect to prevent form resubmission (remove action parameters)
+        $redirect_params = $_GET;
+        unset($redirect_params['action']);
+        unset($redirect_params['id']);
+        
+        $redirect_url = $_SERVER['PHP_SELF'];
+        if (!empty($redirect_params)) {
+            $redirect_url .= '?' . http_build_query($redirect_params);
+        }
+        
+        header('Location: ' . $redirect_url);
+        exit;
+    } else {
+        $_SESSION['action_message'] = "Error updating appointment status: " . $conn->error;
+        
+        // Redirect to prevent form resubmission (remove action parameters)
+        $redirect_params = $_GET;
+        unset($redirect_params['action']);
+        unset($redirect_params['id']);
+        
+        $redirect_url = $_SERVER['PHP_SELF'];
+        if (!empty($redirect_params)) {
+            $redirect_url .= '?' . http_build_query($redirect_params);
+        }
+        
+        header('Location: ' . $redirect_url);
+        exit;
+    }
 }
 
 // Handle search functionality
@@ -71,7 +212,7 @@ $total_pages = ceil($total_appointments / $records_per_page);
 $query = "SELECT a.*, p.first_name, p.last_name, v.name as vaccine_name,
           a.transaction_id, a.transaction_number
           $base_query $search_condition $date_condition $status_condition
-          ORDER BY a.appointment_date ASC 
+          ORDER BY a.appointment_date DESC 
           LIMIT ?, ?";
 $stmt = $conn->prepare($query);
 $stmt->bind_param("ii", $offset, $records_per_page);
@@ -331,26 +472,41 @@ $conn->close();
             background-color: var(--primary-dark);
         }
         
-        .appointment-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .appointment-table th, .appointment-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .appointment-table th {
-            background-color: #f8f9fa;
-            font-weight: 600;
-            color: var(--text-color);
-        }
-        
-        .appointment-table tr:hover {
-            background-color: #f8f9fa;
-        }
+        .filter-bar { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background-color: #f8f9fa; padding: 15px; border-radius: var(--border-radius); }
+        .filter-group { display: flex; align-items: center; gap: 8px; }
+        .filter-group label { font-weight: 500; }
+        .filter-group select, .filter-group input { padding: 8px; border: 1px solid #ddd; border-radius: var(--border-radius); font-family: inherit; }
+        .filter-btn { background-color: var(--primary-color); color: white; border: none; padding: 8px 15px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); }
+        .filter-btn:hover { background-color: #3367d6; }
+        .reset-btn { background-color: #f1f3f5; color: var(--text-color); border: none; padding: 8px 15px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); }
+        .reset-btn:hover { background-color: #e9ecef; }
+        .appointments-table { width: 100%; border-collapse: collapse; }
+        .appointments-table th, .appointments-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        .appointments-table th { font-weight: 600; color: var(--primary-color); background-color: #f8f9fa; }
+        .appointment-status { display: inline-block; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
+        .status-scheduled { background-color: #e3f2fd; color: #1976d2; }
+        .status-confirmed { background-color: #e8f5e9; color: #2e7d32; }
+        .status-completed { background-color: #f3e5f5; color: #7b1fa2; }
+        .status-cancelled { background-color: #ffebee; color: #c62828; }
+        .status-no_show { background-color: #fafafa; color: #757575; }
+        .status-requested { background-color: #e3f2fd; color: #1976d2; }
+        .btn-edit { padding: 8px 12px; border-radius: 5px; font-size: 0.8rem; text-decoration: none; transition: var(--transition); border: none; cursor: pointer; background-color: #007bff; color: white; }
+        .btn-edit:hover { background-color: #0056b3; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border-radius: var(--border-radius); box-shadow: var(--shadow); width: 50%; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-title { font-size: 1.4rem; color: var(--primary-color); margin: 0; }
+        .close-btn { font-size: 1.5rem; cursor: pointer; }
+        .modal-form { margin-top: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: var(--border-radius); font-family: inherit; }
+        .form-group textarea { height: 100px; resize: vertical; }
+        .form-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn-cancel { background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); font-size: 0.9rem; }
+        .btn-cancel:hover { background-color: #5a6268; }
+        .btn-submit { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); font-size: 0.9rem; }
+        .btn-submit:hover { background-color: #0056b3; }
         
         .patient-name {
             font-weight: 500;
@@ -426,6 +582,16 @@ $conn->close();
         }
         
         .complete-btn {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .complete-btn:hover {
+            background-color: #ffeaa7;
+        }
+        
+        .complete-btn {
             background-color: #cce5ff;
             color: #004085;
         }
@@ -469,6 +635,25 @@ $conn->close();
         .pagination span {
             background-color: var(--primary-color);
             color: white;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .alert-success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        
+        .alert-error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
         }
         
         @media screen and (max-width: 992px) {
@@ -527,16 +712,16 @@ $conn->close();
             <div class="main-content">
                 <h2 class="page-title">Manage Appointments</h2>
                 
-
+                <?php if (!empty($action_message)): ?>
+                    <div class="alert alert-success">
+                        <?php echo htmlspecialchars($action_message); ?>
+                    </div>
+                <?php endif; ?>
                 
-                                <div class="action-bar">
-                    <form class="search-form" action="" method="GET">
-                        <input type="text" name="search" placeholder="Search appointments..." value="<?php echo htmlspecialchars($search); ?>">
-                        <button type="submit"><i class="fas fa-search"></i></button>
-                    </form>
-                    
-                    <form class="filter-form" action="" method="GET">
-                        <select name="filter_status">
+                                <form action="" method="GET" class="filter-bar">
+                    <div class="filter-group">
+                        <label for="status">Status:</label>
+                        <select id="status" name="filter_status">
                             <option value="">All Statuses</option>
                             <option value="requested" <?php echo ($filter_status == 'requested') ? 'selected' : ''; ?>>Requested</option>
                             <option value="confirmed" <?php echo ($filter_status == 'confirmed') ? 'selected' : ''; ?>>Confirmed</option>
@@ -544,81 +729,64 @@ $conn->close();
                             <option value="cancelled" <?php echo ($filter_status == 'cancelled') ? 'selected' : ''; ?>>Cancelled</option>
                             <option value="no_show" <?php echo ($filter_status == 'no_show') ? 'selected' : ''; ?>>No Show</option>
                         </select>
-                        
-                        <input type="date" name="filter_date" value="<?php echo $filter_date; ?>">
-                        
-
-                        
-                        <button type="submit">Filter</button>
-                        <a href="nurse_appointments.php" class="btn-sm">Reset</a>
-                    </form>
+                    </div>
                     
-                    <?php // Removed Schedule Appointment button ?>
-                </div>
+                    <div class="filter-group">
+                        <label for="date">Date:</label>
+                        <input type="date" id="date" name="filter_date" value="<?php echo $filter_date; ?>">
+                    </div>
+                    
+                    <button type="submit" class="filter-btn"><i class="fas fa-filter"></i> Filter</button>
+                    <a href="nurse_appointments.php" class="reset-btn"><i class="fas fa-redo"></i> Reset</a>
+                </form>
                 
-                <table class="appointment-table">
-                    <thead>
-                        <tr>
-                            <th>Patient</th>
-                            <th>Date & Time</th>
-                            <th>Purpose</th>
-                            <th>Vaccine</th>
-                            <th>Status</th>
-                            <th>Transaction Info</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ($appointments->num_rows > 0): ?>
-                            <?php while ($appointment = $appointments->fetch_assoc()): 
-                                $status_class = 'status-' . $appointment['status'];
-                                $status_text = ucfirst($appointment['status']);
-                                if ($appointment['status'] == 'no_show') {
-                                    $status_text = 'No Show';
-                                }
-                            ?>
-                                <tr>
-                                    <td class="patient-name">
-                                        <?php echo htmlspecialchars($appointment['first_name'] . ' ' . $appointment['last_name']); ?>
-                                    </td>
-                                    <td class="appointment-time">
-                                        <?php echo date('M j, Y - g:i A', strtotime($appointment['appointment_date'])); ?>
-                                    </td>
-                                    <td>
-                                        <?php echo htmlspecialchars($appointment['purpose']); ?>
-                                    </td>
-                                    <td>
-                                        <?php echo !empty($appointment['vaccine_name']) ? htmlspecialchars($appointment['vaccine_name']) : 'N/A'; ?>
-                                    </td>
-                                    <td>
-                                        <span class="status-badge <?php echo $status_class; ?>"><?php echo $status_text; ?></span>
-                                    </td>
-                                    <td class="transaction-info">
-                                        <div class="small">
-                                            <div class="badge bg-primary mb-1"><?php echo TransactionHelper::formatTransactionNumber($appointment['transaction_number']); ?></div><br>
-                                            <div class="text-muted" style="font-size: 0.65rem;"><?php echo TransactionHelper::formatTransactionId($appointment['transaction_id']); ?></div>
-                                        </div>
-                                    </td>
-                                    <td class="action-buttons">
-                                        <button type="button" class="view-btn" onclick="viewAppointment(<?php echo $appointment['id']; ?>)">View</button>
-                                        
-                                        <?php if ($appointment['status'] == 'requested' || $appointment['status'] == 'confirmed'): ?>
-                                            <button type="button" class="edit-btn" onclick="editAppointment(<?php echo $appointment['id']; ?>)">Edit</button>
-                                        <?php endif; ?>
-                                        
-                                        <?php if ($appointment['status'] == 'requested' || $appointment['status'] == 'confirmed'): ?>
-                                            <a href="update_appointment_status.php?id=<?php echo $appointment['id']; ?>&status=cancelled" class="cancel-btn" onclick="return confirm('Are you sure you want to cancel this appointment?')">Cancel</a>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php endwhile; ?>
-                        <?php else: ?>
+                <div class="appointments-list">
+                    <table class="appointments-table">
+                        <thead>
                             <tr>
-                                <td colspan="7" style="text-align: center;">No appointments found.</td>
+                                <th>ID</th>
+                                <th>Patient</th>
+                                <th>Date & Time</th>
+                                <th>Purpose</th>
+                                <th>Status</th>
+                                <th>Transaction Info</th>
+                                <th>Actions</th>
                             </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php if ($appointments && $appointments->num_rows > 0): ?>
+                                <?php while ($appointment = $appointments->fetch_assoc()): ?>
+                                    <tr>
+                                        <td><?php echo $appointment['id']; ?></td>
+                                        <td><?php echo htmlspecialchars($appointment['first_name'] . ' ' . $appointment['last_name']); ?></td>
+                                        <td><?php echo date('M d, Y h:i A', strtotime($appointment['appointment_date'])); ?></td>
+                                        <td><?php echo htmlspecialchars($appointment['purpose']); ?></td>
+                                        <td>
+                                            <span class="appointment-status status-<?php echo $appointment['status']; ?>">
+                                                <?php echo $appointment['status'] == 'no_show' ? 'No Show' : ucfirst($appointment['status']); ?>
+                                            </span>
+                                        </td>
+                                        <td class="transaction-info">
+                                            <div class="small">
+                                                <div class="badge bg-primary mb-1"><?php echo TransactionHelper::formatTransactionNumber($appointment['transaction_number']); ?></div><br>
+                                                <div class="text-muted" style="font-size: 0.65rem;"><?php echo TransactionHelper::formatTransactionId($appointment['transaction_id']); ?></div>
+                                            </div>
+                                        </td>
+                                        <td class="action-buttons">
+                                            <button type="button" class="btn-edit" onclick="openStatusModal(<?php echo $appointment['id']; ?>, '<?php echo $appointment['status']; ?>', '<?php echo htmlspecialchars($appointment['notes'] ?? '', ENT_QUOTES); ?>')">
+                                                <i class="fas fa-edit"></i> Update Status
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="7" style="text-align: center;">No appointments found.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
                 
                 <?php if ($total_pages > 1): ?>
                     <div class="pagination">
@@ -643,547 +811,88 @@ $conn->close();
         </div>
     </div>
 
-    <!-- View Appointment Modal -->
-    <div id="viewModal" class="modal">
+    <!-- Status Update Modal -->
+    <div id="statusModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Appointment Details</h2>
-                <span class="close" onclick="closeModal('viewModal')">&times;</span>
+                <h3 class="modal-title">Update Appointment Status</h3>
+                <span class="close-btn" onclick="closeStatusModal()">&times;</span>
             </div>
-            <div class="modal-body" id="viewModalBody">
-                <div class="loading">Loading appointment details...</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Appointment Modal -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Appointment</h2>
-                <span class="close" onclick="closeModal('editModal')">&times;</span>
-            </div>
-            <div class="modal-body" id="editModalBody">
-                <div class="loading">Loading appointment details...</div>
-            </div>
+            <form method="POST" action="" class="modal-form">
+                <input type="hidden" id="appointment_id" name="appointment_id">
+                
+                <div class="form-group">
+                    <label for="status">Status:</label>
+                    <select id="modal_status" name="status" required>
+                        <option value="requested">Requested</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="no_show">No-Show</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="notes">Notes:</label>
+                    <textarea id="notes" name="notes"></textarea>
+                </div>
+                
+                <div class="form-buttons">
+                    <button type="button" onclick="closeStatusModal()" class="btn-cancel">Cancel</button>
+                    <button type="submit" name="update_status" class="btn-submit">Update Status</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <style>
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
+        @media screen and (max-width: 992px) { 
+            .dashboard-content { grid-template-columns: 1fr; } 
+            .sidebar { margin-bottom: 20px; } 
+            .modal-content { width: 70%; } 
         }
-
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto;
-            padding: 0;
-            border: none;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 600px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-header {
-            padding: 20px 30px;
-            background-color: var(--primary-color);
-            color: white;
-            border-radius: 8px 8px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h2 {
-            margin: 0;
-            font-size: 1.5rem;
-        }
-
-        .close {
-            color: white;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            line-height: 1;
-        }
-
-        .close:hover,
-        .close:focus {
-            opacity: 0.7;
-            text-decoration: none;
-        }
-
-        .modal-body {
-            padding: 30px;
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: var(--light-text);
-        }
-
-        .appointment-detail {
-            margin-bottom: 15px;
-        }
-
-        .appointment-detail label {
-            font-weight: 600;
-            color: var(--text-color);
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .appointment-detail .value {
-            color: var(--light-text);
-            padding: 8px 12px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            border: 1px solid #e9ecef;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: var(--text-color);
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #e1e4e8;
-            border-radius: var(--border-radius);
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.9rem;
-            box-sizing: border-box;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.1);
-        }
-
-        .form-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #e9ecef;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.9rem;
-            transition: var(--transition);
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-        }
-
-        .btn-primary {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: var(--primary-dark);
-        }
-
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-
-        .status-badge-large {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        @media (max-width: 768px) {
-            .modal-content {
-                width: 95%;
-                margin: 10% auto;
-            }
-            
-            .modal-header,
-            .modal-body {
-                padding: 20px;
-            }
-            
-            .form-actions {
-                flex-direction: column;
-            }
-            
-            .modal-body div[style*="grid-template-columns"] {
-                grid-template-columns: 1fr !important;
-                gap: 10px !important;
-            }
+        @media screen and (max-width: 768px) { 
+            .dashboard-header { flex-direction: column; align-items: flex-start; } 
+            .user-menu { margin-top: 20px; align-self: flex-end; } 
+            .filter-bar { flex-direction: column; align-items: flex-start; } 
+            .filter-group { width: 100%; } 
+            .action-buttons { flex-direction: column; } 
+            .modal-content { width: 90%; } 
         }
     </style>
 
     <script>
-        function viewAppointment(appointmentId) {
-            const modal = document.getElementById('viewModal');
-            const modalBody = document.getElementById('viewModalBody');
-            
-            modal.style.display = 'block';
-            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading appointment details...</div>';
-            
-            // Fetch appointment details via AJAX
-            fetch('get_appointment_details.php?id=' + appointmentId)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        modalBody.innerHTML = buildViewContent(data.appointment);
-                    } else {
-                        modalBody.innerHTML = `
-                            <div style="text-align: center; color: #dc3545; padding: 20px;">
-                                <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                                <p>Error loading appointment details: ${data.message}</p>
-                            </div>
-                        `;
-                    }
-                })
-                .catch(error => {
-                    modalBody.innerHTML = `
-                        <div style="text-align: center; color: #dc3545; padding: 20px;">
-                            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                            <p>Error loading appointment details. Please try again.</p>
-                        </div>
-                    `;
-                });
+        // Modal functionality
+        const statusModal = document.getElementById('statusModal');
+        
+        function openStatusModal(id, status, notes) {
+            document.getElementById('appointment_id').value = id;
+            document.getElementById('modal_status').value = status;
+            document.getElementById('notes').value = notes;
+            statusModal.style.display = 'block';
         }
-
-        function editAppointment(appointmentId) {
-            const modal = document.getElementById('editModal');
-            const modalBody = document.getElementById('editModalBody');
-            
-            modal.style.display = 'block';
-            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading appointment details...</div>';
-            
-            // Fetch appointment details and vaccines for editing
-            Promise.all([
-                fetch('get_appointment_details.php?id=' + appointmentId),
-                fetch('get_vaccines.php')
-            ])
-            .then(responses => {
-                // Check if all responses are ok
-                responses.forEach(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                });
-                return Promise.all(responses.map(r => r.json()));
-            })
-            .then(([appointmentData, vaccinesData]) => {
-                if (appointmentData.success && vaccinesData.success) {
-                    modalBody.innerHTML = buildEditContent(appointmentData.appointment, vaccinesData.vaccines);
-                } else {
-                    modalBody.innerHTML = `
-                        <div style="text-align: center; color: #dc3545; padding: 20px;">
-                            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                            <p>Error loading appointment details.</p>
-                        </div>
-                    `;
-                }
-            })
-            .catch(error => {
-                modalBody.innerHTML = `
-                    <div style="text-align: center; color: #dc3545; padding: 20px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                        <p>Error loading appointment details. Please try again.</p>
-                    </div>
-                `;
-            });
+        
+        function closeStatusModal() {
+            statusModal.style.display = 'none';
         }
-
-        function buildViewContent(appointment) {
-            const statusClass = 'status-' + appointment.status;
-            const statusText = appointment.status === 'no_show' ? 'No Show' : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1);
-            
-            return `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                    <div>
-                        <h3 style="color: var(--primary-color); margin-bottom: 15px; border-bottom: 2px solid #e9ecef; padding-bottom: 5px;">Patient Information</h3>
-                        <div class="appointment-detail">
-                            <label>Full Name:</label>
-                            <div class="value">${appointment.patient_name}</div>
-                        </div>
-                        <div class="appointment-detail">
-                            <label>Date of Birth:</label>
-                            <div class="value">${appointment.date_of_birth ? new Date(appointment.date_of_birth).toLocaleDateString() : 'N/A'}</div>
-                        </div>
-                        <div class="appointment-detail">
-                            <label>Gender:</label>
-                            <div class="value">${appointment.gender || 'N/A'}</div>
-                        </div>
-                        <div class="appointment-detail">
-                            <label>Blood Type:</label>
-                            <div class="value">${appointment.blood_type || 'Not specified'}</div>
-                        </div>
-                        <div class="appointment-detail">
-                            <label>Phone Number:</label>
-                            <div class="value">${appointment.patient_phone || 'N/A'}</div>
-                        </div>
-                        <div class="appointment-detail">
-                            <label>Address:</label>
-                            <div class="value">${appointment.patient_address}</div>
-                        </div>
-                        ${appointment.medical_history ? `
-                        <div class="appointment-detail">
-                            <label>Medical History:</label>
-                            <div class="value">${appointment.medical_history}</div>
-                        </div>
-                        ` : ''}
-                        ${appointment.allergies ? `
-                        <div class="appointment-detail">
-                            <label>Allergies:</label>
-                            <div class="value" style="color: #dc3545; font-weight: 500;">${appointment.allergies}</div>
-                        </div>
-                        ` : ''}
-                    </div>
-                    <div>
-                        <h3 style="color: var(--primary-color); margin-bottom: 15px; border-bottom: 2px solid #e9ecef; padding-bottom: 5px;">Appointment Details</h3>
-                        <div class="appointment-detail">
-                            <label>Date & Time:</label>
-                            <div class="value">${new Date(appointment.appointment_date).toLocaleString()}</div>
-                        </div>
-                        <div class="appointment-detail">
-                            <label>Purpose:</label>
-                            <div class="value">${appointment.purpose}</div>
-                        </div>
-                        <div class="appointment-detail">
-                            <label>Status:</label>
-                            <div class="value">
-                                <span class="status-badge-large ${statusClass}">${statusText}</span>
-                            </div>
-                        </div>
-                        ${appointment.staff_name ? `
-                        <div class="appointment-detail">
-                            <label>Assigned Staff:</label>
-                            <div class="value">${appointment.staff_name}</div>
-                        </div>
-                        ` : ''}
-                        ${appointment.vaccine_name ? `
-                        <div class="appointment-detail">
-                            <label>Vaccine:</label>
-                            <div class="value">${appointment.vaccine_name}</div>
-                        </div>
-                        ${appointment.vaccine_manufacturer ? `
-                        <div class="appointment-detail">
-                            <label>Manufacturer:</label>
-                            <div class="value">${appointment.vaccine_manufacturer}</div>
-                        </div>
-                        ` : ''}
-                        ${appointment.vaccine_recommended_age ? `
-                        <div class="appointment-detail">
-                            <label>Recommended Age:</label>
-                            <div class="value">${appointment.vaccine_recommended_age}</div>
-                        </div>
-                        ` : ''}
-                        ${appointment.vaccine_doses_required ? `
-                        <div class="appointment-detail">
-                            <label>Doses Required:</label>
-                            <div class="value">${appointment.vaccine_doses_required}</div>
-                        </div>
-                        ` : ''}
-                        ${appointment.vaccine_description ? `
-                        <div class="appointment-detail">
-                            <label>Vaccine Description:</label>
-                            <div class="value">${appointment.vaccine_description}</div>
-                        </div>
-                        ` : ''}
-                        ` : ''}
-                        ${appointment.notes ? `
-                        <div class="appointment-detail">
-                            <label>Notes:</label>
-                            <div class="value">${appointment.notes}</div>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
-                <div style="border-top: 1px solid #e9ecef; padding-top: 15px; margin-top: 15px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div class="appointment-detail">
-                            <label>Created:</label>
-                            <div class="value">${new Date(appointment.created_at).toLocaleString()}</div>
-                        </div>
-                        <div class="appointment-detail">
-                            <label>Last Updated:</label>
-                            <div class="value">${new Date(appointment.updated_at).toLocaleString()}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function buildEditContent(appointment, vaccines) {
-            const vaccineOptions = vaccines.map(vaccine => 
-                `<option value="${vaccine.id}" ${appointment.vaccine_id == vaccine.id ? 'selected' : ''}>${vaccine.name}</option>`
-            ).join('');
-            
-            return `
-                <form id="editAppointmentForm">
-                    <input type="hidden" name="appointment_id" value="${appointment.id}">
-                    
-                    <div class="form-group">
-                        <label>Patient Name:</label>
-                        <input type="text" value="${appointment.patient_name}" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="appointment_date">Date & Time:</label>
-                        <input type="datetime-local" name="appointment_date" id="appointment_date" 
-                               value="${appointment.appointment_date.replace(' ', 'T')}" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="purpose">Purpose:</label>
-                        <input type="text" name="purpose" id="purpose" value="${appointment.purpose}" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="vaccine_id">Vaccine:</label>
-                        <select name="vaccine_id" id="vaccine_id">
-                            <option value="">Select Vaccine (Optional)</option>
-                            ${vaccineOptions}
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="status">Status:</label>
-                        <select name="status" id="status" required>
-                            <option value="requested" ${appointment.status === 'requested' ? 'selected' : ''}>Requested</option>
-                            <option value="confirmed" ${appointment.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
-                            <option value="completed" ${appointment.status === 'completed' ? 'selected' : ''}>Completed</option>
-                            <option value="cancelled" ${appointment.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                            <option value="no_show" ${appointment.status === 'no_show' ? 'selected' : ''}>No Show</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="notes">Notes:</label>
-                        <textarea name="notes" id="notes" placeholder="Additional notes about the appointment...">${appointment.notes || ''}</textarea>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Update Appointment</button>
-                    </div>
-                </form>
-            `;
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
-
+        
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const viewModal = document.getElementById('viewModal');
-            const editModal = document.getElementById('editModal');
-            
-            if (event.target === viewModal) {
-                viewModal.style.display = 'none';
-            }
-            if (event.target === editModal) {
-                editModal.style.display = 'none';
+            if (event.target == statusModal) {
+                closeStatusModal();
             }
         }
-
-        // Handle edit form submission
+        
+        // Highlight active menu item
         document.addEventListener('DOMContentLoaded', function() {
-            document.addEventListener('submit', function(e) {
-                if (e.target.id === 'editAppointmentForm') {
-                    e.preventDefault();
-                    
-                    const submitButton = e.target.querySelector('button[type="submit"]');
-                    const originalText = submitButton.innerHTML;
-                    
-                    // Show loading state
-                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
-                    submitButton.disabled = true;
-                    
-                    const formData = new FormData(e.target);
-                    
-                    fetch('update_appointment.php', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            // Show success message
-                            const modalBody = document.getElementById('editModalBody');
-                            modalBody.innerHTML = `
-                                <div style="text-align: center; color: #28a745; padding: 40px;">
-                                    <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 15px;"></i>
-                                    <h3>Success!</h3>
-                                    <p>Appointment updated successfully.</p>
-                                    <button type="button" class="btn btn-primary" onclick="location.reload()">Close & Refresh</button>
-                                </div>
-                            `;
-                        } else {
-                            // Show error message
-                            alert('Error updating appointment: ' + data.message);
-                            submitButton.innerHTML = originalText;
-                            submitButton.disabled = false;
-                        }
-                    })
-                    .catch(error => {
-                        alert('Error updating appointment. Please try again.');
-                        submitButton.innerHTML = originalText;
-                        submitButton.disabled = false;
-                    });
+            const currentPath = window.location.pathname;
+            const menuItems = document.querySelectorAll('.sidebar-menu a');
+            
+            menuItems.forEach(item => {
+                if (item.getAttribute('href') === currentPath) {
+                    item.classList.add('active');
+                } else if (item.classList.contains('active') && item.getAttribute('href') !== '#') {
+                    item.classList.remove('active');
                 }
             });
         });

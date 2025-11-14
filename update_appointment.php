@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+require_once 'notification_system.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type'])) {
@@ -111,6 +112,31 @@ $stmt = $conn->prepare($update_query);
 $stmt->bind_param("sssisii", $mysql_date, $purpose, $status, $vaccine_id, $notes, $user_id, $appointment_id);
 
 if ($stmt->execute()) {
+    // Get updated appointment details for notification
+    $notification_query = "SELECT a.*, p.first_name, p.last_name, p.email, p.phone, 
+                                 v.name as vaccine_name, 
+                                 CONCAT(s.first_name, ' ', s.last_name) as staff_name
+                          FROM appointments a 
+                          LEFT JOIN patients p ON a.patient_id = p.id 
+                          LEFT JOIN vaccines v ON a.vaccine_id = v.id 
+                          LEFT JOIN users s ON a.staff_id = s.id 
+                          WHERE a.id = ?";
+    
+    $notification_stmt = $conn->prepare($notification_query);
+    $notification_stmt->bind_param("i", $appointment_id);
+    $notification_stmt->execute();
+    $notification_result = $notification_stmt->get_result();
+    
+    if ($notification_result->num_rows > 0) {
+        $appointment_data = $notification_result->fetch_assoc();
+        
+        // Initialize notification system
+        $notificationSystem = new NotificationSystem();
+        
+        // Send status update notification
+        $notificationSystem->sendAppointmentStatusNotification($appointment_id, $status);
+    }
+    
     echo json_encode([
         'success' => true, 
         'message' => 'Appointment updated successfully'

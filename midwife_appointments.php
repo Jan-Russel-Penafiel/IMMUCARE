@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config.php';
+require_once 'notification_system.php';
 require_once 'transaction_helper.php';
 
 // Establish database connection
@@ -22,6 +23,9 @@ $midwife_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
 $user_email = $_SESSION['user_email'];
 
+// Initialize notification system
+$notification_system = new NotificationSystem();
+
 // Handle appointment status updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['appointment_id']) && isset($_POST['status'])) {
     $appointment_id = $_POST['appointment_id'];
@@ -30,6 +34,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['appointment_id']) && 
 
     // Generate transaction data
     $transactionData = TransactionHelper::generateTransactionData($conn);
+    
+    // Get appointment and patient details
+    $stmt = $conn->prepare("
+        SELECT a.*, 
+               p.first_name, 
+               p.last_name, 
+               p.phone_number as patient_phone,
+               u.email,
+               u.phone as user_phone,
+               u.id as user_id,
+               v.name as vaccine_name
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        JOIN users u ON p.user_id = u.id
+        LEFT JOIN vaccines v ON a.vaccine_id = v.id
+        WHERE a.id = ?
+    ");
+    $stmt->bind_param("i", $appointment_id);
+    $stmt->execute();
+    $appointment_result = $stmt->get_result();
+    $appointment_data = $appointment_result->fetch_assoc();
     
     $update_query = "UPDATE appointments SET 
                     status = ?, 
@@ -44,52 +69,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['appointment_id']) && 
     $stmt->bind_param('ssissi', $new_status, $notes, $midwife_id, $transactionData['transaction_id'], $transactionData['transaction_number'], $appointment_id);
     
     if ($stmt->execute()) {
-        // Send notification to patient
-        $notification_query = "INSERT INTO notifications (user_id, title, message, type, created_at) 
-                             SELECT p.user_id,
-                                    'Appointment Update',
-                                    CONCAT('Your appointment status has been updated to: ', ?, ' Notes: ', ?),
-                                    'system',
-                                    NOW()
-                             FROM appointments a
-                             JOIN patients p ON a.patient_id = p.id
-                             WHERE a.id = ?";
+        // Send notification using the notification system
+        $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
+        $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
+        $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
+        $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
         
-        $stmt_notif = $conn->prepare($notification_query);
-        $stmt_notif->bind_param('ssi', $new_status, $notes, $appointment_id);
-        $stmt_notif->execute();
+        // Create shorter, concise message for SMS compatibility
+        $status_specific_message = "";
+        switch($new_status) {
+            case 'confirmed':
+                $status_specific_message = "CONFIRMED. Please arrive 15 minutes early.";
+                break;
+            case 'completed':
+                $status_specific_message = "COMPLETED. Thank you for visiting us.";
+                break;
+            case 'cancelled':
+                $status_specific_message = "CANCELLED. You may reschedule anytime.";
+                break;
+            case 'no_show':
+                $status_specific_message = "MISSED. Please contact us to reschedule.";
+                break;
+            default:
+                $status_specific_message = "UPDATED. Thank you.";
+        }
         
-        $_SESSION['success_message'] = "Appointment updated successfully!";
+        // Short message format for SMS (removes long details and medical terms)
+        $status_message = "IMMUCARE: Your appointment on " . $appointment_date . " at " . $appointment_time . " is " . $status_specific_message .
+                         (!empty($notes) ? " Note: " . $notes : "");
+        
+        $notification_system->sendCustomNotification(
+            $appointment_data['user_id'],
+            "Appointment Status Update: " . ucfirst($new_status),
+            $status_message,
+            'both'
+        );
+        
+        $_SESSION['action_message'] = "Appointment status updated successfully! Notifications sent via Email and SMS.";
+        
+        // Redirect to prevent form resubmission (remove action parameters)
+        $redirect_params = $_GET;
+        unset($redirect_params['action']);
+        unset($redirect_params['id']);
+        
+        $redirect_url = $_SERVER['PHP_SELF'];
+        if (!empty($redirect_params)) {
+            $redirect_url .= '?' . http_build_query($redirect_params);
+        }
+        
+        header('Location: ' . $redirect_url);
+        exit;
     } else {
-        $_SESSION['error_message'] = "Error updating appointment.";
+        $_SESSION['action_message'] = "Error updating appointment status: " . $conn->error;
+        
+        // Redirect to prevent form resubmission (remove action parameters)
+        $redirect_params = $_GET;
+        unset($redirect_params['action']);
+        unset($redirect_params['id']);
+        
+        $redirect_url = $_SERVER['PHP_SELF'];
+        if (!empty($redirect_params)) {
+            $redirect_url .= '?' . http_build_query($redirect_params);
+        }
+        
+        header('Location: ' . $redirect_url);
+        exit;
     }
-    
-    header('Location: ' . $_SERVER['PHP_SELF']);
-    exit();
 }
 
-// Get all appointments for the midwife with patient details
-$query = "SELECT 
-            a.*,
-            p.first_name,
-            p.middle_name,
-            p.last_name,
-            p.date_of_birth,
-            p.phone_number,
-            v.name as vaccine_name,
-            a.transaction_id,
-            a.transaction_number
-          FROM appointments a
-          JOIN patients p ON a.patient_id = p.id
-          LEFT JOIN vaccines v ON a.vaccine_id = v.id
-          WHERE (a.staff_id = ? OR a.staff_id IS NULL)
-          ORDER BY a.appointment_date DESC";
+// Initialize session message if not exists
+if (!isset($_SESSION['action_message'])) {
+    $_SESSION['action_message'] = '';
+}
 
+// Get message from session if exists
+$action_message = '';
+if (!empty($_SESSION['action_message'])) {
+    $action_message = $_SESSION['action_message'];
+    // Clear the message after displaying
+    $_SESSION['action_message'] = '';
+}
+
+// Filter appointments
+$status_filter = isset($_GET['status']) ? $_GET['status'] : '';
+$date_filter = isset($_GET['date']) ? $_GET['date'] : '';
+
+// Initialize params array for prepared statement
+$params = array();
+
+$query = "SELECT a.*, 
+         CONCAT(p.first_name, ' ', p.last_name) as patient_name,
+         p.phone_number as patient_phone,
+         v.name as vaccine_name,
+         a.transaction_id,
+         a.transaction_number
+         FROM appointments a 
+         LEFT JOIN patients p ON a.patient_id = p.id 
+         LEFT JOIN vaccines v ON a.vaccine_id = v.id 
+         WHERE 1=1";
+
+// Apply filters
+if (!empty($status_filter)) {
+    $query .= " AND a.status = ?";
+    $params[] = $status_filter;
+}
+
+if (!empty($date_filter)) {
+    $query .= " AND DATE(a.appointment_date) = ?";
+    $params[] = $date_filter;
+}
+
+$query .= " ORDER BY a.appointment_date DESC";
+
+// Prepare and execute the query with parameters
 $stmt = $conn->prepare($query);
-$stmt->bind_param('i', $midwife_id);
+if (!empty($params)) {
+    $types = str_repeat('s', count($params));
+    $stmt->bind_param($types, ...$params);
+}
 $stmt->execute();
-$result = $stmt->get_result();
-$appointments = $result->fetch_all(MYSQLI_ASSOC);
+$appointments_result = $stmt->get_result();
 
 // Process logout
 if (isset($_GET['logout'])) {
@@ -112,440 +211,68 @@ if (isset($_GET['logout'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .dashboard-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .dashboard-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #e1e4e8;
-        }
-        
-        .dashboard-logo {
-            display: flex;
-            align-items: center;
-        }
-        
-        .dashboard-logo img {
-            height: 40px;
-            margin-right: 10px;
-        }
-        
-        .dashboard-logo h1 {
-            font-size: 1.8rem;
-            color: var(--primary-color);
-            margin: 0;
-        }
-        
-        .user-menu {
-            display: flex;
-            align-items: center;
-        }
-        
-        .user-info {
-            margin-right: 20px;
-            text-align: right;
-        }
-        
-        .user-name {
-            font-weight: 600;
-            color: var(--text-color);
-        }
-        
-        .user-role {
-            font-size: 0.8rem;
-            color: var(--primary-color);
-            font-weight: 500;
-            text-transform: uppercase;
-        }
-        
-        .user-email {
-            font-size: 0.9rem;
-            color: var(--light-text);
-        }
-        
-        .logout-btn {
-            padding: 8px 15px;
-            background-color: #f1f3f5;
-            color: var(--text-color);
-            border-radius: 5px;
-            font-size: 0.9rem;
-            transition: var(--transition);
-            text-decoration: none;
-        }
-        
-        .logout-btn:hover {
-            background-color: #e9ecef;
-        }
-        
-        .dashboard-content {
-            display: grid;
-            grid-template-columns: 1fr 4fr;
-            gap: 30px;
-        }
-        
-        .sidebar {
-            background-color: var(--bg-white);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            padding: 20px;
-        }
-        
-        .sidebar-menu {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        
-        .sidebar-menu li {
-            margin-bottom: 5px;
-        }
-        
-        .sidebar-menu a {
-            display: flex;
-            align-items: center;
-            padding: 12px 15px;
-            border-radius: var(--border-radius);
-            color: var(--text-color);
-            transition: var(--transition);
-            text-decoration: none;
-        }
-        
-        .sidebar-menu a:hover {
-            background-color: #f1f8ff;
-            color: var(--primary-color);
-        }
-        
-        .sidebar-menu a.active {
-            background-color: #e8f0fe;
-            color: var(--primary-color);
-            font-weight: 500;
-        }
-        
-        .sidebar-menu i {
-            margin-right: 10px;
-            font-size: 1.1rem;
-            width: 20px;
-            text-align: center;
-        }
-        
-        .main-content {
-            background-color: var(--bg-white);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            padding: 30px;
-        }
-        
-        .page-title {
-            font-size: 1.8rem;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-        }
-
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: var(--border-radius);
-            color: #0c5460;
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-        }
-
-        .alert-success {
-            color: #155724;
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-        }
-
-        .alert-danger {
-            color: #721c24;
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-        }
-
-        .appointment-list {
-            margin-top: 20px;
-        }
-
-        .appointment-item {
-            padding: 20px;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            transition: var(--transition);
-        }
-
-        .appointment-item:hover {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .appointment-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .appointment-date {
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: var(--primary-color);
-        }
-
-        .appointment-status {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .status-requested { background-color: #fff3cd; color: #856404; }
-        .status-confirmed { background-color: #cce5ff; color: #004085; }
-        .status-completed { background-color: #d4edda; color: #155724; }
-        .status-cancelled { background-color: #f8d7da; color: #721c24; }
-        .status-no_show { background-color: #e2e3e5; color: #383d41; }
-
-        .patient-info {
-            margin: 15px 0;
-        }
-
-        .patient-name {
-            font-size: 1.1rem;
-            font-weight: 500;
-            margin-bottom: 5px;
-        }
-
-        .patient-details {
-            color: var(--light-text);
-            font-size: 0.9rem;
-        }
-
-        .appointment-actions {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .btn {
-            padding: 8px 15px;
-            border-radius: 5px;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: var(--transition);
-            border: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .btn-primary {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #0056b3;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--light-text);
-        }
-
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            color: #e9ecef;
-        }
-
-        .empty-state p {
-            font-size: 1.1rem;
-            margin-bottom: 5px;
-        }
-
-        .empty-state span {
-            font-size: 0.9rem;
-        }
-
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1050;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            overflow: hidden;
-        }
-
-        .modal.show {
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            padding-top: 2rem;
-        }
-
-        .modal-dialog {
-            position: relative;
-            width: 100%;
-            max-width: 500px;
-            margin: 0 1rem;
-        }
-
-        .modal-content {
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-header {
-            background-color: #4285f4;
-            padding: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border: none;
-        }
-
-        .modal-title {
-            color: white;
-            font-size: 1.1rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .modal-body {
-            padding: 1rem;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 4px;
-        }
-
-        .form-group p {
-            font-size: 1rem;
-            color: #333;
-            padding: 0.25rem 0;
-            margin: 0;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.5rem;
-            font-size: 0.95rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            transition: all 0.2s;
-            background-color: #fff;
-        }
-
-        .form-control:focus {
-            border-color: #4285f4;
-            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.1);
-            outline: none;
-        }
-
-        select.form-control {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234285f4'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 0.5rem center;
-            background-size: 1.2rem;
-            padding-right: 2rem;
-        }
-
-        textarea.form-control {
-            min-height: 80px;
-            resize: vertical;
-        }
-
-        .modal-footer {
-            padding: 1rem;
-            border-top: 1px solid #eee;
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.5rem;
-        }
-
-        .btn {
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
-            cursor: pointer;
-            border: none;
-        }
-
-        .btn-secondary {
-            background-color: #f5f5f5;
-            color: #333;
-        }
-
-        .btn-secondary:hover {
-            background-color: #e9e9e9;
-        }
-
-        .btn-primary {
-            background-color: #4285f4;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #3b78e7;
-        }
-
-        .close {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.2rem;
-            opacity: 0.8;
-            cursor: pointer;
-            padding: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .close:hover {
-            opacity: 1;
-        }
-
-        /* Status Colors in Modal */
-        #modalStatus {
-            padding: 0.5rem;
-        }
-        #modalStatus option {
-            padding: 4px 8px;
-            font-size: 0.95rem;
-        }
-
+        .dashboard-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #e1e4e8; }
+        .dashboard-logo { display: flex; align-items: center; }
+        .dashboard-logo img { height: 40px; margin-right: 10px; }
+        .dashboard-logo h1 { font-size: 1.8rem; color: var(--primary-color); margin: 0; }
+        .user-menu { display: flex; align-items: center; }
+        .user-info { margin-right: 20px; text-align: right; }
+        .user-name { font-weight: 600; color: var(--text-color); }
+        .user-role { font-size: 0.8rem; color: var(--primary-color); font-weight: 500; text-transform: uppercase; }
+        .user-email { font-size: 0.9rem; color: var(--light-text); }
+        .logout-btn { padding: 8px 15px; background-color: #f1f3f5; color: var(--text-color); border-radius: 5px; font-size: 0.9rem; transition: var(--transition); text-decoration: none; }
+        .logout-btn:hover { background-color: #e9ecef; }
+        .dashboard-content { display: grid; grid-template-columns: 1fr 4fr; gap: 30px; }
+        .sidebar { background-color: var(--bg-white); border-radius: var(--border-radius); box-shadow: var(--shadow); padding: 20px; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; }
+        .sidebar-menu li { margin-bottom: 5px; }
+        .sidebar-menu a { display: flex; align-items: center; padding: 12px 15px; border-radius: var(--border-radius); color: var(--text-color); transition: var(--transition); text-decoration: none; }
+        .sidebar-menu a:hover { background-color: #f1f8ff; color: var(--primary-color); }
+        .sidebar-menu a.active { background-color: #e8f0fe; color: var(--primary-color); font-weight: 500; }
+        .sidebar-menu i { margin-right: 10px; font-size: 1.1rem; width: 20px; text-align: center; }
+        .main-content { background-color: var(--bg-white); border-radius: var(--border-radius); box-shadow: var(--shadow); padding: 30px; }
+        .page-title { font-size: 1.8rem; color: var(--primary-color); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .alert { padding: 15px; border-radius: var(--border-radius); margin-bottom: 20px; font-size: 0.95rem; }
+        .alert-success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .filter-bar { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background-color: #f8f9fa; padding: 15px; border-radius: var(--border-radius); }
+        .filter-group { display: flex; align-items: center; gap: 8px; }
+        .filter-group label { font-weight: 500; }
+        .filter-group select, .filter-group input { padding: 8px; border: 1px solid #ddd; border-radius: var(--border-radius); font-family: inherit; }
+        .filter-btn { background-color: var(--primary-color); color: white; border: none; padding: 8px 15px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); }
+        .filter-btn:hover { background-color: #3367d6; }
+        .reset-btn { background-color: #f1f3f5; color: var(--text-color); border: none; padding: 8px 15px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); text-decoration: none; }
+        .reset-btn:hover { background-color: #e9ecef; }
+        .appointments-table { width: 100%; border-collapse: collapse; }
+        .appointments-table th, .appointments-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        .appointments-table th { font-weight: 600; color: var(--primary-color); background-color: #f8f9fa; }
+        .appointment-status { display: inline-block; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
+        .status-scheduled { background-color: #e3f2fd; color: #1976d2; }
+        .status-confirmed { background-color: #e8f5e9; color: #2e7d32; }
+        .status-completed { background-color: #f3e5f5; color: #7b1fa2; }
+        .status-cancelled { background-color: #ffebee; color: #c62828; }
+        .status-no_show { background-color: #fafafa; color: #757575; }
+        .status-requested { background-color: #e3f2fd; color: #1976d2; }
+        .action-buttons { display: flex; gap: 10px; }
+        .btn-edit { padding: 8px 12px; border-radius: 5px; font-size: 0.8rem; text-decoration: none; transition: var(--transition); border: none; cursor: pointer; background-color: #007bff; color: white; }
+        .btn-edit:hover { background-color: #0056b3; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border-radius: var(--border-radius); box-shadow: var(--shadow); width: 50%; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-title { font-size: 1.4rem; color: var(--primary-color); margin: 0; }
+        .close-btn { font-size: 1.5rem; cursor: pointer; }
+        .modal-form { margin-top: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: var(--border-radius); font-family: inherit; }
+        .form-group textarea { height: 100px; resize: vertical; }
+        .form-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn-cancel { background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); font-size: 0.9rem; }
+        .btn-cancel:hover { background-color: #5a6268; }
+        .btn-submit { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: var(--border-radius); cursor: pointer; transition: var(--transition); font-size: 0.9rem; }
+        .btn-submit:hover { background-color: #0056b3; }
+        @media screen and (max-width: 992px) { .dashboard-content { grid-template-columns: 1fr; } .sidebar { margin-bottom: 20px; } .modal-content { width: 70%; } }
+        @media screen and (max-width: 768px) { .dashboard-header { flex-direction: column; align-items: flex-start; } .user-menu { margin-top: 20px; align-self: flex-end; } .filter-bar { flex-direction: column; align-items: flex-start; } .filter-group { width: 100%; } .action-buttons { flex-direction: column; } .modal-content { width: 90%; } }
     </style>
 </head>
 <body>
@@ -601,157 +328,153 @@ if (isset($_GET['logout'])) {
                     </div>
                 <?php endif; ?>
 
-                <div class="appointment-list">
-                    <?php if ($result->num_rows > 0): ?>
-                        <?php foreach ($appointments as $appointment): ?>
-                            <div class="appointment-item">
-                                <div class="appointment-header">
-                                    <div class="appointment-date">
-                                        <i class="far fa-calendar-alt"></i>
-                                        <?php echo date('F j, Y - g:i A', strtotime($appointment['appointment_date'])); ?>
-                                    </div>
-                                    <span class="appointment-status status-<?php echo $appointment['status']; ?>">
-                                        <?php echo ucfirst($appointment['status']); ?>
-                                    </span>
-                                </div>
-                                <div class="patient-info">
-                                    <div class="patient-name">
-                                        <?php echo htmlspecialchars($appointment['first_name'] . ' ' . $appointment['middle_name'] . ' ' . $appointment['last_name']); ?>
-                                    </div>
-                                    <div class="patient-details">
-                                        <i class="fas fa-phone"></i> <?php echo htmlspecialchars($appointment['phone_number']); ?>
-                                        <br>
-                                        <i class="fas fa-notes-medical"></i> Purpose: <?php echo htmlspecialchars($appointment['purpose']); ?>
-                                        <?php if ($appointment['vaccine_name']): ?>
-                                            <br>
-                                            <i class="fas fa-syringe"></i> Vaccine: <?php echo htmlspecialchars($appointment['vaccine_name']); ?>
-                                        <?php endif; ?>
-                                        <br>
-                                        <i class="fas fa-receipt"></i> 
-                                        <span class="badge bg-primary me-2"><?php echo TransactionHelper::formatTransactionNumber($appointment['transaction_number']); ?></span>
-                                        <span class="text-muted small"><?php echo TransactionHelper::formatTransactionId($appointment['transaction_id']); ?></span>
-                                    </div>
-                                </div>
-                                <div class="appointment-actions">
-                                    <button class="btn btn-primary" onclick="openUpdateModal(<?php echo htmlspecialchars(json_encode($appointment)); ?>)">
-                                        <i class="fas fa-edit"></i> Update Status
-                                    </button>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div class="empty-state">
-                            <i class="far fa-calendar-times"></i>
-                            <p>No appointments found</p>
-                            <span>There are no appointments scheduled at this time.</span>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Update Appointment Modal -->
-    <div class="modal fade" id="updateAppointmentModal" tabindex="-1" role="dialog" aria-labelledby="updateAppointmentModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="updateAppointmentModalLabel">
-                        <i class="fas fa-calendar-check"></i> Update Appointment
-                    </h5>
-                    <button type="button" class="close" onclick="closeModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <form method="POST">
-                    <div class="modal-body">
-                        <input type="hidden" name="appointment_id" id="modalAppointmentId">
-                        
-                        <div class="form-group">
-                            <label>
-                                <i class="fas fa-user"></i> Patient Name
-                            </label>
-                            <p id="modalPatientName"></p>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>
-                                <i class="far fa-calendar-alt"></i> Appointment Date
-                            </label>
-                            <p id="modalAppointmentDate"></p>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="modalStatus">
-                                <i class="fas fa-tag"></i> Status
-                            </label>
-                            <select class="form-control" name="status" id="modalStatus" required>
-                                <option value="requested">Requested</option>
-                                <option value="confirmed">Confirmed</option>
-                                <option value="completed">Completed</option>
-                                <option value="cancelled">Cancelled</option>
-                                <option value="no_show">No Show</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="modalNotes">
-                                <i class="fas fa-notes-medical"></i> Notes
-                            </label>
-                            <textarea class="form-control" name="notes" id="modalNotes" rows="3" 
-                                    placeholder="Enter any additional notes..."></textarea>
-                        </div>
+                <?php if (!empty($action_message)): ?>
+                    <div class="alert alert-success">
+                        <?php echo $action_message; ?>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal()">
-                            Cancel
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            Save Changes
-                        </button>
+                <?php endif; ?>
+                
+                <form action="" method="GET" class="filter-bar">
+                    <div class="filter-group">
+                        <label for="status">Status:</label>
+                        <select id="status" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="requested" <?php echo $status_filter == 'requested' ? 'selected' : ''; ?>>Requested</option>
+                            <option value="confirmed" <?php echo $status_filter == 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
+                            <option value="completed" <?php echo $status_filter == 'completed' ? 'selected' : ''; ?>>Completed</option>
+                            <option value="cancelled" <?php echo $status_filter == 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
+                            <option value="no_show" <?php echo $status_filter == 'no_show' ? 'selected' : ''; ?>>No-Show</option>
+                        </select>
                     </div>
+                    
+                    <div class="filter-group">
+                        <label for="date">Date:</label>
+                        <input type="date" id="date" name="date" value="<?php echo $date_filter; ?>">
+                    </div>
+                    
+                    <button type="submit" class="filter-btn"><i class="fas fa-filter"></i> Filter</button>
+                    <a href="midwife_appointments.php" class="reset-btn"><i class="fas fa-redo"></i> Reset</a>
                 </form>
+                
+                <div class="appointments-list">
+                    <table class="appointments-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Patient</th>
+                                <th>Date & Time</th>
+                                <th>Purpose</th>
+                                <th>Status</th>
+                                <th>Transaction Info</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($appointments_result && $appointments_result->num_rows > 0): ?>
+                                <?php while ($appointment = $appointments_result->fetch_assoc()): ?>
+                                    <tr>
+                                        <td><?php echo $appointment['id']; ?></td>
+                                        <td><?php echo htmlspecialchars($appointment['patient_name']); ?></td>
+                                        <td><?php echo date('M d, Y h:i A', strtotime($appointment['appointment_date'])); ?></td>
+                                        <td><?php echo htmlspecialchars($appointment['purpose']); ?></td>
+                                        <td>
+                                            <span class="appointment-status status-<?php echo $appointment['status']; ?>">
+                                                <?php echo $appointment['status'] == 'no_show' ? 'No Show' : ucfirst($appointment['status']); ?>
+                                            </span>
+                                        </td>
+                                        <td class="transaction-info">
+                                            <div class="small">
+                                                <div class="badge bg-primary mb-1"><?php echo TransactionHelper::formatTransactionNumber($appointment['transaction_number']); ?></div><br>
+                                                <div class="text-muted" style="font-size: 0.65rem;"><?php echo TransactionHelper::formatTransactionId($appointment['transaction_id']); ?></div>
+                                            </div>
+                                        </td>
+                                        <td class="action-buttons">
+                                            <button type="button" class="btn-edit" onclick="openStatusModal(<?php echo $appointment['id']; ?>, '<?php echo $appointment['status']; ?>', '<?php echo htmlspecialchars($appointment['notes'] ?? '', ENT_QUOTES); ?>')">
+                                                <i class="fas fa-edit"></i> Update Status
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="7" style="text-align: center;">No appointments found.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <!-- Status Update Modal -->
+    <div id="statusModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Update Appointment Status</h3>
+                <span class="close-btn" onclick="closeStatusModal()">&times;</span>
+            </div>
+            <form method="POST" action="" class="modal-form">
+                <input type="hidden" id="appointment_id" name="appointment_id">
+                
+                <div class="form-group">
+                    <label for="status">Status:</label>
+                    <select id="modal_status" name="status" required>
+                        <option value="requested">Requested</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="no_show">No-Show</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="notes">Notes:</label>
+                    <textarea id="notes" name="notes"></textarea>
+                </div>
+                
+                <div class="form-buttons">
+                    <button type="button" onclick="closeStatusModal()" class="btn-cancel">Cancel</button>
+                    <button type="submit" name="update_status" class="btn-submit">Update Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
-        // Function to open modal
-        function openUpdateModal(appointment) {
-            document.getElementById('modalAppointmentId').value = appointment.id;
-            document.getElementById('modalPatientName').textContent = 
-                `${appointment.first_name} ${appointment.middle_name} ${appointment.last_name}`;
-            document.getElementById('modalAppointmentDate').textContent = 
-                new Date(appointment.appointment_date).toLocaleString();
-            document.getElementById('modalStatus').value = appointment.status;
-            document.getElementById('modalNotes').value = appointment.notes || '';
-            
-            const modal = document.getElementById('updateAppointmentModal');
-            modal.classList.add('show');
-            document.body.style.overflow = 'hidden';
+        // Modal functionality
+        const statusModal = document.getElementById('statusModal');
+        
+        function openStatusModal(id, status, notes) {
+            document.getElementById('appointment_id').value = id;
+            document.getElementById('modal_status').value = status;
+            document.getElementById('notes').value = notes;
+            statusModal.style.display = 'block';
         }
-
-        // Function to close modal
-        function closeModal() {
-            const modal = document.getElementById('updateAppointmentModal');
-            modal.classList.remove('show');
-            document.body.style.overflow = '';
+        
+        function closeStatusModal() {
+            statusModal.style.display = 'none';
         }
-
+        
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('updateAppointmentModal');
-            if (event.target === modal) {
-                closeModal();
+            if (event.target == statusModal) {
+                closeStatusModal();
             }
         }
-
-        // Close modal on escape key
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeModal();
-            }
+        
+        // Highlight active menu item
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const menuItems = document.querySelectorAll('.sidebar-menu a');
+            
+            menuItems.forEach(item => {
+                if (item.getAttribute('href') === currentPath) {
+                    item.classList.add('active');
+                } else if (item.classList.contains('active') && item.getAttribute('href') !== '#') {
+                    item.classList.remove('active');
+                }
+            });
         });
     </script>
 </body>
