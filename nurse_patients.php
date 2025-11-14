@@ -792,6 +792,20 @@ $conn->close();
                         </select>
                     </div>
                     <div class="form-group">
+                        <label for="edit_blood_type">Blood Type</label>
+                        <select id="edit_blood_type" name="blood_type">
+                            <option value="">Select Blood Type</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="edit_phone_number">Phone Number</label>
                         <input type="tel" id="edit_phone_number" name="phone_number" required>
                     </div>
@@ -862,6 +876,7 @@ $conn->close();
                             <p><strong>Name:</strong> ${data.patient.first_name} ${data.patient.last_name}</p>
                             <p><strong>Date of Birth:</strong> ${data.patient.date_of_birth}</p>
                             <p><strong>Gender:</strong> ${data.patient.gender}</p>
+                            <p><strong>Blood Type:</strong> ${data.patient.blood_type || 'Not specified'}</p>
                             <p><strong>Phone:</strong> ${data.patient.phone_number}</p>
                             <p><strong>Address:</strong> ${data.patient.purok}, ${data.patient.city}, ${data.patient.province}</p>
                         </div>
@@ -886,6 +901,7 @@ $conn->close();
                     document.getElementById('edit_last_name').value = patient.last_name;
                     document.getElementById('edit_date_of_birth').value = patient.date_of_birth;
                     document.getElementById('edit_gender').value = patient.gender;
+                    document.getElementById('edit_blood_type').value = patient.blood_type || '';
                     document.getElementById('edit_phone_number').value = patient.phone_number;
                     document.getElementById('edit_purok').value = patient.purok;
                     document.getElementById('edit_city').value = patient.city;

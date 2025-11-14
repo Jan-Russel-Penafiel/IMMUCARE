@@ -158,37 +158,24 @@ if ($action == 'send' && isset($_POST['send_notification'])) {
             $sms_sent = 0;
             
             foreach ($recipients as $recipient_id) {
-                if ($type === 'email_sms') {
-                    // Send both email and SMS
-                    $result_email = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'email');
-                    $result_sms = $notification_system->sendCustomNotification($recipient_id, $title, $message, 'sms');
-                    
-                    if ($result_email) {
+                // Map email_sms to 'both' channel (which notification_system.php expects)
+                $delivery_channel = ($type === 'email_sms') ? 'both' : $type;
+                
+                $result = $notification_system->sendCustomNotification($recipient_id, $title, $message, $delivery_channel);
+                
+                if ($result) {
+                    $success_count++;
+                    // Count delivery types for display
+                    if ($type === 'email_sms') {
                         $email_sent++;
-                    }
-                    if ($result_sms) {
+                        $sms_sent++;
+                    } elseif ($type === 'email') {
+                        $email_sent++;
+                    } elseif ($type === 'sms') {
                         $sms_sent++;
                     }
-                    
-                    if ($result_email || $result_sms) {
-                        $success_count++;
-                    } else {
-                        $failed_count++;
-                    }
                 } else {
-                    $result = $notification_system->sendCustomNotification($recipient_id, $title, $message, $type);
-                    
-                    if ($result) {
-                        $success_count++;
-                        // Count specific delivery types for display
-                        if ($type === 'email') {
-                            $email_sent++;
-                        } elseif ($type === 'sms') {
-                            $sms_sent++;
-                        }
-                    } else {
-                        $failed_count++;
-                    }
+                    $failed_count++;
                 }
             }
             
@@ -264,7 +251,7 @@ function getGroupCount($group, $grouped_users) {
         }
 
         .dashboard-container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -927,10 +914,11 @@ function getGroupCount($group, $grouped_users) {
         <div class="dashboard-content">
             <div class="sidebar">
                 <ul class="sidebar-menu">
-                    <li><a href="midwife_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                    <li><a href="midwife_dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
                     <li><a href="midwife_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
                     <li><a href="midwife_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
                     <li><a href="midwife_immunization_records.php"><i class="fas fa-syringe"></i> Immunization Records</a></li>
+                    <li><a href="midwife_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
                     <li><a href="midwife_notifications.php" class="active"><i class="fas fa-bell"></i> Notifications</a></li>
                     <li><a href="midwife_profile.php"><i class="fas fa-user"></i> Profile</a></li>
                 </ul>
@@ -1069,7 +1057,6 @@ function getGroupCount($group, $grouped_users) {
                             <thead>
                                 <tr>
                                     <th>Notification</th>
-                                    <th>Type</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1098,22 +1085,6 @@ function getGroupCount($group, $grouped_users) {
                                                         <?php echo date('h:i A', strtotime($notification['created_at'])); ?>
                                                     </span>
                                                 </div>
-                                            </td>
-                                            <td>
-                                                <?php
-                                                $type_icons = [
-                                                    'email' => 'fa-envelope',
-                                                    'sms' => 'fa-sms',
-                                                    'system' => 'fa-desktop',
-                                                    'push' => 'fa-bell'
-                                                ];
-                                                $type = $notification['type'] ?? 'system';
-                                                $icon = $type_icons[$type] ?? 'fa-bell';
-                                                ?>
-                                                <span class="status-badge status-sent">
-                                                    <i class="fas <?php echo $icon; ?>"></i>
-                                                    <?php echo ucfirst($type); ?>
-                                                </span>
                                             </td>
                                             <td>
                                                 <div class="action-buttons">

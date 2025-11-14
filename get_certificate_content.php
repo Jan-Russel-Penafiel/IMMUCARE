@@ -50,108 +50,113 @@ $conn->close();
 <style>
 @media print {
     .no-print { display: none !important; }
-    body { margin: 0; padding: 20px; }
+    body { margin: 0; padding: 10px; font-size: 12px; }
     .certificate { 
         width: 100%; 
         max-width: none; 
         box-shadow: none; 
         border: 2px solid #000;
         page-break-inside: avoid;
+        height: auto;
+        min-height: auto;
     }
 }
 
 .certificate {
-    max-width: 800px;
+    max-width: 700px;
     margin: 0 auto;
-    padding: 40px;
-    border: 3px solid #4285f4;
-    border-radius: 10px;
+    padding: 20px;
+    border: 2px solid #4285f4;
+    border-radius: 8px;
     background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
     font-family: 'Times New Roman', serif;
     position: relative;
-    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    font-size: 13px;
 }
 
 .certificate::before {
     content: '';
     position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
     border: 1px solid #4285f4;
-    border-radius: 5px;
+    border-radius: 4px;
 }
 
 .certificate-header {
     text-align: center;
-    margin-bottom: 30px;
-    border-bottom: 2px solid #4285f4;
-    padding-bottom: 20px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #4285f4;
+    padding-bottom: 10px;
 }
 
 .certificate-title {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: bold;
     color: #4285f4;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
 }
 
 .certificate-subtitle {
-    font-size: 18px;
+    font-size: 14px;
     color: #666;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
 }
 
 .certificate-body {
-    line-height: 1.8;
-    font-size: 16px;
+    line-height: 1.4;
+    font-size: 13px;
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 20px;
 }
 
 .patient-name {
-    font-size: 24px;
+    font-size: 18px;
     font-weight: bold;
     color: #4285f4;
     text-decoration: underline;
-    margin: 20px 0;
+    margin: 10px 0;
 }
 
 .vaccine-info {
     background-color: #f8f9fa;
-    padding: 20px;
-    border-radius: 8px;
-    margin: 20px 0;
-    border-left: 4px solid #4285f4;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 12px 0;
+    border-left: 3px solid #4285f4;
 }
 
 .certificate-details {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 30px;
-    margin: 30px 0;
+    gap: 20px;
+    margin: 15px 0;
     text-align: left;
+    font-size: 12px;
 }
 
 .detail-item {
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
 
 .detail-label {
     font-weight: bold;
     color: #333;
     display: inline-block;
-    width: 120px;
+    width: 100px;
+    font-size: 11px;
 }
 
 .certificate-footer {
-    margin-top: 50px;
+    margin-top: 25px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 50px;
+    gap: 30px;
 }
 
 .signature-section {
@@ -159,29 +164,30 @@ $conn->close();
 }
 
 .signature-line {
-    border-bottom: 2px solid #333;
-    height: 50px;
-    margin-bottom: 10px;
+    border-bottom: 1px solid #333;
+    height: 35px;
+    margin-bottom: 5px;
     position: relative;
 }
 
 .signature-label {
     font-weight: bold;
     color: #333;
+    font-size: 12px;
 }
 
 .certificate-seal {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 80px;
-    height: 80px;
-    border: 3px solid #4285f4;
+    top: 15px;
+    right: 15px;
+    width: 60px;
+    height: 60px;
+    border: 2px solid #4285f4;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 9px;
     font-weight: bold;
     color: #4285f4;
     text-align: center;
@@ -201,22 +207,22 @@ $conn->close();
     </div>
     
     <div class="certificate-body">
-        <p style="font-size: 18px; margin-bottom: 10px;">This is to certify that</p>
+        <p style="font-size: 14px; margin-bottom: 5px;">This is to certify that</p>
         
         <div class="patient-name">
             <?php echo htmlspecialchars($immunization['first_name'] . ' ' . ($immunization['middle_name'] ? $immunization['middle_name'] . ' ' : '') . $immunization['last_name']); ?>
         </div>
         
-        <p style="margin: 20px 0;">has received the following immunization:</p>
+        <p style="margin: 10px 0;">has received the following immunization:</p>
         
         <div class="vaccine-info">
-            <h3 style="margin: 0 0 15px 0; color: #4285f4; text-align: center;">
+            <h3 style="margin: 0 0 8px 0; color: #4285f4; text-align: center; font-size: 16px;">
                 <?php echo htmlspecialchars($immunization['vaccine_name']); ?>
             </h3>
-            <p style="margin: 5px 0; text-align: center;">
+            <p style="margin: 3px 0; text-align: center; font-size: 12px;">
                 <strong>Manufacturer:</strong> <?php echo htmlspecialchars($immunization['manufacturer']); ?>
             </p>
-            <p style="margin: 5px 0; text-align: center;">
+            <p style="margin: 3px 0; text-align: center; font-size: 12px;">
                 <strong>Description:</strong> <?php echo htmlspecialchars($immunization['vaccine_description']); ?>
             </p>
         </div>
@@ -278,7 +284,7 @@ $conn->close();
         <div class="signature-section">
             <div class="signature-line"></div>
             <div class="signature-label">Healthcare Provider</div>
-            <div style="font-size: 14px; margin-top: 5px;">
+            <div style="font-size: 11px; margin-top: 3px;">
                 <?php echo htmlspecialchars($immunization['administered_by_name']); ?>
             </div>
         </div>
@@ -286,14 +292,14 @@ $conn->close();
         <div class="signature-section">
             <div class="signature-line"></div>
             <div class="signature-label">Date Issued</div>
-            <div style="font-size: 14px; margin-top: 5px;">
+            <div style="font-size: 11px; margin-top: 3px;">
                 <?php echo date('F j, Y'); ?>
             </div>
         </div>
     </div>
     
-    <div style="text-align: center; margin-top: 30px; font-size: 12px; color: #666;">
-        <p>This certificate is issued by ImmuCare Health Management System</p>
-        <p>Certificate ID: IMM-<?php echo str_pad($immunization['id'], 6, '0', STR_PAD_LEFT); ?></p>
+    <div style="text-align: center; margin-top: 15px; font-size: 10px; color: #666;">
+        <p style="margin: 3px 0;">This certificate is issued by ImmuCare Health Management System</p>
+        <p style="margin: 3px 0;">Certificate ID: IMM-<?php echo str_pad($immunization['id'], 6, '0', STR_PAD_LEFT); ?></p>
     </div>
 </div>

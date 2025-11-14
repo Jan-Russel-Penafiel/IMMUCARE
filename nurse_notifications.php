@@ -264,7 +264,7 @@ function getGroupCount($group, $grouped_users) {
         }
 
         .dashboard-container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -927,11 +927,11 @@ function getGroupCount($group, $grouped_users) {
         <div class="dashboard-content">
             <div class="sidebar">
                 <ul class="sidebar-menu">
-                    <li><a href="nurse_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-                    <li><a href="nurse_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
-                    <li><a href="nurse_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
+                    <li><a href="nurse_dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
                     <li><a href="nurse_immunizations.php"><i class="fas fa-syringe"></i> Immunizations</a></li>
-                    <li><a href="nurse_vaccine_inventory.php"><i class="fas fa-boxes"></i> Vaccine Inventory</a></li>
+                    <li><a href="nurse_vaccine_inventory.php"><i class="fas fa-vials"></i> Vaccine Inventory</a></li>
+                    <li><a href="nurse_appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a></li>
+                    <li><a href="nurse_patients.php"><i class="fas fa-user-injured"></i> Patients</a></li>
                     <li><a href="nurse_reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
                     <li><a href="nurse_notifications.php" class="active"><i class="fas fa-bell"></i> Notifications</a></li>
                     <li><a href="nurse_profile.php"><i class="fas fa-user"></i> Profile</a></li>
@@ -1071,7 +1071,6 @@ function getGroupCount($group, $grouped_users) {
                             <thead>
                                 <tr>
                                     <th>Notification</th>
-                                    <th>Type</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1100,22 +1099,6 @@ function getGroupCount($group, $grouped_users) {
                                                         <?php echo date('h:i A', strtotime($notification['created_at'])); ?>
                                                     </span>
                                                 </div>
-                                            </td>
-                                            <td>
-                                                <?php
-                                                $type_icons = [
-                                                    'email' => 'fa-envelope',
-                                                    'sms' => 'fa-sms',
-                                                    'system' => 'fa-desktop',
-                                                    'push' => 'fa-bell'
-                                                ];
-                                                $type = $notification['type'] ?? 'system';
-                                                $icon = $type_icons[$type] ?? 'fa-bell';
-                                                ?>
-                                                <span class="status-badge status-sent">
-                                                    <i class="fas <?php echo $icon; ?>"></i>
-                                                    <?php echo ucfirst($type); ?>
-                                                </span>
                                             </td>
                                             <td>
                                                 <div class="action-buttons">

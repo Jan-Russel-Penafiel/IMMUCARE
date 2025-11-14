@@ -87,25 +87,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Add notification for the patient
             $patient_user_id_query = $conn->query("SELECT user_id FROM patients WHERE id = $patient_id");
-            if ($patient_user_id_query && $patient_user_row = $patient_user_id_query->fetch_assoc()) {
+            if ($patient_user_id_query && $patient_user_id_query->num_rows > 0) {
+                $patient_user_id_row = $patient_user_id_query->fetch_assoc();
                 $patient_user_id = $patient_user_id_row['user_id'];
                 
-                // Get vaccine name
-                $vaccine_query = $conn->query("SELECT name FROM vaccines WHERE id = $vaccine_id");
-                $vaccine_name = ($vaccine_query && $vaccine_row = $vaccine_query->fetch_assoc()) ? $vaccine_row['name'] : 'Unknown vaccine';
-                
-                // Create notification
-                $notification_title = "Immunization Record Added";
-                $notification_message = "An immunization record has been added to your health record. 
-                                      Vaccine: $vaccine_name, 
-                                      Date: " . date('M j, Y', strtotime($administered_date)) . ", 
-                                      Dose: $dose_number";
-                
-                $stmt = $conn->prepare("INSERT INTO notifications 
-                                       (user_id, title, message, type, created_at) 
-                                       VALUES (?, ?, ?, 'system', ?)");
-                $stmt->bind_param("isss", $patient_user_id, $notification_title, $notification_message, $now);
-                $stmt->execute();
+                // Only create notification if patient has a valid user_id
+                if (!empty($patient_user_id)) {
+                    // Get vaccine name
+                    $vaccine_query = $conn->query("SELECT name FROM vaccines WHERE id = $vaccine_id");
+                    $vaccine_name = 'Unknown vaccine';
+                    if ($vaccine_query && $vaccine_query->num_rows > 0) {
+                        $vaccine_row = $vaccine_query->fetch_assoc();
+                        $vaccine_name = $vaccine_row['name'];
+                    }
+                    
+                    // Create notification
+                    $notification_title = "Immunization Record Added";
+                    $notification_message = "An immunization record has been added to your health record. 
+                                          Vaccine: $vaccine_name, 
+                                          Date: " . date('M j, Y', strtotime($administered_date)) . ", 
+                                          Dose: $dose_number";
+                    
+                    $stmt = $conn->prepare("INSERT INTO notifications 
+                                           (user_id, title, message, type, created_at) 
+                                           VALUES (?, ?, ?, 'system', ?)");
+                    $stmt->bind_param("isss", $patient_user_id, $notification_title, $notification_message, $now);
+                    $stmt->execute();
+                }
             }
             
             // Redirect to patient's immunization history

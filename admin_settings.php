@@ -514,37 +514,7 @@ $conn->close();
                         </div>
                     </div>
                     
-                    <div class="settings-section">
-                        <h3>
-                            <i class="fas fa-comment-dots"></i>
-                            SMS Provider Settings
-                        </h3>
-                        
-                        <div class="form-group">
-                            <label for="sms_provider">SMS Provider</label>
-                            <select id="sms_provider" name="sms_provider" class="form-control">
-                                <option value="iprog" <?php echo (isset($settings['sms_provider']) && $settings['sms_provider'] === 'iprog') ? 'selected' : ''; ?>>IProg SMS</option>
-                            </select>
-                        </div>
-                        
-                        <div id="iprog_settings" class="conditional-field">
-                            <div class="form-group">
-                                <label for="iprog_sms_api_key">IProg SMS API Key</label>
-                                <input type="password" id="iprog_sms_api_key" name="iprog_sms_api_key" 
-                                    class="form-control"
-                                    value="<?php echo isset($settings['iprog_sms_api_key']) ? $settings['iprog_sms_api_key'] : ''; ?>">
-                                <div class="form-hint">Enter your IProg SMS API key</div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="iprog_sms_sender_id">IProg SMS Sender ID</label>
-                                <input type="text" id="iprog_sms_sender_id" name="iprog_sms_sender_id" 
-                                    class="form-control"
-                                    value="<?php echo isset($settings['iprog_sms_sender_id']) ? $settings['iprog_sms_sender_id'] : 'IMMUCARE'; ?>">
-                                <div class="form-hint">Your registered sender ID with IProg SMS</div>
-                            </div>
-                        </div>
-                    </div>
+                    <?php // SMS Provider Settings section removed ?>
                     
                     <div class="settings-section">
                         <h3>

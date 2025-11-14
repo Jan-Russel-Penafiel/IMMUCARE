@@ -971,7 +971,6 @@ function getGroupCount($group, $grouped_users) {
                             <thead>
                                 <tr>
                                     <th>Notification</th>
-                                    <th>Type</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -999,33 +998,6 @@ function getGroupCount($group, $grouped_users) {
                                                         <i class="fas fa-clock"></i>
                                                         <?php echo date('h:i A', strtotime($notification['created_at'])); ?>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="meta-item">
-                                                    <?php 
-                                                    $type_icon = '';
-                                                    $type_text = '';
-                                                    switch ($notification['type']) {
-                                                        case 'email':
-                                                            $type_icon = 'fa-envelope';
-                                                            $type_text = 'Email';
-                                                            break;
-                                                        case 'sms':
-                                                            $type_icon = 'fa-comment-sms';
-                                                            $type_text = 'SMS';
-                                                            break;
-                                                        case 'email_sms':
-                                                            $type_icon = 'fa-bell';
-                                                            $type_text = 'Email & SMS';
-                                                            break;
-                                                        default:
-                                                            $type_icon = 'fa-bell';
-                                                            $type_text = 'System';
-                                                    }
-                                                    ?>
-                                                    <i class="fas <?php echo $type_icon; ?>"></i>
-                                                    <?php echo $type_text; ?>
                                                 </div>
                                             </td>
                                             <td>

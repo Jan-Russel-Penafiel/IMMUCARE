@@ -591,9 +591,7 @@ $conn->close();
                         <a href="nurse_appointments.php" class="btn-sm">Reset</a>
                     </form>
                     
-                    <a href="schedule_appointment.php" class="add-btn">
-                        <i class="fas fa-plus"></i> Schedule Appointment
-                    </a>
+                    <?php // Removed Schedule Appointment button ?>
                 </div>
                 
                 <table class="appointment-table">
@@ -640,9 +638,7 @@ $conn->close();
                                                 <button type="button" class="edit-btn" onclick="editAppointment(<?php echo $appointment['id']; ?>)">Edit</button>
                                             <?php endif; ?>
                                             
-                                            <?php if ($appointment['status'] == 'confirmed'): ?>
-                                                <a href="administer_vaccine.php?appointment_id=<?php echo $appointment['id']; ?>" class="complete-btn">Record</a>
-                                            <?php endif; ?>
+                                            <?php // Removed administer vaccine button ?>
                                             
                                             <?php if ($appointment['status'] == 'requested' || $appointment['status'] == 'confirmed'): ?>
                                                 <a href="update_appointment_status.php?id=<?php echo $appointment['id']; ?>&status=cancelled" class="cancel-btn" onclick="return confirm('Are you sure you want to cancel this appointment?')">Cancel</a>
@@ -1004,6 +1000,10 @@ $conn->close();
                         <div class="appointment-detail">
                             <label>Gender:</label>
                             <div class="value">${appointment.gender || 'N/A'}</div>
+                        </div>
+                        <div class="appointment-detail">
+                            <label>Blood Type:</label>
+                            <div class="value">${appointment.blood_type || 'Not specified'}</div>
                         </div>
                         <div class="appointment-detail">
                             <label>Phone Number:</label>

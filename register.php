@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
     $confirm_password = $_POST['confirm_password'];
     $date_of_birth = $_POST['date_of_birth'];
     $gender = $_POST['gender'];
+    $blood_type = isset($_POST['blood_type']) && !empty($_POST['blood_type']) ? $_POST['blood_type'] : null;
     $purok = trim($_POST['purok']);
     $city = trim($_POST['city']);
     $province = trim($_POST['province']);
@@ -74,8 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                 $user_id = $conn->insert_id;
                 
                 // Create patient profile
-                $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, middle_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, medical_history, allergies, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
-                $stmt->bind_param("issssssssssss", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone, $medical_history, $allergies);
+                $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, middle_name, last_name, date_of_birth, gender, blood_type, purok, city, province, postal_code, phone_number, medical_history, allergies, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+                $stmt->bind_param("isssssssssssss", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $blood_type, $purok, $city, $province, $postal_code, $phone, $medical_history, $allergies);
                 
                 if ($stmt->execute()) {
                     $patient_id = $conn->insert_id;
@@ -453,6 +454,23 @@ function sendWelcomeEmail($conn, $notification_id, $user_id, $email, $name, $pas
                                     <option value="">Select Gender</option>
                                     <option value="male" <?php echo (isset($_POST['gender']) && $_POST['gender'] === 'male') ? 'selected' : ''; ?>>Male</option>
                                     <option value="female" <?php echo (isset($_POST['gender']) && $_POST['gender'] === 'female') ? 'selected' : ''; ?>>Female</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="blood_type" class="form-label">Blood Type</label>
+                                <select class="form-select" id="blood_type" name="blood_type">
+                                    <option value="">Select Blood Type</option>
+                                    <option value="A+" <?php echo (isset($_POST['blood_type']) && $_POST['blood_type'] === 'A+') ? 'selected' : ''; ?>>A+</option>
+                                    <option value="A-" <?php echo (isset($_POST['blood_type']) && $_POST['blood_type'] === 'A-') ? 'selected' : ''; ?>>A-</option>
+                                    <option value="B+" <?php echo (isset($_POST['blood_type']) && $_POST['blood_type'] === 'B+') ? 'selected' : ''; ?>>B+</option>
+                                    <option value="B-" <?php echo (isset($_POST['blood_type']) && $_POST['blood_type'] === 'B-') ? 'selected' : ''; ?>>B-</option>
+                                    <option value="AB+" <?php echo (isset($_POST['blood_type']) && $_POST['blood_type'] === 'AB+') ? 'selected' : ''; ?>>AB+</option>
+                                    <option value="AB-" <?php echo (isset($_POST['blood_type']) && $_POST['blood_type'] === 'AB-') ? 'selected' : ''; ?>>AB-</option>
+                                    <option value="O+" <?php echo (isset($_POST['blood_type']) && $_POST['blood_type'] === 'O+') ? 'selected' : ''; ?>>O+</option>
+                                    <option value="O-" <?php echo (isset($_POST['blood_type']) && $_POST['blood_type'] === 'O-') ? 'selected' : ''; ?>>O-</option>
                                 </select>
                             </div>
                         </div>

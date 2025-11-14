@@ -48,6 +48,7 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
         $last_name = $_POST['last_name'];
         $date_of_birth = $_POST['date_of_birth'];
         $gender = $_POST['gender'];
+        $blood_type = $_POST['blood_type'] ?? null;
         $purok = $_POST['purok'];
         $city = $_POST['city'];
         $province = $_POST['province'];
@@ -147,8 +148,8 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
         }
         
         // Insert patient record
-        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, middle_name, last_name, date_of_birth, gender, purok, city, province, postal_code, phone_number, medical_history, allergies, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        $stmt->bind_param("issssssssssss", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone_number, $medical_history, $allergies);
+        $stmt = $conn->prepare("INSERT INTO patients (user_id, first_name, middle_name, last_name, date_of_birth, gender, blood_type, purok, city, province, postal_code, phone_number, medical_history, allergies, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->bind_param("isssssssssssss", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $blood_type, $purok, $city, $province, $postal_code, $phone_number, $medical_history, $allergies);
     
         if (!$stmt->execute()) {
             throw new Exception("Error adding patient: " . $conn->error);
@@ -188,6 +189,7 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
     $last_name = $_POST['last_name'];
     $date_of_birth = $_POST['date_of_birth'];
     $gender = $_POST['gender'];
+    $blood_type = $_POST['blood_type'] ?? null;
     $purok = $_POST['purok'];
     $city = $_POST['city'];
     $province = $_POST['province'];
@@ -243,9 +245,9 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
         }
         
         // Insert patient record
-        $query = "UPDATE patients SET user_id = ?, first_name = ?, middle_name = ?, last_name = ?, date_of_birth = ?, gender = ?, purok = ?, city = ?, province = ?, postal_code = ?, phone_number = ?, medical_history = ?, allergies = ? WHERE id = ?";
+        $query = "UPDATE patients SET user_id = ?, first_name = ?, middle_name = ?, last_name = ?, date_of_birth = ?, gender = ?, blood_type = ?, purok = ?, city = ?, province = ?, postal_code = ?, phone_number = ?, medical_history = ?, allergies = ? WHERE id = ?";
         $stmt = $conn->prepare($query);
-        $stmt->bind_param("isssssssssssi", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $purok, $city, $province, $postal_code, $phone_number, $medical_history, $allergies, $patient_id);
+        $stmt->bind_param("isssssssssssssi", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $blood_type, $purok, $city, $province, $postal_code, $phone_number, $medical_history, $allergies, $patient_id);
     
         if (!$stmt->execute()) {
             throw new Exception("Error updating patient: " . $conn->error);
@@ -855,7 +857,7 @@ $conn->close();
                 <div class="page-title">
                     <h2><?php echo $action == 'edit' ? 'Edit Patient' : ($action == 'add' ? 'Add New Patient' : 'Patient Management'); ?></h2>
                     <?php if ($action == ''): ?>
-                        <a href="?action=add" class="btn-add"><i class="fas fa-user-plus"></i> Add New Patient</a>
+                        <a href="?action=add" class="btn-add" style="display: none;"><i class="fas fa-user-plus"></i> Add New Patient</a>
                     <?php endif; ?>
                 </div>
                 
@@ -937,6 +939,21 @@ $conn->close();
                                         <option value="male" <?php echo ($action == 'edit' && $edit_patient['gender'] == 'male') ? 'selected' : ''; ?>>Male</option>
                                         <option value="female" <?php echo ($action == 'edit' && $edit_patient['gender'] == 'female') ? 'selected' : ''; ?>>Female</option>
                                         <option value="other" <?php echo ($action == 'edit' && $edit_patient['gender'] == 'other') ? 'selected' : ''; ?>>Other</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="blood_type">Blood Type</label>
+                                    <select id="blood_type" name="blood_type">
+                                        <option value="">-- Select Blood Type --</option>
+                                        <option value="A+" <?php echo ($action == 'edit' && $edit_patient['blood_type'] == 'A+') ? 'selected' : ''; ?>>A+</option>
+                                        <option value="A-" <?php echo ($action == 'edit' && $edit_patient['blood_type'] == 'A-') ? 'selected' : ''; ?>>A-</option>
+                                        <option value="B+" <?php echo ($action == 'edit' && $edit_patient['blood_type'] == 'B+') ? 'selected' : ''; ?>>B+</option>
+                                        <option value="B-" <?php echo ($action == 'edit' && $edit_patient['blood_type'] == 'B-') ? 'selected' : ''; ?>>B-</option>
+                                        <option value="AB+" <?php echo ($action == 'edit' && $edit_patient['blood_type'] == 'AB+') ? 'selected' : ''; ?>>AB+</option>
+                                        <option value="AB-" <?php echo ($action == 'edit' && $edit_patient['blood_type'] == 'AB-') ? 'selected' : ''; ?>>AB-</option>
+                                        <option value="O+" <?php echo ($action == 'edit' && $edit_patient['blood_type'] == 'O+') ? 'selected' : ''; ?>>O+</option>
+                                        <option value="O-" <?php echo ($action == 'edit' && $edit_patient['blood_type'] == 'O-') ? 'selected' : ''; ?>>O-</option>
                                     </select>
                                 </div>
                                 
@@ -1064,6 +1081,21 @@ $conn->close();
                                         <option value="">-- Select Gender --</option>
                                         <option value="male">Male</option>
                                         <option value="female">Female</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="blood_type">Blood Type</label>
+                                    <select id="blood_type" name="blood_type">
+                                        <option value="">-- Select Blood Type --</option>
+                                        <option value="A+">A+</option>
+                                        <option value="A-">A-</option>
+                                        <option value="B+">B+</option>
+                                        <option value="B-">B-</option>
+                                        <option value="AB+">AB+</option>
+                                        <option value="AB-">AB-</option>
+                                        <option value="O+">O+</option>
+                                        <option value="O-">O-</option>
                                     </select>
                                 </div>
                                 

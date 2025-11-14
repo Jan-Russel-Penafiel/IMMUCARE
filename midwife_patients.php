@@ -747,9 +747,7 @@ $conn->close();
                         <button type="submit"><i class="fas fa-search"></i></button>
                     </form>
                     
-                    <button data-modal="addPatientModal" class="add-btn">
-                        <i class="fas fa-plus"></i> Add New Patient
-                    </button>
+                    <?php // Removed Add New Patient button ?>
                 </div>
                 
                 <table class="patient-table">
@@ -800,7 +798,7 @@ $conn->close();
                                     <td class="patient-actions">
                                         <a href="#" data-modal="viewPatientModal<?php echo $patient['id']; ?>" class="action-btn view-btn">View</a>
                                         <a href="#" data-modal="editPatientModal<?php echo $patient['id']; ?>" class="action-btn edit-btn">Edit</a>
-                                        <a href="#" data-modal="scheduleModal<?php echo $patient['id']; ?>" class="action-btn view-btn">Schedule</a>
+                                        <?php // Removed Schedule button ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
