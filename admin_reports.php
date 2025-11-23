@@ -10,13 +10,34 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION[
 
 // Get admin information
 $admin_id = $_SESSION['user_id'];
-$admin_name = $_SESSION['user_name'];
-$admin_email = $_SESSION['user_email'];
+$admin_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : 'Admin';
+$admin_email = isset($_SESSION['user_email']) ? $_SESSION['user_email'] : '';
 
 // Connect to database
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
+}
+
+// If admin name or email is missing from session, fetch from database
+if (empty($admin_name) || empty($admin_email)) {
+    $stmt = $conn->prepare("SELECT name, email FROM users WHERE id = ?");
+    $stmt->bind_param("i", $admin_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows === 1) {
+        $user_data = $result->fetch_assoc();
+        if (empty($admin_name)) {
+            $admin_name = $user_data['name'];
+            $_SESSION['user_name'] = $admin_name; // Update session
+        }
+        if (empty($admin_email)) {
+            $admin_email = $user_data['email'];
+            $_SESSION['user_email'] = $admin_email; // Update session
+        }
+    }
+    $stmt->close();
 }
 
 // Process report type selection
@@ -475,7 +496,13 @@ $conn->close();
         .logout-btn { padding: 8px 15px; background-color: #f1f3f5; color: var(--text-color); border-radius: 5px; font-size: 0.9rem; transition: var(--transition); }
         .logout-btn:hover { background-color: #e9ecef; }
         .dashboard-content { display: grid; grid-template-columns: 1fr 4fr; gap: 30px; }
-        .sidebar { background-color: var(--bg-white); border-radius: var(--border-radius); box-shadow: var(--shadow); padding: 20px; }
+        .sidebar {
+            background-color: var(--bg-white);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            height: fit-content;
+        }
         .sidebar-menu { list-style: none; padding: 0; margin: 0; }
         .sidebar-menu li { margin-bottom: 5px; }
         .sidebar-menu a { display: flex; align-items: center; padding: 12px 15px; border-radius: var(--border-radius); color: var(--text-color); transition: var(--transition); text-decoration: none; }

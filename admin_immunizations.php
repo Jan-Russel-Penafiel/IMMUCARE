@@ -16,8 +16,35 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION[
 
 // Get admin information
 $admin_id = $_SESSION['user_id'];
-$admin_name = $_SESSION['user_name'];
-$admin_email = $_SESSION['user_email'];
+$admin_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : 'Admin';
+$admin_email = isset($_SESSION['user_email']) ? $_SESSION['user_email'] : '';
+
+// Connect to database
+$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// If admin name or email is missing from session, fetch from database
+if (empty($admin_name) || empty($admin_email)) {
+    $stmt = $conn->prepare("SELECT name, email FROM users WHERE id = ?");
+    $stmt->bind_param("i", $admin_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows === 1) {
+        $user_data = $result->fetch_assoc();
+        if (empty($admin_name)) {
+            $admin_name = $user_data['name'];
+            $_SESSION['user_name'] = $admin_name;
+        }
+        if (empty($admin_email)) {
+            $admin_email = $user_data['email'];
+            $_SESSION['user_email'] = $admin_email;
+        }
+    }
+    $stmt->close();
+}
 
 // Initialize notification system
 $notification_system = new NotificationSystem();

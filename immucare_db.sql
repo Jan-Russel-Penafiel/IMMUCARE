@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 14, 2025 at 07:23 PM
+-- Generation Time: Nov 19, 2025 at 05:02 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -49,11 +49,13 @@ CREATE TABLE `appointments` (
 
 INSERT INTO `appointments` (`id`, `patient_id`, `staff_id`, `appointment_date`, `vaccine_id`, `purpose`, `location`, `status`, `notes`, `transaction_id`, `transaction_number`, `created_at`, `updated_at`) VALUES
 (1, 12, 2, '2025-07-03 11:41:00', NULL, 'bjhb', 'Main Clinic', 'confirmed', 'knbkbkj', NULL, NULL, '2025-07-01 11:40:20', '2025-11-12 19:35:23'),
-(2, 12, 3, '2025-08-08 19:31:00', 2, 'sadaass', 'Main Clinic', 'completed', 'asda', NULL, NULL, '2025-08-02 19:29:23', '2025-11-14 17:06:05'),
-(3, 13, NULL, '2025-11-14 03:59:00', 2, 'sada', 'Main Clinic', 'requested', 'da', NULL, NULL, '2025-11-13 03:56:11', '2025-11-12 21:16:47'),
-(5, 13, NULL, '2025-11-05 01:58:00', 2, 'sada', 'Main Clinic', 'requested', 'dasda', NULL, NULL, '2025-11-15 01:55:50', '2025-11-14 17:55:50'),
-(6, 13, NULL, '2025-10-29 01:56:00', 1, 'asd', 'Main Clinic', 'requested', 'adada', NULL, NULL, '2025-11-15 01:56:08', '2025-11-14 17:56:08'),
-(7, 13, NULL, '2025-11-06 02:16:00', 2, 'asda', 'Main Clinic', 'requested', 'ada', 'TXN_20251114_191317_6917713d31b84', 'TXN_000001', '2025-11-15 02:13:17', '2025-11-14 18:13:17');
+(2, 12, 3, '2025-08-08 19:31:00', 2, 'sadaass', 'Main Clinic', 'requested', 'asda', 'TX251114200254', 'TX0007', '2025-08-02 19:29:23', '2025-11-14 19:02:54'),
+(5, 13, 3, '2025-11-05 01:58:00', 2, 'sada', 'Main Clinic', 'requested', 'dasda', 'TX251114200408', 'TX0008', '2025-11-15 01:55:50', '2025-11-14 19:04:08'),
+(6, 13, 3, '2025-10-29 01:56:00', 1, 'asd', 'Main Clinic', 'cancelled', 'adada', NULL, NULL, '2025-11-15 01:56:08', '2025-11-14 18:36:23'),
+(9, 13, 2, '2025-11-14 02:37:00', 2, 'sdf', 'Main Clinic', 'confirmed', 'assa', 'TX251114193802', 'TX0002', '2025-11-15 02:34:21', '2025-11-14 18:38:02'),
+(10, 13, 3, '2025-11-21 02:52:00', 2, 'asd', 'Main Clinic', 'confirmed', 'ada', 'TX251114195051', 'TX0003', '2025-11-15 02:50:51', '2025-11-14 18:51:12'),
+(11, 13, 3, '2025-11-20 02:54:00', 2, 'sad', 'Main Clinic', 'confirmed', 'ada', 'TX251114195231', 'TX0004', '2025-11-15 02:52:31', '2025-11-14 18:56:12'),
+(12, 13, 2, '2025-11-28 02:00:00', 1, 'asda', 'Main Clinic', 'requested', 'dada', 'TX251114200715', 'TX0009', '2025-11-15 02:57:58', '2025-11-14 19:07:15');
 
 -- --------------------------------------------------------
 
@@ -125,14 +127,6 @@ CREATE TABLE `email_logs` (
   `created_at` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `email_logs`
---
-
-INSERT INTO `email_logs` (`id`, `notification_id`, `user_id`, `email_address`, `subject`, `message`, `status`, `provider_response`, `related_to`, `related_id`, `sent_at`, `created_at`) VALUES
-(41, NULL, 21, 'penafielliezl99991111@gmail.com', 'Welcome to ImmuCare - Account Created', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                <div style=\"text-align: center; margin-bottom: 20px;\">\n                    <img src=\"http://localhost/mic_new/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                </div>\n                <h2 style=\"color: #4285f4;\">Welcome to ImmuCare!</h2>\n                <p>Hello Jan Russel Peñafiel,</p>\n                <p>Your account has been successfully created. You can now log in to manage your appointments and immunization records.</p>\n                <div style=\"background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;\">\n                    <p><strong>Email:</strong> penafielliezl99991111@gmail.com</p>\n                    <p><strong>Password:</strong> KH!dF;k@_9</p>\n                </div>\n                <p>We recommend changing your password after your first login.</p>\n                <div style=\"text-align: center; margin-top: 30px;\">\n                    <a href=\"http://localhost/mic_new/login.php\" style=\"background-color: #4285f4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Login to Your Account</a>\n                </div>\n                <p style=\"margin-top: 30px;\">Thank you for choosing ImmuCare for your immunization needs.</p>\n                <p>Best regards,<br>ImmuCare Team</p>\n            </div>\n        ', 'sent', NULL, 'general', NULL, '2025-11-15 01:42:13', '2025-11-15 01:42:13'),
-(42, NULL, 21, 'penafielliezl99991111@gmail.com', 'ImmuCare - Appointment Request Received', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 5px;\">\n                <div style=\"text-align: center; margin-bottom: 20px;\">\n                    <img src=\"http://localhost/mic_new/images/logo.svg\" alt=\"ImmuCare Logo\" style=\"max-width: 150px;\">\n                </div>\n                <h2 style=\"color: #4285f4;\">Appointment Request Received</h2>\n                <p>Hello Jan Russel Peñafiel,</p>\n                <p>Thank you for requesting an appointment with ImmuCare. Your appointment request has been received and is pending confirmation.</p>\n                <div style=\"background-color: #f1f8ff; padding: 15px; border-radius: 5px; margin: 20px 0;\">\n                    <p><strong>Date:</strong> Friday, December 5, 2025</p>\n                    <p><strong>Time:</strong> 1:43 AM</p>\n                    <p><strong>Purpose:</strong> Prenatal Checkup</p>\n                </div>\n                <p>Our staff will review your request and confirm your appointment shortly. You will receive another email once your appointment is confirmed.</p>\n                <p style=\"margin-top: 30px;\">Thank you for choosing ImmuCare for your healthcare needs.</p>\n                <p>Best regards,<br>ImmuCare Team</p>\n            </div>\n        ', 'sent', NULL, 'general', NULL, '2025-11-15 01:42:19', '2025-11-15 01:42:19');
-
 -- --------------------------------------------------------
 
 --
@@ -199,7 +193,8 @@ INSERT INTO `immunizations` (`id`, `patient_id`, `vaccine_id`, `administered_by`
 (6, 14, 3, 2, 1, '1', '2025-11-13', '2025-11-15 00:40:00', '2025-11-22', 'sdasd', 'asda', NULL, NULL, '2025-11-15 00:40:59', '2025-11-14 16:40:59'),
 (7, 12, 1, 3, 1, '1', '2025-11-20', '2025-11-14 16:50:00', '2025-11-29', 'asda', 'sadad', NULL, NULL, '2025-11-14 17:50:34', '2025-11-14 16:50:34'),
 (8, 14, 3, 3, 1, '1', '2025-11-21', '2025-11-14 16:52:00', '2025-12-18', 'sada', 'sadada', NULL, NULL, '2025-11-14 17:53:05', '2025-11-14 16:53:05'),
-(9, 12, 2, 3, 1, '2', '2025-11-28', '2025-11-14 17:05:00', '2025-11-28', 'sadada', 'sadada', NULL, NULL, '2025-11-14 18:06:05', '2025-11-14 17:06:05');
+(9, 12, 2, 3, 1, '2', '2025-11-28', '2025-11-14 17:05:00', '2025-11-28', 'sadada', 'sadada', NULL, NULL, '2025-11-14 18:06:05', '2025-11-14 17:06:05'),
+(10, 14, 1, 2, 1, '1', '2025-11-18', '2025-11-20 05:06:00', '2025-11-23', 'kk', 'asd', 'TX251115220703', 'TX0010', '2025-11-16 05:07:03', '2025-11-15 21:07:03');
 
 -- --------------------------------------------------------
 
@@ -265,7 +260,21 @@ INSERT INTO `notifications` (`id`, `user_id`, `title`, `message`, `type`, `is_re
 (99, 3, 'New Appointment Request', 'New appointment request from patient #13 for October 29, 2025 - 1:56 AM', '', 0, NULL, '2025-11-15 01:56:08', '2025-11-14 17:56:08'),
 (100, 21, 'Appointment Cancellation Notice', 'IMMUCARE: Your appointment on Friday, December 5, 2025 at 01:43 AM has been CANCELLED. Please contact +1-800-SCHEDULE to reschedule if needed.', 'system', 0, '2025-11-15 02:02:48', '2025-11-15 02:02:48', '2025-11-14 18:02:48'),
 (101, 2, 'New Appointment Request', 'New appointment request from patient #13 for November 6, 2025 - 2:16 AM', '', 0, NULL, '2025-11-15 02:13:17', '2025-11-14 18:13:17'),
-(102, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 6, 2025 - 2:16 AM', '', 0, NULL, '2025-11-15 02:13:17', '2025-11-14 18:13:17');
+(102, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 6, 2025 - 2:16 AM', '', 0, NULL, '2025-11-15 02:13:17', '2025-11-14 18:13:17'),
+(103, 2, 'New Appointment Request', 'New appointment request from patient #13 for November 6, 2025 - 2:31 AM', '', 0, NULL, '2025-11-15 02:29:49', '2025-11-14 18:29:49'),
+(104, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 6, 2025 - 2:31 AM', '', 0, NULL, '2025-11-15 02:29:49', '2025-11-14 18:29:49'),
+(105, 2, 'New Appointment Request', 'New appointment request from patient #13 for November 14, 2025 - 2:37 AM', '', 0, NULL, '2025-11-15 02:34:21', '2025-11-14 18:34:21'),
+(106, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 14, 2025 - 2:37 AM', '', 0, NULL, '2025-11-15 02:34:21', '2025-11-14 18:34:21'),
+(107, 18, 'Appointment Update', 'Your appointment status has been updated to: confirmed Notes: assa', 'system', 0, NULL, '2025-11-15 02:38:02', '2025-11-14 18:38:02'),
+(108, 2, 'New Appointment Request', 'New appointment request from patient #13 for November 21, 2025 - 2:52 AM', '', 0, NULL, '2025-11-15 02:50:51', '2025-11-14 18:50:51'),
+(109, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 21, 2025 - 2:52 AM', '', 0, NULL, '2025-11-15 02:50:51', '2025-11-14 18:50:51'),
+(110, 2, 'New Appointment Request', 'New appointment request from patient #13 for November 20, 2025 - 2:54 AM', '', 0, NULL, '2025-11-15 02:52:31', '2025-11-14 18:52:31'),
+(111, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 20, 2025 - 2:54 AM', '', 0, NULL, '2025-11-15 02:52:31', '2025-11-14 18:52:31'),
+(112, 2, 'New Appointment Request', 'New appointment request from patient #13 for November 28, 2025 - 2:00 AM', '', 0, NULL, '2025-11-15 02:57:58', '2025-11-14 18:57:58'),
+(113, 3, 'New Appointment Request', 'New appointment request from patient #13 for November 28, 2025 - 2:00 AM', '', 0, NULL, '2025-11-15 02:57:58', '2025-11-14 18:57:58'),
+(114, 18, 'Appointment Status Update: Confirmed', 'IMMUCARE: Your appointment on Friday, November 28, 2025 at 02:00 AM is CONFIRMED. Please arrive 15 minutes early. Note: dada', 'system', 0, '2025-11-15 02:58:17', '2025-11-15 02:58:17', '2025-11-14 18:58:17'),
+(115, 18, 'Appointment Status Update: Requested', 'IMMUCARE: Your appointment on Wednesday, November 5, 2025 at 01:58 AM is UPDATED. Thank you. Note: dasda', 'system', 0, '2025-11-15 03:04:08', '2025-11-15 03:04:08', '2025-11-14 19:04:08'),
+(116, 18, 'Appointment Status Update: Requested', 'IMMUCARE: Your appointment on Friday, November 28, 2025 at 02:00 AM is UPDATED. Thank you. Note: dada', 'system', 0, '2025-11-15 03:07:15', '2025-11-15 03:07:15', '2025-11-14 19:07:15');
 
 -- --------------------------------------------------------
 
@@ -302,8 +311,7 @@ CREATE TABLE `patients` (
 INSERT INTO `patients` (`id`, `user_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth`, `gender`, `blood_type`, `purok`, `city`, `province`, `postal_code`, `phone_number`, `email`, `medical_history`, `allergies`, `diagnosis`, `created_at`, `updated_at`) VALUES
 (12, NULL, 'Stephany', 'asdada', 'lablab', '2002-01-20', 'male', 'B+', 'asda', 'dada', 'asda', '', '09677726912', NULL, 'dada', 'dada', '', '2025-07-01 11:06:58', '2025-11-12 19:27:06'),
 (13, 18, 'hunter', 'Elizares', 'Peñafiel', '2013-06-12', 'male', NULL, 'asda', 'Santo Niño', 'Davao', '9509', '09677726912', NULL, 'asda', 'dada', NULL, '2025-11-13 03:55:39', '2025-11-12 19:55:39'),
-(14, NULL, 'sasdad', 'Elizares', 'ada', '2025-11-25', 'male', 'B-', 'asd', 'Santo Niño', 'adada', '9509', '09677726912', NULL, 'dasda', 'asda', NULL, '2025-11-13 04:10:43', '2025-11-14 16:19:56'),
-(15, 21, 'Jan Russel', NULL, 'Peñafiel', '2025-11-27', 'male', 'AB-', '12312', 'Santo Niño', 'Davao', '9509', '09677726912', NULL, NULL, NULL, NULL, '2025-11-15 01:42:08', '2025-11-14 17:42:08');
+(14, NULL, 'sasdad', 'Elizares', 'ada', '2025-11-25', 'male', 'B-', 'asd', 'Santo Niño', 'adada', '9509', '09677726912', NULL, 'dasda', 'asda', NULL, '2025-11-13 04:10:43', '2025-11-14 16:19:56');
 
 -- --------------------------------------------------------
 
@@ -384,7 +392,9 @@ INSERT INTO `sms_logs` (`id`, `notification_id`, `patient_id`, `user_id`, `phone
 (42, 92, 13, 18, '09677726912', 'IMMUCARE: Health Check Reminder - asdada', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-ydP9Am\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-ydP9Am\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 00:47:06', '2025-11-15 00:47:06', '2025-11-15 00:47:06'),
 (43, 93, 13, 18, '09677726912', 'IMMUCARE: Vaccination Due - sadada', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-rZgrcC\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-rZgrcC\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 00:47:58', '2025-11-15 00:47:58', '2025-11-15 00:47:58'),
 (44, 94, 13, 18, '09677726912', 'IMMUCARE: Test Results Available - sada', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-KM2xkX\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-KM2xkX\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 00:48:39', '2025-11-15 00:48:39', '2025-11-15 00:48:39'),
-(45, 100, 15, 21, '09677726912', 'IMMUCARE: Appointment Cancellation Notice - IMMUCARE: Your appointment on Friday, December 5, 2025 at 01:43 AM has been CANCELLED. Please contact +1-800-SCHEDULE to reschedule if needed.', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-Yz8jdG\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-Yz8jdG\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 02:02:55', '2025-11-15 02:02:55', '2025-11-15 02:02:55');
+(46, 114, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Confirmed - IMMUCARE: Your appointment on Friday, November 28, 2025 at 02:00 AM is CONFIRMED. Please arrive 15 minutes early. Note: dada', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-Qwrzri\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-Qwrzri\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 02:58:24', '2025-11-15 02:58:24', '2025-11-15 02:58:24'),
+(47, 115, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Requested - IMMUCARE: Your appointment on Wednesday, November 5, 2025 at 01:58 AM is UPDATED. Thank you. Note: dasda', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-czZuEE\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-czZuEE\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 03:04:16', '2025-11-15 03:04:16', '2025-11-15 03:04:16'),
+(48, 116, 13, 18, '09677726912', 'IMMUCARE: Appointment Status Update: Requested - IMMUCARE: Your appointment on Friday, November 28, 2025 at 02:00 AM is UPDATED. Thank you. Note: dada', NULL, 'sent', 0, 'general', '{\"status\":200,\"message\":\"SMS successfully queued for delivery.\",\"message_id\":\"iSms-vQsqa4\",\"message_status_link\":\"https:\\/\\/sms.iprogtech.com\\/api\\/v1\\/sms_messages\\/status?api_token=12345&message_id=iSms-vQsqa4\",\"message_status_request_mode\":\"GET\",\"sms_rate\":1}', 'custom_notification', NULL, NULL, '2025-11-15 03:07:22', '2025-11-15 03:07:22', '2025-11-15 03:07:22');
 
 -- --------------------------------------------------------
 
@@ -455,13 +465,12 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `role_id`, `user_type`, `name`, `email`, `phone`, `password`, `otp`, `otp_expiry`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '12345678', NULL, NULL, 1, '2025-11-15 02:13:25', '2025-06-30 20:52:14', '2025-11-14 18:13:25'),
-(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '12345678', NULL, NULL, 1, '2025-11-15 02:21:53', '2025-06-30 20:52:14', '2025-11-14 18:21:53'),
-(3, 3, 'nurse', 'John Nurse', 'penafielliezl3322@gmail.com', '+1234567892', '12345678', NULL, NULL, 1, '2025-11-15 02:20:19', '2025-06-30 20:52:14', '2025-11-14 18:20:19'),
+(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '12345678', NULL, NULL, 1, '2025-11-16 05:24:09', '2025-06-30 20:52:14', '2025-11-15 21:24:09'),
+(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '12345678', NULL, NULL, 1, '2025-11-15 23:11:52', '2025-06-30 20:52:14', '2025-11-15 15:11:52'),
+(3, 3, 'nurse', 'John Nurse', 'penafielliezl3322@gmail.com', '+1234567892', '12345678', NULL, NULL, 1, '2025-11-15 23:06:28', '2025-06-30 20:52:14', '2025-11-15 15:06:28'),
 (4, 4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '09677726912', '$2y$10$i4nrJwhdt1o6A.LGZrcWLOAwws.oIQzkAKqI/H9sOglnCZ0xQt1CS', NULL, NULL, 1, '2025-07-21 20:08:04', '2025-06-30 20:52:14', '2025-11-12 16:08:17'),
-(18, 4, 'patient', 'hunter', 'artiedastephany@gmail.com', '09677726912', '12345678', NULL, NULL, 1, '2025-11-15 02:13:08', '2025-11-13 03:54:51', '2025-11-14 18:13:08'),
-(20, 4, 'patient', 'sasdad ada', 'janrusselpenafiel01172005@gmail.com', '09677726912', '12345678', NULL, NULL, 1, '2025-11-15 00:34:49', '2025-11-13 04:10:08', '2025-11-14 16:34:49'),
-(21, 4, 'patient', 'Jan Russel Peñafiel', 'penafielliezl99991111@gmail.com', '09677726912', '$2y$10$aW.lsU2WIuztNnHIFbG/5eIBTWpjBVcY/VAQg5vaWC6ZH9FkT6X/u', NULL, NULL, 1, '0000-00-00 00:00:00', '2025-11-15 01:42:08', '2025-11-14 17:42:08');
+(18, 4, 'patient', 'hunter', 'artiedastephany@gmail.com', '09677726912', '12345678', NULL, NULL, 1, '2025-11-15 23:15:52', '2025-11-13 03:54:51', '2025-11-15 15:15:52'),
+(20, 4, 'patient', 'sasdad ada', 'janrusselpenafiel01172005@gmail.com', '09677726912', '12345678', NULL, NULL, 1, '2025-11-15 00:34:49', '2025-11-13 04:10:08', '2025-11-14 16:34:49');
 
 -- --------------------------------------------------------
 
@@ -612,7 +621,7 @@ ALTER TABLE `vaccines`
 -- AUTO_INCREMENT for table `appointments`
 --
 ALTER TABLE `appointments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `contact_messages`
@@ -642,13 +651,13 @@ ALTER TABLE `health_centers`
 -- AUTO_INCREMENT for table `immunizations`
 --
 ALTER TABLE `immunizations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=103;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=117;
 
 --
 -- AUTO_INCREMENT for table `patients`
@@ -666,7 +675,7 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT for table `sms_logs`
 --
 ALTER TABLE `sms_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
 
 --
 -- AUTO_INCREMENT for table `system_settings`
