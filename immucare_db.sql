@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 19, 2025 at 05:02 PM
+-- Generation Time: Dec 02, 2025 at 09:05 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -154,7 +154,7 @@ CREATE TABLE `health_centers` (
 --
 
 INSERT INTO `health_centers` (`id`, `name`, `address`, `city`, `province`, `postal_code`, `phone`, `email`, `contact_person`, `api_key`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'Municipal Health Center', '456 Health Ave', 'Anytown', 'Province', '12345', '+1234567899', 'artiedastephany@gmail.com', 'Dr. Health Director', NULL, 1, '2025-06-30 20:52:14', '2025-06-30 12:52:14'),
+(1, 'Municipal Health Center', '456 Health Ave', 'Anytown', 'Province', '12345', '+1234567899', 'sucuanomichaeljohn@gmail.com', 'Dr. Health Director', NULL, 1, '2025-06-30 20:52:14', '2025-12-02 08:05:02'),
 (2, 'Regional Medical Center', '789 Medical Drive', 'MedCity', 'Province', '67890', '+1234567891', 'regional.medical@gmail.com', 'Dr. Regional Director', NULL, 1, '2025-08-02 16:27:46', '2025-08-02 08:27:46'),
 (3, 'Community Health Clinic', '321 Wellness Street', 'Wellness', 'Province', '54321', '+1234567892', 'community.health@gmail.com', 'Dr. Community Director', NULL, 1, '2025-08-02 16:27:46', '2025-08-02 08:27:46'),
 (4, 'Rural Health Unit', '654 Village Road', 'Village', 'Province', '98765', '+1234567893', 'rural.health@gmail.com', 'Dr. Rural Director', NULL, 1, '2025-08-02 16:27:46', '2025-08-02 08:27:46');
@@ -465,12 +465,10 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `role_id`, `user_type`, `name`, `email`, `phone`, `password`, `otp`, `otp_expiry`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 1, 'admin', 'System Admin', 'penafielliezl1122@gmail.com', '+1234567890', '12345678', NULL, NULL, 1, '2025-11-16 05:24:09', '2025-06-30 20:52:14', '2025-11-15 21:24:09'),
-(2, 2, 'midwife', 'Jane Midwife', 'penafielliezl5555@gmail.com', '+1234567891', '12345678', NULL, NULL, 1, '2025-11-15 23:11:52', '2025-06-30 20:52:14', '2025-11-15 15:11:52'),
-(3, 3, 'nurse', 'John Nurse', 'penafielliezl3322@gmail.com', '+1234567892', '12345678', NULL, NULL, 1, '2025-11-15 23:06:28', '2025-06-30 20:52:14', '2025-11-15 15:06:28'),
-(4, 4, 'patient', 'Test Patient', 'penafielliezl9999@gmail.com', '09677726912', '$2y$10$i4nrJwhdt1o6A.LGZrcWLOAwws.oIQzkAKqI/H9sOglnCZ0xQt1CS', NULL, NULL, 1, '2025-07-21 20:08:04', '2025-06-30 20:52:14', '2025-11-12 16:08:17'),
-(18, 4, 'patient', 'hunter', 'artiedastephany@gmail.com', '09677726912', '12345678', NULL, NULL, 1, '2025-11-15 23:15:52', '2025-11-13 03:54:51', '2025-11-15 15:15:52'),
-(20, 4, 'patient', 'sasdad ada', 'janrusselpenafiel01172005@gmail.com', '09677726912', '12345678', NULL, NULL, 1, '2025-11-15 00:34:49', '2025-11-13 04:10:08', '2025-11-14 16:34:49');
+(1, 1, 'admin', 'Makiheal Mediana', 'makihealmediana@gmail.com', '09155005707', '12345678', NULL, NULL, 1, '2025-11-16 05:24:09', '2025-06-30 20:52:14', '2025-11-29 09:22:32'),
+(2, 2, 'midwife', 'Jayford Marquez', 'jayfordfacuramarquez@gmail.com', '09751463704', '12345678', NULL, NULL, 1, '2025-11-15 23:11:52', '2025-06-30 20:52:14', '2025-11-29 09:22:15'),
+(3, 3, 'nurse', 'Michael Socuano', 'sucuanomichaeljohn@gmail.com', '09076534729', '12345678', NULL, NULL, 1, '2025-11-15 23:06:28', '2025-06-30 20:52:14', '2025-12-02 02:54:18'),
+(18, 4, 'patient', 'Jan JAn Biaca', 'Janjanbiaca18@gmail.com', '09630398042', '12345678', NULL, NULL, 1, '2025-11-15 23:15:52', '2025-11-13 03:54:51', '2025-12-02 02:54:26');
 
 -- --------------------------------------------------------
 

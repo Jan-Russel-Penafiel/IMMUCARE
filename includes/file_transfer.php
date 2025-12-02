@@ -215,7 +215,7 @@ class FileTransfer {
         global $conn;
         
         if (!$health_center_id) {
-            return 'artiedastephany@gmail.com'; // Default fallback email
+            return 'sucuanomichaeljohn@gmail.com'; // Default fallback email
         }
         
         try {
@@ -226,13 +226,13 @@ class FileTransfer {
             
             if ($result && $result->num_rows > 0) {
                 $health_center = $result->fetch_assoc();
-                return $health_center['email'] ?: 'artiedastephany@gmail.com'; // Use default if empty
+                return $health_center['email'] ?: 'sucuanomichaeljohn@gmail.com'; // Use default if empty
             }
         } catch (Exception $e) {
             error_log("Error fetching health center email: " . $e->getMessage());
         }
         
-        return 'artiedastephany@gmail.com'; // Default fallback email
+        return 'sucuanomichaeljohn@gmail.com'; // Default fallback email
     }
     
     /**
@@ -254,7 +254,7 @@ class FileTransfer {
                 $email = $this->getHealthCenterEmail($health_center_id);
             } else if ($email === null) {
                 // Use default email if neither email nor health_center_id is provided
-                $email = 'artiedastephany@gmail.com';
+                $email = 'sucuanomichaeljohn@gmail.com';
             }
             
             // Validate email
