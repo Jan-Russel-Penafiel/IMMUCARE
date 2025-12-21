@@ -276,11 +276,12 @@ class NotificationSystem {
     
     /**
      * Send a custom notification to a specific user
+     * This method sends ONE email and ONE SMS when channel is 'both'
      * 
      * @param int $user_id User ID to send notification to
      * @param string $title Notification title
      * @param string $message Notification message
-     * @param string $channel Notification type (email, sms, or both)
+     * @param string $channel Notification type (email, sms, or both) - 'both' sends ONE email + ONE SMS
      * @param bool $skip_deletion_notifications Skip sending notifications for deletion actions
      * @return bool Whether the notification was sent successfully
      */
@@ -436,6 +437,7 @@ class NotificationSystem {
     
     /**
      * Send an SMS using the configured SMS provider and log it
+     * This method ensures only ONE SMS is sent per call
      * 
      * @param string $phone_number Recipient phone number
      * @param string $message SMS message
@@ -452,6 +454,27 @@ class NotificationSystem {
             if ($this->shouldSkipDeletionNotification('', $title, $message)) {
                 return false; // Return false to indicate no SMS was sent
             }
+            
+            // Check for duplicate SMS within last 30 seconds (prevent accidental duplicate sends)
+            if (!empty($phone_number) && !empty($message)) {
+                $duplicate_check = $this->conn->prepare("
+                    SELECT id FROM sms_logs 
+                    WHERE phone_number = ? 
+                    AND message = ? 
+                    AND status = 'sent'
+                    AND sent_at > DATE_SUB(NOW(), INTERVAL 30 SECOND)
+                    LIMIT 1
+                ");
+                $duplicate_check->bind_param("ss", $phone_number, $message);
+                $duplicate_check->execute();
+                $duplicate_result = $duplicate_check->get_result();
+                
+                if ($duplicate_result->num_rows > 0) {
+                    error_log("Duplicate SMS prevented: Same message to " . $phone_number . " within 30 seconds");
+                    return true; // Return true to avoid treating this as an error
+                }
+            }
+            
             // Sanitize message to remove special characters that iProg API might flag
             $message = str_replace("ñ", "n", $message);
             $message = str_replace("Ñ", "N", $message);

@@ -60,18 +60,28 @@ function check_session_timeout() {
         return false;
     }
     
+    // Check if last_activity is set and if timeout has occurred
     if (isset($_SESSION['last_activity'])) {
-        if (time() - $_SESSION['last_activity'] > SESSION_TIMEOUT) {
-            // Session has expired
-            session_unset();
-            session_destroy();
-            // Start a new session to show the timeout message
-            session_start();
-            header('Location: login.php?timeout=1');
-            exit();
+        $inactive_time = time() - $_SESSION['last_activity'];
+        
+        if ($inactive_time > SESSION_TIMEOUT) {
+            // Session has expired - clean up and redirect
+            secure_session_destroy();
+            
+            // Only redirect if headers haven't been sent
+            if (!headers_sent()) {
+                header('Location: login.php?timeout=1');
+                exit();
+            }
+            return false;
         }
+    } else {
+        // Initialize last_activity if not set
+        $_SESSION['last_activity'] = time();
     }
-    $_SESSION['last_activity'] = time(); // Update last activity time
+    
+    // Update last activity time
+    $_SESSION['last_activity'] = time();
     
     // Auto-regenerate session ID for security
     regenerate_session();

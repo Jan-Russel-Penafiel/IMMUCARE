@@ -96,13 +96,13 @@ if (isset($_POST['update_status'])) {
     $stmt->bind_param("ssssi", $status, $notes, $transactionData['transaction_id'], $transactionData['transaction_number'], $appointment_id);
     
     if ($stmt->execute()) {
-        // Send notification using the notification system
+        // Prepare notification message
         $patient_name = $appointment_data['first_name'] . ' ' . $appointment_data['last_name'];
         $appointment_date = date('l, F j, Y', strtotime($appointment_data['appointment_date']));
         $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
         $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
         
-        // Create shorter, concise message for SMS compatibility
+        // Create concise message for both email and SMS
         $status_specific_message = "";
         switch($status) {
             case 'confirmed':
@@ -121,18 +121,19 @@ if (isset($_POST['update_status'])) {
                 $status_specific_message = "UPDATED. Thank you.";
         }
         
-        // Short message format for SMS (removes long details and medical terms)
-        $status_message = "IMMUCARE: Your appointment on " . $appointment_date . " at " . $appointment_time . " is " . $status_specific_message .
+        // Unified message format for both email and SMS
+        $status_message = "Your appointment on " . $appointment_date . " at " . $appointment_time . " is " . $status_specific_message .
                          (!empty($notes) ? " Note: " . $notes : "");
         
-        $notification_system->sendCustomNotification(
+        // Send ONE notification via the notification system (handles both email and SMS internally)
+        $notification_result = $notification_system->sendCustomNotification(
             $appointment_data['user_id'],
             "Appointment Status Update: " . ucfirst($status),
             $status_message,
-            'both'
+            'both'  // This sends ONE email and ONE SMS only
         );
         
-        $_SESSION['action_message'] = "Appointment status updated successfully! Notifications sent via Email and SMS.";
+        $_SESSION['action_message'] = "Appointment status updated successfully! Notification sent via Email and SMS.";
         
         // Redirect to prevent form resubmission (remove action parameters)
         $redirect_params = $_GET;

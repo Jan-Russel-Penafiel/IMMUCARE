@@ -668,7 +668,6 @@ if (isset($_GET['logout'])) {
                                         <th>Destination</th>
                                         <th>Type</th>
                                         <th>Status</th>
-                                        <th>Records</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -683,12 +682,11 @@ if (isset($_GET['logout'])) {
                                                         <?php echo ucfirst($transfer['status']); ?>
                                                     </span>
                                                 </td>
-                                                <td><?php echo $transfer['record_count'] ? $transfer['record_count'] : '-'; ?></td>
                                             </tr>
                                         <?php endwhile; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="5">No recent transfers found.</td>
+                                            <td colspan="4">No recent transfers found.</td>
                                         </tr>
                                     <?php endif; ?>
                                 </tbody>
