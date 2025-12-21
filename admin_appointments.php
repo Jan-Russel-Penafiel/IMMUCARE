@@ -102,28 +102,45 @@ if (isset($_POST['update_status'])) {
         $appointment_time = date('h:i A', strtotime($appointment_data['appointment_date']));
         $purpose = !empty($appointment_data['vaccine_name']) ? $appointment_data['vaccine_name'] . ' vaccination' : $appointment_data['purpose'];
         
-        // Create concise message for both email and SMS
-        $status_specific_message = "";
+        // Create appropriate message based on status
+        // Statuses that don't need date: completed, cancelled, requested, no_show (past events or cancellations)
+        // Statuses that need date: confirmed, scheduled (future appointments)
+        $status_message = "";
+        
         switch($status) {
             case 'confirmed':
-                $status_specific_message = "CONFIRMED. Please arrive 15 minutes early.";
+                // Include date for confirmed appointments
+                $status_message = "Your appointment on " . $appointment_date . " at " . $appointment_time . " is CONFIRMED. Please arrive 15 minutes early.";
+                break;
+            case 'scheduled':
+                // Include date for scheduled appointments
+                $status_message = "Your appointment is scheduled for " . $appointment_date . " at " . $appointment_time . ". We look forward to seeing you.";
                 break;
             case 'completed':
-                $status_specific_message = "COMPLETED. Thank you for visiting us.";
+                // No date needed - it's already completed
+                $status_message = "Your appointment has been COMPLETED. Thank you for visiting ImmuCare!";
                 break;
             case 'cancelled':
-                $status_specific_message = "CANCELLED. You may reschedule anytime.";
+                // No date needed - appointment is cancelled
+                $status_message = "Your appointment has been CANCELLED. You may reschedule anytime by contacting us or booking online.";
                 break;
             case 'no_show':
-                $status_specific_message = "MISSED. Please contact us to reschedule.";
+                // No date needed - patient didn't show up
+                $status_message = "You missed your appointment. Please contact us at your earliest convenience to reschedule.";
+                break;
+            case 'requested':
+                // No date needed - just a request pending confirmation
+                $status_message = "Your appointment request has been received. We will contact you shortly to confirm the schedule.";
                 break;
             default:
-                $status_specific_message = "UPDATED. Thank you.";
+                // Generic message with date for unknown statuses
+                $status_message = "Your appointment status has been updated to " . ucfirst($status) . ".";
         }
         
-        // Unified message format for both email and SMS
-        $status_message = "Your appointment on " . $appointment_date . " at " . $appointment_time . " is " . $status_specific_message .
-                         (!empty($notes) ? " Note: " . $notes : "");
+        // Add notes if provided
+        if (!empty($notes)) {
+            $status_message .= " Note: " . $notes;
+        }
         
         // Send ONE notification via the notification system (handles both email and SMS internally)
         $notification_result = $notification_system->sendCustomNotification(
