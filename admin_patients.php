@@ -137,7 +137,8 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
                         'medical_history' => $medical_history,
                         'allergies' => $allergies
                     ]
-                ]
+                ],
+                false // Don't send SMS, email only
             );
         } elseif (!empty($user_id)) {
             // If linking to existing user, get their email
@@ -169,7 +170,8 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
                         'medical_history' => $medical_history,
                         'allergies' => $allergies
                     ]
-                ]
+                ],
+                false // Don't send SMS, email only
             );
         }
         
@@ -188,7 +190,7 @@ if ($action == 'add' && isset($_POST['add_patient'])) {
         
         // Store success message in session
         $_SESSION['action_message'] = "Patient added successfully! " . 
-            (!empty($user_email) ? "A notification has been sent via SMS and Email." : "");
+            (!empty($user_email) ? "An email notification has been sent." : "");
         
         // Redirect to prevent form resubmission
         header("Location: admin_patients.php");
@@ -268,9 +270,33 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
             }
             
             $user_id = $conn->insert_id;
+            
+            // Send email-only notification for new user account during edit
+            $notification_system->sendPatientAccountNotification(
+                $user_id,
+                'created',
+                [
+                    'password' => $plainPassword,
+                    'patient_details' => [
+                        'first_name' => $first_name,
+                        'middle_name' => $middle_name,
+                        'last_name' => $last_name,
+                        'date_of_birth' => $date_of_birth,
+                        'gender' => $gender,
+                        'phone_number' => $phone_number,
+                        'purok' => $purok,
+                        'city' => $city,
+                        'province' => $province,
+                        'medical_history' => $medical_history,
+                        'allergies' => $allergies
+                    ]
+                ],
+                false // Don't send SMS, email only
+            );
+            $email_sent = true;
         }
         
-        // Insert patient record
+        // Update patient record
         $query = "UPDATE patients SET user_id = ?, first_name = ?, middle_name = ?, last_name = ?, date_of_birth = ?, gender = ?, blood_type = ?, purok = ?, city = ?, province = ?, postal_code = ?, phone_number = ?, medical_history = ?, allergies = ? WHERE id = ?";
         $stmt = $conn->prepare($query);
         $stmt->bind_param("isssssssssssssi", $user_id, $first_name, $middle_name, $last_name, $date_of_birth, $gender, $blood_type, $purok, $city, $province, $postal_code, $phone_number, $medical_history, $allergies, $patient_id);
@@ -279,9 +305,24 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
             throw new Exception("Error updating patient: " . $conn->error);
         }
         
-            // If we have a user email but haven't sent an email yet (for existing user accounts)
-            // Only send email if user_id has changed or a new user account was created
-            if (!empty($user_email) && !$email_sent && (!empty($user_id) && $user_id != $original_user_id)) {
+            // Send email-only notification for patient profile updates
+            // Get user email if not already set
+            if (!empty($user_id) && empty($user_email)) {
+                $get_user = $conn->prepare("SELECT email FROM users WHERE id = ?");
+                $get_user->bind_param("i", $user_id);
+                $get_user->execute();
+                $user_result = $get_user->get_result();
+                if ($user_result->num_rows > 0) {
+                    $user_data = $user_result->fetch_assoc();
+                    $user_email = $user_data['email'];
+                }
+            }
+            
+            // Send email-only notification if user account exists and email not already sent
+            if (!empty($user_email) && !$email_sent && !empty($user_id)) {
+                // Log to verify channel parameter
+                error_log("ADMIN_PATIENTS: Sending notification with channel='email' for user_id=" . $user_id);
+                
                 $update_message = "Your ImmuCare patient profile has been updated.\n\n" .
                                  "Updated Information:\n" .
                                  "- Full Name: " . $first_name . " " . ($middle_name ? $middle_name . " " : "") . $last_name . "\n" .
@@ -297,8 +338,10 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
                     $user_id,
                     "Patient Profile Updated",
                     $update_message,
-                    'both'
+                    'email'  // Email only - no SMS
                 );
+                
+                error_log("ADMIN_PATIENTS: Notification sent");
             }
         
         // Commit transaction
@@ -306,7 +349,7 @@ if ($action == 'edit' && isset($_POST['edit_patient'])) {
         
         // Store success message in session
         $_SESSION['action_message'] = "Patient updated successfully! " . 
-            (!empty($user_email) ? "Notifications have been sent via SMS and Email to " . $user_email : "");
+            (!empty($user_email) ? "Email notification has been sent to " . $user_email : "");
         
         // Redirect to prevent form resubmission
         header("Location: admin_patients.php");
@@ -928,24 +971,54 @@ $conn->close();
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="first_name">First Name</label>
+                                    <label for="first_name">First Name (Auto-filled from User Account)</label>
                                     <input type="text" id="first_name" name="first_name" 
-                                        value="<?php echo $action == 'edit' ? htmlspecialchars($edit_patient['first_name']) : 
-                                            ($preselected_user ? explode(' ', $preselected_user['name'])[0] : ''); ?>" required>
+                                        value="<?php 
+                                            if ($action == 'edit') {
+                                                echo htmlspecialchars($edit_patient['first_name']);
+                                            } elseif ($preselected_user) {
+                                                $name_parts = explode(' ', $preselected_user['name']);
+                                                $count = count($name_parts);
+                                                if ($count >= 4) {
+                                                    echo htmlspecialchars($name_parts[0] . ' ' . $name_parts[1]);
+                                                } else {
+                                                    echo htmlspecialchars($name_parts[0]);
+                                                }
+                                            }
+                                        ?>" required readonly style="background-color: #f5f5f5;">
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="middle_name">Middle Name (Optional)</label>
+                                    <label for="middle_name">Middle Name (Auto-filled from User Account)</label>
                                     <input type="text" id="middle_name" name="middle_name" 
-                                        value="<?php echo $action == 'edit' ? htmlspecialchars($edit_patient['middle_name']) : ''; ?>">
+                                        value="<?php 
+                                            if ($action == 'edit') {
+                                                echo htmlspecialchars($edit_patient['middle_name']);
+                                            } elseif ($preselected_user) {
+                                                $name_parts = explode(' ', $preselected_user['name']);
+                                                $count = count($name_parts);
+                                                if ($count >= 4) {
+                                                    echo htmlspecialchars(implode(' ', array_slice($name_parts, 2, -1)));
+                                                } elseif ($count == 3) {
+                                                    echo htmlspecialchars($name_parts[1]);
+                                                }
+                                            }
+                                        ?>" readonly style="background-color: #f5f5f5;">
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="last_name">Last Name</label>
+                                    <label for="last_name">Last Name (Auto-filled from User Account)</label>
                                     <input type="text" id="last_name" name="last_name" 
-                                        value="<?php echo $action == 'edit' ? htmlspecialchars($edit_patient['last_name']) : 
-                                            ($preselected_user ? (strpos($preselected_user['name'], ' ') !== false ? 
-                                                substr($preselected_user['name'], strpos($preselected_user['name'], ' ') + 1) : '') : ''); ?>" required>
+                                        value="<?php 
+                                            if ($action == 'edit') {
+                                                echo htmlspecialchars($edit_patient['last_name']);
+                                            } elseif ($preselected_user) {
+                                                $name_parts = explode(' ', $preselected_user['name']);
+                                                if (count($name_parts) > 1) {
+                                                    echo htmlspecialchars(end($name_parts));
+                                                }
+                                            }
+                                        ?>" required readonly style="background-color: #f5f5f5;">
                                 </div>
                                 
                                 <div class="form-group">
@@ -986,8 +1059,18 @@ $conn->close();
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="purok">Purok</label>
-                                    <input type="text" id="purok" name="purok" value="<?php echo $action == 'edit' ? htmlspecialchars($edit_patient['purok']) : ''; ?>" required>
+                                    <label for="purok">Purok/Subdivision</label>
+                                    <select id="purok" name="purok" required>
+                                        <option value="">-- Select Purok --</option>
+                                        <option value="Purok 1" <?php echo ($action == 'edit' && $edit_patient['purok'] == 'Purok 1') ? 'selected' : ''; ?>>Purok 1</option>
+                                        <option value="Purok 2" <?php echo ($action == 'edit' && $edit_patient['purok'] == 'Purok 2') ? 'selected' : ''; ?>>Purok 2</option>
+                                        <option value="Purok 3" <?php echo ($action == 'edit' && $edit_patient['purok'] == 'Purok 3') ? 'selected' : ''; ?>>Purok 3</option>
+                                        <option value="Purok 4" <?php echo ($action == 'edit' && $edit_patient['purok'] == 'Purok 4') ? 'selected' : ''; ?>>Purok 4</option>
+                                        <option value="Purok 5" <?php echo ($action == 'edit' && $edit_patient['purok'] == 'Purok 5') ? 'selected' : ''; ?>>Purok 5</option>
+                                        <option value="Purok 6" <?php echo ($action == 'edit' && $edit_patient['purok'] == 'Purok 6') ? 'selected' : ''; ?>>Purok 6</option>
+                                        <option value="Purok 7" <?php echo ($action == 'edit' && $edit_patient['purok'] == 'Purok 7') ? 'selected' : ''; ?>>Purok 7</option>
+                                        <option value="Other" <?php echo ($action == 'edit' && !in_array($edit_patient['purok'], ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Purok 5', 'Purok 6', 'Purok 7'])) ? 'selected' : ''; ?>>Other</option>
+                                    </select>
                                 </div>
                                 
                                 <div class="form-group">
@@ -1074,21 +1157,51 @@ $conn->close();
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="first_name">First Name</label>
-                                    <input type="text" id="first_name" name="first_name" value="<?php echo $action == 'add' ? 
-                                        ($preselected_user ? explode(' ', $preselected_user['name'])[0] : '') : ''; ?>" required>
+                                    <label for="first_name">First Name (Auto-filled from User Account)</label>
+                                    <input type="text" id="first_name" name="first_name" value="<?php 
+                                        if ($action == 'add' && $preselected_user) {
+                                            $name_parts = explode(' ', $preselected_user['name']);
+                                            $count = count($name_parts);
+                                            // If 4+ words, first 2 words = First Name
+                                            // If 3 words, 1st word = First Name
+                                            // If 2 words, 1st word = First Name
+                                            if ($count >= 4) {
+                                                echo htmlspecialchars($name_parts[0] . ' ' . $name_parts[1]);
+                                            } else {
+                                                echo htmlspecialchars($name_parts[0]);
+                                            }
+                                        }
+                                    ?>" required readonly style="background-color: #f5f5f5;">
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="middle_name">Middle Name</label>
-                                    <input type="text" id="middle_name" name="middle_name">
+                                    <label for="middle_name">Middle Name (Auto-filled from User Account)</label>
+                                    <input type="text" id="middle_name" name="middle_name" value="<?php 
+                                        if ($action == 'add' && $preselected_user) {
+                                            $name_parts = explode(' ', $preselected_user['name']);
+                                            $count = count($name_parts);
+                                            // If 4+ words, middle words = Middle Name
+                                            // If 3 words, 2nd word = Middle Name
+                                            // If 2 words, empty
+                                            if ($count >= 4) {
+                                                echo htmlspecialchars(implode(' ', array_slice($name_parts, 2, -1)));
+                                            } elseif ($count == 3) {
+                                                echo htmlspecialchars($name_parts[1]);
+                                            }
+                                        }
+                                    ?>" readonly style="background-color: #f5f5f5;">
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="last_name">Last Name</label>
-                                    <input type="text" id="last_name" name="last_name" value="<?php echo $action == 'add' ? 
-                                        ($preselected_user ? (strpos($preselected_user['name'], ' ') !== false ? 
-                                            substr($preselected_user['name'], strpos($preselected_user['name'], ' ') + 1) : '') : '') : ''; ?>" required>
+                                    <label for="last_name">Last Name (Auto-filled from User Account)</label>
+                                    <input type="text" id="last_name" name="last_name" value="<?php 
+                                        if ($action == 'add' && $preselected_user) {
+                                            $name_parts = explode(' ', $preselected_user['name']);
+                                            if (count($name_parts) > 1) {
+                                                echo htmlspecialchars(end($name_parts));
+                                            }
+                                        }
+                                    ?>" required readonly style="background-color: #f5f5f5;">
                                 </div>
                                 
                                 <div class="form-group">
@@ -1128,7 +1241,17 @@ $conn->close();
                                 
                                 <div class="form-group">
                                     <label for="purok">Purok/Subdivision</label>
-                                    <input type="text" id="purok" name="purok" required>
+                                    <select id="purok" name="purok" required>
+                                        <option value="">-- Select Purok --</option>
+                                        <option value="Purok 1">Purok 1</option>
+                                        <option value="Purok 2">Purok 2</option>
+                                        <option value="Purok 3">Purok 3</option>
+                                        <option value="Purok 4">Purok 4</option>
+                                        <option value="Purok 5">Purok 5</option>
+                                        <option value="Purok 6">Purok 6</option>
+                                        <option value="Purok 7">Purok 7</option>
+                                        <option value="Other">Other</option>
+                                    </select>
                                 </div>
                                 
                                 <div class="form-group">
@@ -1264,6 +1387,37 @@ $conn->close();
             const createAccountCheckbox = document.getElementById('create_account');
             const userAccountFields = document.querySelectorAll('.user-account-field');
             const existingUserDropdown = document.getElementById('user_id');
+            const firstNameField = document.getElementById('first_name');
+            const middleNameField = document.getElementById('middle_name');
+            const lastNameField = document.getElementById('last_name');
+            
+            // Function to parse and populate name fields
+            function populateNameFields(fullName) {
+                const nameParts = fullName.trim().split(' ');
+                const count = nameParts.length;
+                
+                if (count === 1) {
+                    // Only first name
+                    firstNameField.value = nameParts[0];
+                    middleNameField.value = '';
+                    lastNameField.value = '';
+                } else if (count === 2) {
+                    // First and last name
+                    firstNameField.value = nameParts[0];
+                    middleNameField.value = '';
+                    lastNameField.value = nameParts[1];
+                } else if (count === 3) {
+                    // First, middle, and last name
+                    firstNameField.value = nameParts[0];
+                    middleNameField.value = nameParts[1];
+                    lastNameField.value = nameParts[2];
+                } else if (count >= 4) {
+                    // First 2 words = First Name, middle words = Middle Name, last word = Last Name
+                    firstNameField.value = nameParts[0] + ' ' + nameParts[1];
+                    middleNameField.value = nameParts.slice(2, -1).join(' ');
+                    lastNameField.value = nameParts[nameParts.length - 1];
+                }
+            }
             
             if (createAccountCheckbox) {
                 createAccountCheckbox.addEventListener('change', function() {
@@ -1288,8 +1442,17 @@ $conn->close();
                             userAccountFields.forEach(field => {
                                 field.style.display = 'none';
                             });
+                            
+                            // Auto-populate name fields from selected user
+                            const selectedOption = this.options[this.selectedIndex];
+                            const userName = selectedOption.text.split(' (')[0]; // Get name before email
+                            populateNameFields(userName);
                         } else {
                             createAccountCheckbox.disabled = false;
+                            // Clear name fields when no user is selected
+                            firstNameField.value = '';
+                            middleNameField.value = '';
+                            lastNameField.value = '';
                         }
                     });
                     

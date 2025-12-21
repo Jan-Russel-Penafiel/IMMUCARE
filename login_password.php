@@ -14,11 +14,11 @@ if (isset($_SESSION['user_id'])) {
 
 // Process login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
-    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+    $email_or_phone = trim($_POST['email']); // This field now accepts both email and phone
     $password = isset($_POST['password']) ? $_POST['password'] : '';
     
-    if (empty($email) || empty($password)) {
-        $error = 'Please enter both email and password';
+    if (empty($email_or_phone) || empty($password)) {
+        $error = 'Please enter both email/phone and password';
     } else {
         // Connect to database
         $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -27,13 +27,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
             die("Connection failed: " . $conn->connect_error);
         }
         
-        // Check if user exists and get all necessary user data
-        $stmt = $conn->prepare("SELECT id, email, name, user_type, password, phone, is_active, role_id FROM users WHERE email = ?");
-        $stmt->bind_param("s", $email);
+        // Normalize phone number - remove spaces, dashes, and parentheses
+        $normalized_phone = preg_replace('/[\s\-\(\)\+]/', '', $email_or_phone);
+        
+        // Check if user exists by email OR phone (with phone normalization)
+        $stmt = $conn->prepare("SELECT id, email, name, user_type, password, phone, is_active, role_id 
+                                FROM users 
+                                WHERE email = ? 
+                                OR phone = ? 
+                                OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') = ?");
+        $stmt->bind_param("sss", $email_or_phone, $email_or_phone, $normalized_phone);
         $stmt->execute();
         $result = $stmt->get_result();
         
-        if ($result->num_rows === 1) {
+        if ($result->num_rows >= 1) {
             $user = $result->fetch_assoc();
             
             // Check if user is active
@@ -81,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 $error = 'Invalid password. Please try again.';
             }
         } else {
-            $error = 'Email not found. Please register first.';
+            $error = 'Email or phone number not found. Please register first.';
         }
         
         $stmt->close();
@@ -280,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                         <img src="images/logo.svg" alt="ImmuCare Logo">
                     </div>
                     <h1 class="auth-title">Login with Password</h1>
-                    <p class="auth-subtitle">Enter your email and password to access your account</p>
+                    <p class="auth-subtitle">Enter your email or phone number and password to access your account</p>
                     
                     <?php if (!empty($error)): ?>
                         <div class="alert alert-danger" role="alert">
@@ -298,8 +305,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                     
                     <form method="POST" action="">
                         <div class="mb-3">
-                            <label for="email" class="form-label">Email Address</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
+                            <label for="email" class="form-label">Email Address or Phone Number</label>
+                            <input type="text" class="form-control" id="email" name="email" placeholder="Enter email or phone number" required>
                         </div>
                         <div class="mb-4">
                             <label for="password" class="form-label">Password</label>
@@ -329,12 +336,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     <script>
         // Add client-side validation
         document.querySelector('form').addEventListener('submit', function(e) {
-            const email = document.getElementById('email').value;
+            const emailOrPhone = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
             
-            if (!email || !password) {
+            if (!emailOrPhone || !password) {
                 e.preventDefault();
-                alert('Please enter both email and password');
+                alert('Please enter both email/phone and password');
             }
         });
     </script>

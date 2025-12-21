@@ -492,8 +492,18 @@ function sendWelcomeEmail($conn, $notification_id, $user_id, $email, $name, $pas
                         <h3 class="section-title">Address Information</h3>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="purok" class="form-label">Purok/Street <span class="required">*</span></label>
-                                <input type="text" class="form-control" id="purok" name="purok" required value="<?php echo isset($_POST['purok']) ? htmlspecialchars($_POST['purok']) : ''; ?>">
+                                <label for="purok" class="form-label">Purok/Subdivision <span class="required">*</span></label>
+                                <select class="form-select" id="purok" name="purok" required>
+                                    <option value="">-- Select Purok --</option>
+                                    <option value="Purok 1" <?php echo (isset($_POST['purok']) && $_POST['purok'] == 'Purok 1') ? 'selected' : ''; ?>>Purok 1</option>
+                                    <option value="Purok 2" <?php echo (isset($_POST['purok']) && $_POST['purok'] == 'Purok 2') ? 'selected' : ''; ?>>Purok 2</option>
+                                    <option value="Purok 3" <?php echo (isset($_POST['purok']) && $_POST['purok'] == 'Purok 3') ? 'selected' : ''; ?>>Purok 3</option>
+                                    <option value="Purok 4" <?php echo (isset($_POST['purok']) && $_POST['purok'] == 'Purok 4') ? 'selected' : ''; ?>>Purok 4</option>
+                                    <option value="Purok 5" <?php echo (isset($_POST['purok']) && $_POST['purok'] == 'Purok 5') ? 'selected' : ''; ?>>Purok 5</option>
+                                    <option value="Purok 6" <?php echo (isset($_POST['purok']) && $_POST['purok'] == 'Purok 6') ? 'selected' : ''; ?>>Purok 6</option>
+                                    <option value="Purok 7" <?php echo (isset($_POST['purok']) && $_POST['purok'] == 'Purok 7') ? 'selected' : ''; ?>>Purok 7</option>
+                                    <option value="Other" <?php echo (isset($_POST['purok']) && $_POST['purok'] == 'Other') ? 'selected' : ''; ?>>Other</option>
+                                </select>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="city" class="form-label">City/Municipality <span class="required">*</span></label>

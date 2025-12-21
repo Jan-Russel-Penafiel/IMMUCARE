@@ -54,7 +54,15 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 // Add new user
 if ($action == 'add' && isset($_POST['add_user'])) {
-    $name = $_POST['name'];
+    // Get separate name fields and combine them
+    $first_name = $_POST['first_name'];
+    $middle_name = !empty($_POST['middle_name']) ? $_POST['middle_name'] : '';
+    $last_name = $_POST['last_name'];
+    
+    // Combine into full name for users table
+    $name = trim($first_name . ' ' . $middle_name . ' ' . $last_name);
+    $name = preg_replace('/\s+/', ' ', $name); // Remove extra spaces
+    
     $email = $_POST['email'];
     $password = !empty($_POST['password']) ? $_POST['password'] : null;
     $role_id = $_POST['role_id'];
@@ -86,7 +94,8 @@ if ($action == 'add' && isset($_POST['add_user'])) {
             $notification_system->sendPatientAccountNotification(
                 $new_user_id,
                 'created',
-                ['password' => $password]
+                ['password' => $password],
+                false // Don't send SMS, email only
             );
         }
         
@@ -110,7 +119,16 @@ if ($action == 'edit' && isset($_POST['edit_user'])) {
     
     try {
         $user_id = $_POST['user_id'];
-        $name = $_POST['name'];
+        
+        // Get separate name fields and combine them
+        $first_name = $_POST['first_name'];
+        $middle_name = !empty($_POST['middle_name']) ? $_POST['middle_name'] : '';
+        $last_name = $_POST['last_name'];
+        
+        // Combine into full name for users table
+        $name = trim($first_name . ' ' . $middle_name . ' ' . $last_name);
+        $name = preg_replace('/\s+/', ' ', $name); // Remove extra spaces
+        
         $email = $_POST['email'];
         $role_id = $_POST['role_id'];
         $phone = $_POST['phone'];
@@ -142,27 +160,23 @@ if ($action == 'edit' && isset($_POST['edit_user'])) {
         $patient_result = $check_patient->get_result();
         
         if ($patient_result->num_rows > 0) {
-            // Extract first and last name from full name
-            $name_parts = explode(' ', $name);
-            $first_name = $name_parts[0];
-            $last_name = count($name_parts) > 1 ? end($name_parts) : '';
-            
-            // Update associated patient record
-            $update_patient = $conn->prepare("UPDATE patients SET first_name = ?, last_name = ?, phone_number = ? WHERE user_id = ?");
-            $update_patient->bind_param("sssi", $first_name, $last_name, $phone, $user_id);
+            // Update associated patient record with the separate name fields
+            $update_patient = $conn->prepare("UPDATE patients SET first_name = ?, middle_name = ?, last_name = ?, phone_number = ? WHERE user_id = ?");
+            $update_patient->bind_param("ssssi", $first_name, $middle_name, $last_name, $phone, $user_id);
             if (!$update_patient->execute()) {
                 throw new Exception("Error updating associated patient record: " . $conn->error);
             }
         }
         
-        // Send update notification
+        // Send update notification (email only)
         $notification_system->sendPatientAccountNotification(
             $user_id,
             'updated',
             [
                 'is_active' => $is_active,
                 'password_updated' => !empty($_POST['password'])
-            ]
+            ],
+            false // Don't send SMS, email only
         );
         
         // Commit transaction
@@ -201,7 +215,8 @@ if ($action === 'delete' && isset($_GET['id'])) {
             $notification_system->sendPatientAccountNotification(
                 $user_id,
                 'deleted',
-                []
+                [],
+                false // Don't send SMS, email only
             );
         } catch (Exception $e) {
             // Log notification error but continue with deletion
@@ -671,8 +686,37 @@ $conn->close();
                             
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label for="name">Full Name</label>
-                                    <input type="text" id="name" name="name" value="<?php echo $action == 'edit' ? htmlspecialchars($edit_user['name']) : ''; ?>" required>
+                                    <label for="first_name">First Name</label>
+                                    <input type="text" id="first_name" name="first_name" value="<?php 
+                                        if ($action == 'edit') {
+                                            $name_parts = explode(' ', $edit_user['name']);
+                                            echo htmlspecialchars($name_parts[0]);
+                                        }
+                                    ?>" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="middle_name">Middle Name (Optional)</label>
+                                    <input type="text" id="middle_name" name="middle_name" value="<?php 
+                                        if ($action == 'edit') {
+                                            $name_parts = explode(' ', $edit_user['name']);
+                                            if (count($name_parts) > 2) {
+                                                echo htmlspecialchars(implode(' ', array_slice($name_parts, 1, -1)));
+                                            }
+                                        }
+                                    ?>">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="last_name">Last Name</label>
+                                    <input type="text" id="last_name" name="last_name" value="<?php 
+                                        if ($action == 'edit') {
+                                            $name_parts = explode(' ', $edit_user['name']);
+                                            if (count($name_parts) > 1) {
+                                                echo htmlspecialchars(end($name_parts));
+                                            }
+                                        }
+                                    ?>" required>
                                 </div>
                                 
                                 <div class="form-group">

@@ -482,6 +482,8 @@ $conn->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
         .dashboard-container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #e1e4e8; }
@@ -1063,7 +1065,7 @@ $conn->close();
                             <a href="#" class="btn-export" onclick="exportTableToCSV('<?php echo $report_title; ?>')">
                                 <i class="fas fa-file-csv"></i> Export to CSV
                             </a>
-                            <a href="#" class="btn-print" onclick="window.print()">
+                            <a href="#" class="btn-print" onclick="printReportPDF(); return false;">
                                 <i class="fas fa-print"></i> Print Report
                             </a>
                         </div>
@@ -1428,6 +1430,136 @@ $conn->close();
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+        
+        // Function to print report as PDF using jsPDF
+        function printReportPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            
+            // Get report title and metadata
+            const reportTitle = document.querySelector('.report-title')?.innerText || 'Report';
+            const reportMeta = document.querySelector('.report-meta')?.innerText || '';
+            
+            // Add header
+            doc.setFontSize(20);
+            doc.setTextColor(50, 100, 200);
+            doc.text('ImmuCare', 14, 20);
+            
+            doc.setFontSize(16);
+            doc.setTextColor(0, 0, 0);
+            doc.text(reportTitle, 14, 30);
+            
+            // Add metadata
+            doc.setFontSize(9);
+            doc.setTextColor(100, 100, 100);
+            const metaLines = doc.splitTextToSize(reportMeta, 180);
+            doc.text(metaLines, 14, 38);
+            
+            let yPosition = 38 + (metaLines.length * 5) + 5;
+            
+            // Add statistics cards if present
+            const statCards = document.querySelectorAll('.stat-card');
+            if (statCards.length > 0) {
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                doc.text('Summary Statistics:', 14, yPosition);
+                yPosition += 7;
+                
+                statCards.forEach((card, index) => {
+                    const title = card.querySelector('h4')?.innerText || '';
+                    const value = card.querySelector('.stat-value')?.innerText || '';
+                    
+                    doc.setFontSize(9);
+                    doc.setTextColor(50, 50, 50);
+                    doc.text(`${title}: ${value}`, 14, yPosition);
+                    yPosition += 5;
+                });
+                
+                yPosition += 5;
+            }
+            
+            // Process all tables
+            const tables = document.querySelectorAll('.report-table');
+            tables.forEach((table, tableIndex) => {
+                // Get table headers
+                const headers = [];
+                const headerCells = table.querySelectorAll('thead tr th, tr:first-child th');
+                headerCells.forEach(cell => {
+                    headers.push(cell.innerText.trim());
+                });
+                
+                // Get table data
+                const data = [];
+                const rows = table.querySelectorAll('tbody tr, tr:not(:first-child)');
+                rows.forEach(row => {
+                    const rowData = [];
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length > 0) {
+                        cells.forEach(cell => {
+                            rowData.push(cell.innerText.trim());
+                        });
+                        data.push(rowData);
+                    }
+                });
+                
+                // If no separate header row, use first data row as header
+                if (headers.length === 0 && data.length > 0) {
+                    headers.push(...data.shift());
+                }
+                
+                // Add table title if there's an h4 before the table
+                const previousElement = table.previousElementSibling;
+                if (previousElement && previousElement.tagName === 'H4') {
+                    if (yPosition > 250) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+                    doc.setFontSize(12);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(previousElement.innerText, 14, yPosition);
+                    yPosition += 8;
+                }
+                
+                // Add table to PDF
+                if (headers.length > 0 && data.length > 0) {
+                    doc.autoTable({
+                        head: [headers],
+                        body: data,
+                        startY: yPosition,
+                        margin: { left: 14, right: 14 },
+                        styles: {
+                            fontSize: 8,
+                            cellPadding: 2,
+                            overflow: 'linebreak'
+                        },
+                        headStyles: {
+                            fillColor: [50, 100, 200],
+                            textColor: 255,
+                            fontStyle: 'bold'
+                        },
+                        alternateRowStyles: {
+                            fillColor: [245, 245, 245]
+                        },
+                        didDrawPage: function(data) {
+                            // Footer
+                            doc.setFontSize(8);
+                            doc.setTextColor(150);
+                            doc.text(
+                                `Generated: ${new Date().toLocaleString()} | Page ${doc.internal.getNumberOfPages()}`,
+                                14,
+                                doc.internal.pageSize.height - 10
+                            );
+                        }
+                    });
+                    
+                    yPosition = doc.lastAutoTable.finalY + 10;
+                }
+            });
+            
+            // Save/Print the PDF
+            const filename = reportTitle.replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
+            doc.save(filename);
         }
     </script>
 </body>

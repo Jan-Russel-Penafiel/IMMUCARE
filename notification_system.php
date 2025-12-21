@@ -286,6 +286,9 @@ class NotificationSystem {
      * @return bool Whether the notification was sent successfully
      */
     public function sendCustomNotification($user_id, $title, $message, $channel = 'both', $skip_deletion_notifications = false) {
+        // Log the channel parameter
+        error_log("NOTIFICATION_SYSTEM: sendCustomNotification called with channel='" . $channel . "' for user_id=" . $user_id);
+        
         try {
             // Skip deletion-related notifications if requested
             if ($skip_deletion_notifications && (stripos($title, 'deleted') !== false || stripos($message, 'deleted') !== false || stripos($title, 'cancelled') !== false)) {
@@ -352,11 +355,13 @@ class NotificationSystem {
         
             // Send SMS if requested
             if ($channel === 'both' || $channel === 'sms') {
+                error_log("NOTIFICATION_SYSTEM: SMS channel triggered (channel='" . $channel . "')");
                 // Use patient phone number if available, otherwise use user phone
                 $phone_to_use = !empty($user['patient_phone']) ? $user['patient_phone'] : $user['user_phone'];
                 
                 if (!empty($phone_to_use)) {
                     $sms_message = "IMMUCARE: $title - $message";
+                    error_log("NOTIFICATION_SYSTEM: Sending SMS to " . $phone_to_use);
                     if (!$this->sendSMS(
                         $phone_to_use, 
                         $sms_message, 
@@ -370,6 +375,8 @@ class NotificationSystem {
                         $success = false;
                     }
                 }
+            } else {
+                error_log("NOTIFICATION_SYSTEM: SMS channel NOT triggered (channel='" . $channel . "')");
             }
             
             if ($success) {
@@ -383,6 +390,111 @@ class NotificationSystem {
         } catch (Exception $e) {
             $this->conn->rollback();
             error_log("Error in sendCustomNotification: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    /**
+     * Send unified notification with different messages for email and SMS
+     * This ensures ONE email (detailed) and ONE SMS (concise) are sent
+     * 
+     * @param int $user_id User ID to send notification to
+     * @param string $title Notification title
+     * @param string $email_message Detailed message for email
+     * @param string $sms_message Concise message for SMS
+     * @param bool $send_sms Whether to send SMS (default: true)
+     * @return bool Whether the notification was sent successfully
+     */
+    private function sendUnifiedNotification($user_id, $title, $email_message, $sms_message, $send_sms = true) {
+        try {
+            // Start transaction
+            $this->conn->begin_transaction();
+        
+            // Create notification record with email message (more detailed)
+            $notification_stmt = $this->conn->prepare("
+                INSERT INTO notifications (
+                    user_id, 
+                    title, 
+                    message, 
+                    type,
+                    is_read,
+                    sent_at,
+                    created_at
+                ) VALUES (?, ?, ?, 'system', 0, NOW(), NOW())
+            ");
+            
+            $notification_stmt->bind_param("iss", $user_id, $title, $email_message);
+            
+            if (!$notification_stmt->execute()) {
+                throw new Exception("Failed to create notification record");
+            }
+            
+            $notification_id = $this->conn->insert_id;
+            
+            // Get user and patient details
+            $user_stmt = $this->conn->prepare("
+                SELECT 
+                    u.email as user_email,
+                    u.phone as user_phone,
+                    u.name as user_name,
+                    p.id as patient_id,
+                    p.phone_number as patient_phone,
+                    CONCAT(p.first_name, ' ', p.last_name) as patient_name
+                FROM users u
+                LEFT JOIN patients p ON u.id = p.user_id
+                WHERE u.id = ?
+            ");
+            $user_stmt->bind_param("i", $user_id);
+            $user_stmt->execute();
+            $user = $user_stmt->get_result()->fetch_assoc();
+        
+            if (!$user) {
+                throw new Exception("User not found");
+            }
+        
+            $success = true;
+            $name_to_use = $user['patient_name'] ?? $user['user_name'];
+        
+            // Send ONE email with detailed message
+            if (!empty($user['user_email'])) {
+                $formatted_email = $this->getCustomEmailTemplate($name_to_use, $title, $email_message);
+                if (!$this->sendEmail($user['user_email'], $title, $formatted_email)) {
+                    $success = false;
+                }
+            }
+        
+            // Send ONE SMS with concise message (only if $send_sms is true)
+            if ($send_sms) {
+                $phone_to_use = !empty($user['patient_phone']) ? $user['patient_phone'] : $user['user_phone'];
+                
+                if (!empty($phone_to_use)) {
+                // Don't add "IMMUCARE:" prefix as it's already in the SMS message
+                if (!$this->sendSMS(
+                    $phone_to_use, 
+                    $sms_message, 
+                    $user['patient_id'] ?? null, 
+                    $user_id, 
+                    $notification_id, 
+                    $title, 
+                    'unified_notification',
+                    null
+                )) {
+                    $success = false;
+                }
+            }
+            }
+            
+            if ($success) {
+                $this->conn->commit();
+                return true;
+            } else {
+                $this->conn->rollback();
+                return false;
+            }
+            
+        } catch (Exception $e) {
+            $this->conn->rollback();
+            error_log("Error in sendUnifiedNotification: " . $e->getMessage());
             throw $e;
         }
     }
@@ -1127,9 +1239,10 @@ class NotificationSystem {
      * @param int $user_id User ID
      * @param string $action Action type ('created', 'linked', 'updated', 'deleted')
      * @param array $data Additional data for the notification
+     * @param bool $send_sms Whether to send SMS (default: true)
      * @return bool Whether the notification was sent successfully
      */
-    public function sendPatientAccountNotification($user_id, $action, $data = []) {
+    public function sendPatientAccountNotification($user_id, $action, $data = [], $send_sms = true) {
         try {
             // Get user and patient details
             $user_stmt = $this->conn->prepare("
@@ -1165,58 +1278,52 @@ class NotificationSystem {
                     $is_linking = isset($data['is_linking']) && $data['is_linking'];
                     $patient_details = isset($data['patient_details']) ? $data['patient_details'] : null;
                     
-                    // Send account credentials via email only
-                    if (!$is_linking && isset($data['password'])) {
-                        $account_title = "IMMUCARE: Account Created Successfully";
-                        $account_message = "Dear " . $user['user_name'] . ",\n\n" .
-                                        "Your IMMUCARE account has been successfully created.\n\n" .
-                                        "Account Details:\n" .
-                                        "Email: " . $user['user_email'] . "\n" .
-                                        "Phone: " . $user['user_phone'] . "\n" .
-                                        "Password: " . $data['password'] . "\n\n" .
-                                        "For security reasons, please change your password after logging in.\n\n" .
-                                        "Need help? Contact us:\n" .
-                                        "Phone: " . SUPPORT_PHONE . "\n" .
-                                        "Email: " . SUPPORT_EMAIL . "\n\n" .
-                                        "Best regards,\n" .
-                                        "IMMUCARE Team";
-                        
-                        // Send account credentials via email only
-                        $this->sendCustomNotification($user_id, $account_title, $account_message, 'email');
-                    }
-
-                    // Send patient profile information via both SMS and email
+                    // Build unified message for both email and SMS
+                    // Include credentials in email, simpler message for SMS
                     if ($patient_details) {
-                        $profile_title = "IMMUCARE: Patient Profile Created";
-                        $profile_message = "Dear " . $patient_details['first_name'] . ",\n\n" .
-                                        "Your patient profile has been created in IMMUCARE.\n\n" .
-                                        "Profile Details:\n" .
-                                        "Name: " . $patient_details['first_name'] . 
-                                        ($patient_details['middle_name'] ? " " . $patient_details['middle_name'] . " " : " ") . 
-                                        $patient_details['last_name'] . "\n" .
-                                        "Birth Date: " . date('F j, Y', strtotime($patient_details['date_of_birth'])) . "\n" .
-                                        "Gender: " . ucfirst($patient_details['gender']) . "\n" .
-                                        "Contact: " . $patient_details['phone_number'] . "\n" .
-                                        "Address: Purok " . $patient_details['purok'] . ", " . 
-                                        $patient_details['city'] . ", " . $patient_details['province'] . "\n";
+                        $title = "IMMUCARE: Account and Profile Created";
+                        
+                        // Email message (detailed with credentials if new account)
+                        $email_message = "Dear " . $patient_details['first_name'] . ",\n\n";
+                        
+                        if (!$is_linking && isset($data['password'])) {
+                            $email_message .= "Your IMMUCARE account has been successfully created.\n\n" .
+                                           "Login Credentials:\n" .
+                                           "Email: " . $user['user_email'] . "\n" .
+                                           "Password: " . $data['password'] . "\n" .
+                                           "For security, please change your password after first login.\n\n";
+                        }
+                        
+                        $email_message .= "Patient Profile Created:\n" .
+                                       "Name: " . $patient_details['first_name'] . 
+                                       ($patient_details['middle_name'] ? " " . $patient_details['middle_name'] . " " : " ") . 
+                                       $patient_details['last_name'] . "\n" .
+                                       "Birth Date: " . date('F j, Y', strtotime($patient_details['date_of_birth'])) . "\n" .
+                                       "Gender: " . ucfirst($patient_details['gender']) . "\n" .
+                                       "Contact: " . $patient_details['phone_number'] . "\n" .
+                                       "Address: Purok " . $patient_details['purok'] . ", " . 
+                                       $patient_details['city'] . ", " . $patient_details['province'] . "\n";
 
                         if (!empty($patient_details['medical_history'])) {
-                            $profile_message .= "\nMedical History:\n" . $patient_details['medical_history'] . "\n";
+                            $email_message .= "\nMedical History: " . $patient_details['medical_history'] . "\n";
                         }
                         if (!empty($patient_details['allergies'])) {
-                            $profile_message .= "\nAllergies:\n" . $patient_details['allergies'] . "\n";
+                            $email_message .= "Allergies: " . $patient_details['allergies'] . "\n";
                         }
 
-                        $profile_message .= "\nYou can now:\n" .
-                                        "1. View immunization records\n" .
-                                        "2. Schedule vaccinations\n" .
-                                        "3. Receive health notifications\n" .
-                                        "4. Update your information\n\n" .
-                                        "Best regards,\n" .
-                                        "IMMUCARE Team";
-
-                        // Send patient profile information via both SMS and email
-                        $this->sendCustomNotification($user_id, $profile_title, $profile_message, 'both');
+                        $email_message .= "\nYou can now view immunization records, schedule vaccinations, and receive health notifications.\n\n" .
+                                       "Need help? Contact us at " . SUPPORT_PHONE . "\n\n" .
+                                       "Best regards,\nIMMUCARE Team";
+                        
+                        // SMS message (simple and concise)
+                        $sms_message = "Welcome to IMMUCARE! Your patient profile has been created. " .
+                                     "You can now schedule appointments and view your health records. " .
+                                     ($is_linking ? "" : "Check your email for login details. ") .
+                                     "Contact us: " . SUPPORT_PHONE;
+                        
+                        // Send ONE unified notification via notification system
+                        // This will send ONE email (detailed) and ONE SMS (concise)
+                        return $this->sendUnifiedNotification($user_id, $title, $email_message, $sms_message, $send_sms);
                     }
                     return true;
 
@@ -1232,7 +1339,9 @@ class NotificationSystem {
                              "Email: " . SUPPORT_EMAIL . "\n\n" .
                              "Best regards,\n" .
                              "IMMUCARE Team";
-                    return $this->sendCustomNotification($user_id, $title, $message, 'both');
+                    // Respect $send_sms parameter - send email only if $send_sms is false
+                    $channel = $send_sms ? 'both' : 'email';
+                    return $this->sendCustomNotification($user_id, $title, $message, $channel);
 
                 case 'deleted':
                     // Skip sending deletion notifications as per system policy

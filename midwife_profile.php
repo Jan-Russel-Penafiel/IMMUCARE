@@ -128,6 +128,22 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
+// Get activity statistics
+$stmt = $conn->prepare("SELECT COUNT(DISTINCT patient_id) as count FROM appointments WHERE staff_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$patients_managed = $stmt->get_result()->fetch_assoc()['count'];
+
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM appointments WHERE staff_id = ? AND status = 'completed'");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$appointments_completed = $stmt->get_result()->fetch_assoc()['count'];
+
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM immunizations WHERE administered_by = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$immunizations_recorded = $stmt->get_result()->fetch_assoc()['count'];
+
 $conn->close();
 ?>
 
@@ -571,21 +587,21 @@ $conn->close();
                             <div class="stat-icon">
                                 <i class="fas fa-user-injured"></i>
                             </div>
-                            <div class="stat-value">--</div>
+                            <div class="stat-value"><?php echo $patients_managed; ?></div>
                             <div class="stat-label">Patients Managed</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon">
                                 <i class="fas fa-calendar-check"></i>
                             </div>
-                            <div class="stat-value">--</div>
+                            <div class="stat-value"><?php echo $appointments_completed; ?></div>
                             <div class="stat-label">Appointments Completed</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon">
                                 <i class="fas fa-syringe"></i>
                             </div>
-                            <div class="stat-value">--</div>
+                            <div class="stat-value"><?php echo $immunizations_recorded; ?></div>
                             <div class="stat-label">Immunizations Recorded</div>
                         </div>
                     </div>

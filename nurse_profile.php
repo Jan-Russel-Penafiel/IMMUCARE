@@ -119,6 +119,11 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $appointment_count = $stmt->get_result()->fetch_assoc()['count'];
 
+$stmt = $conn->prepare("SELECT COUNT(DISTINCT patient_id) as count FROM appointments WHERE staff_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$patients_managed = $stmt->get_result()->fetch_assoc()['count'];
+
 $conn->close();
 ?>
 
@@ -486,6 +491,10 @@ $conn->close();
                 </div>
                 
                 <div class="profile-stats">
+                    <div class="stat-card">
+                        <div class="stat-value"><?php echo $patients_managed; ?></div>
+                        <div class="stat-label">Patients Managed</div>
+                    </div>
                     <div class="stat-card">
                         <div class="stat-value"><?php echo $immunization_count; ?></div>
                         <div class="stat-label">Immunizations Administered</div>

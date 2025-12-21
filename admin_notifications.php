@@ -1030,7 +1030,7 @@ function getGroupCount($group, $grouped_users) {
                                             </td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    <a href="#" class="action-btn btn-view" onclick="viewNotification('<?php echo htmlspecialchars($notification['title'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($notification['message'], ENT_QUOTES); ?>')">
+                                                    <a href="#" class="action-btn btn-view" onclick="viewNotification(<?php echo htmlspecialchars(json_encode($notification['title']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($notification['message']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($notification['user_name'] ?? 'Unknown'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($notification['created_at']), ENT_QUOTES); ?>); return false;">
                                                         <i class="fas fa-eye"></i> View
                                                     </a>
                                                     <a href="?action=delete&id=<?php echo $notification['id']; ?>" class="action-btn btn-delete" onclick="return confirm('Are you sure you want to delete this notification?');">
@@ -1214,7 +1214,7 @@ function getGroupCount($group, $grouped_users) {
         });
         
         // Function to view notification details
-        function viewNotification(title, message) {
+        function viewNotification(title, message, recipient, createdAt) {
             // Create modal elements
             const modal = document.createElement('div');
             modal.style.position = 'fixed';
@@ -1222,42 +1222,77 @@ function getGroupCount($group, $grouped_users) {
             modal.style.top = '0';
             modal.style.width = '100%';
             modal.style.height = '100%';
-            modal.style.backgroundColor = 'rgba(0,0,0,0.4)';
-            modal.style.zIndex = '1000';
+            modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+            modal.style.zIndex = '10000';
             modal.style.display = 'flex';
             modal.style.justifyContent = 'center';
             modal.style.alignItems = 'center';
+            modal.style.padding = '20px';
             
             const modalContent = document.createElement('div');
             modalContent.style.backgroundColor = '#fff';
             modalContent.style.padding = '30px';
-            modalContent.style.borderRadius = '8px';
-            modalContent.style.width = '50%';
+            modalContent.style.borderRadius = '10px';
+            modalContent.style.width = '90%';
             modalContent.style.maxWidth = '600px';
-            modalContent.style.boxShadow = '0 4px 10px rgba(0,0,0,0.1)';
+            modalContent.style.maxHeight = '80vh';
+            modalContent.style.overflow = 'auto';
+            modalContent.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+            modalContent.style.position = 'relative';
             
             const closeBtn = document.createElement('span');
             closeBtn.innerHTML = '&times;';
-            closeBtn.style.float = 'right';
-            closeBtn.style.fontSize = '24px';
+            closeBtn.style.position = 'absolute';
+            closeBtn.style.right = '20px';
+            closeBtn.style.top = '15px';
+            closeBtn.style.fontSize = '28px';
             closeBtn.style.fontWeight = 'bold';
             closeBtn.style.cursor = 'pointer';
+            closeBtn.style.color = '#999';
+            closeBtn.style.lineHeight = '1';
+            closeBtn.onmouseover = function() { this.style.color = '#333'; };
+            closeBtn.onmouseout = function() { this.style.color = '#999'; };
             closeBtn.onclick = function() {
                 document.body.removeChild(modal);
             };
             
             const modalTitle = document.createElement('h3');
             modalTitle.textContent = title;
-            modalTitle.style.marginBottom = '20px';
+            modalTitle.style.marginBottom = '15px';
+            modalTitle.style.marginTop = '0';
             modalTitle.style.color = '#4285f4';
+            modalTitle.style.fontSize = '1.5rem';
+            modalTitle.style.paddingRight = '30px';
             
-            const modalMessage = document.createElement('p');
+            const metaInfo = document.createElement('div');
+            metaInfo.style.marginBottom = '20px';
+            metaInfo.style.paddingBottom = '15px';
+            metaInfo.style.borderBottom = '1px solid #e1e4e8';
+            metaInfo.style.fontSize = '0.9rem';
+            metaInfo.style.color = '#666';
+            metaInfo.innerHTML = `
+                <div style="margin-bottom: 5px;">
+                    <i class="fas fa-user" style="margin-right: 5px; color: #4285f4;"></i>
+                    <strong>Recipient:</strong> ${recipient}
+                </div>
+                <div>
+                    <i class="fas fa-clock" style="margin-right: 5px; color: #4285f4;"></i>
+                    <strong>Sent:</strong> ${new Date(createdAt).toLocaleString()}
+                </div>
+            `;
+            
+            const modalMessage = document.createElement('div');
             modalMessage.textContent = message;
             modalMessage.style.lineHeight = '1.6';
+            modalMessage.style.color = '#333';
+            modalMessage.style.fontSize = '1rem';
+            modalMessage.style.whiteSpace = 'pre-wrap';
+            modalMessage.style.wordWrap = 'break-word';
             
             // Append elements
             modalContent.appendChild(closeBtn);
             modalContent.appendChild(modalTitle);
+            modalContent.appendChild(metaInfo);
             modalContent.appendChild(modalMessage);
             modal.appendChild(modalContent);
             document.body.appendChild(modal);
@@ -1268,6 +1303,17 @@ function getGroupCount($group, $grouped_users) {
                     document.body.removeChild(modal);
                 }
             };
+            
+            // Close on Escape key
+            const escapeHandler = function(event) {
+                if (event.key === 'Escape') {
+                    if (document.body.contains(modal)) {
+                        document.body.removeChild(modal);
+                    }
+                    document.removeEventListener('keydown', escapeHandler);
+                }
+            };
+            document.addEventListener('keydown', escapeHandler);
         }
         
         function toggleCustomTitle() {
