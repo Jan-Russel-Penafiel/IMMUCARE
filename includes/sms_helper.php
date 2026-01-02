@@ -6,6 +6,23 @@
  */
 
 /**
+ * Format SMS message with universal prefix for IPROG template compatibility
+ * Based on the approved iProg SMS template that requires:
+ * "This is an important message from the Organization. [Your message]"
+ * 
+ * @param string $message Original message content
+ * @return string Formatted message with prefix
+ */
+function formatSMSMessage($message) {
+    $prefix = 'This is an important message from the Organization. ';
+    // Don't add prefix if message already starts with it
+    if (strpos($message, $prefix) === 0) {
+        return $message;
+    }
+    return $prefix . $message;
+}
+
+/**
  * Send an SMS using the configured SMS provider
  * 
  * @param string $phone_number Recipient phone number
@@ -28,11 +45,14 @@ function sendSMS($phone_number, $message) {
             $phone_number = '63' . $phone_number;
         }
         
+        // Format message with universal prefix for IPROG template compatibility
+        $formatted_message = formatSMSMessage($message);
+        
         // Prepare request data for IProg SMS API
         $send_data = [
             'api_token' => IPROG_SMS_API_KEY,
             'phone_number' => $phone_number,
-            'message' => $message
+            'message' => $formatted_message
         ];
         
         // Log request data for debugging
@@ -79,8 +99,23 @@ function sendSMS($phone_number, $message) {
         error_log("IProg SMS API HTTP Status Code: " . $http_code);
         
         // Check if the message was sent successfully
+        // iProg API returns HTTP 200 but may have error status in JSON response
         if ($http_code === 200 || $http_code === 201) {
-            // IProg SMS typically returns success with status 200 or 201
+            // Check if API response contains an error status (500 = error, 200 = success)
+            if (isset($response_data['status']) && $response_data['status'] == 500) {
+                // API returned an error in the response body
+                $error_msg = is_array($response_data['message']) 
+                    ? implode(', ', $response_data['message']) 
+                    : $response_data['message'];
+                error_log("IProg SMS API Error: " . $error_msg);
+                return [
+                    'status' => 'failed',
+                    'message' => "API Error: " . $error_msg,
+                    'response' => $response_data
+                ];
+            }
+            
+            // Success - SMS was sent
             return [
                 'status' => 'sent',
                 'message' => 'Message sent successfully',

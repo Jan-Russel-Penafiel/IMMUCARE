@@ -83,31 +83,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['appointment_id']) && 
         switch($new_status) {
             case 'confirmed':
                 // Include date for confirmed appointments
-                $status_message = "Your appointment on " . $appointment_date . " at " . $appointment_time . " is CONFIRMED. Please arrive 15 minutes early.";
+                $status_message = "Appointment on " . date('M j, Y', strtotime($appointment_data['appointment_date'])) . " at " . $appointment_time . " CONFIRMED. Arrive 15 mins early.";
                 break;
             case 'scheduled':
                 // Include date for scheduled appointments
-                $status_message = "Your appointment is scheduled for " . $appointment_date . " at " . $appointment_time . ". We look forward to seeing you.";
+                $status_message = "Appointment scheduled for " . date('M j, Y', strtotime($appointment_data['appointment_date'])) . " at " . $appointment_time . ".";
                 break;
             case 'completed':
                 // No date needed - it's already completed
-                $status_message = "Your appointment has been COMPLETED. Thank you for visiting ImmuCare!";
+                $status_message = "Appointment COMPLETED. Thank you for visiting!";
                 break;
             case 'cancelled':
                 // No date needed - appointment is cancelled
-                $status_message = "Your appointment has been CANCELLED. You may reschedule anytime by contacting us or booking online.";
+                $status_message = "Appointment CANCELLED. Contact us to reschedule.";
                 break;
             case 'no_show':
                 // No date needed - patient didn't show up
-                $status_message = "You missed your appointment. Please contact us at your earliest convenience to reschedule.";
+                $status_message = "Missed appointment. Contact us to reschedule.";
                 break;
             case 'requested':
                 // No date needed - just a request pending confirmation
-                $status_message = "Your appointment request has been received. We will contact you shortly to confirm the schedule.";
+                $status_message = "Appointment request received. We will confirm shortly.";
                 break;
             default:
                 // Generic message with date for unknown statuses
-                $status_message = "Your appointment status has been updated to " . ucfirst($new_status) . ".";
+                $status_message = "Appointment status updated to " . ucfirst($new_status) . ".";
         }
         
         // Add notes if provided

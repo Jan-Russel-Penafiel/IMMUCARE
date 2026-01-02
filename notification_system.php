@@ -143,7 +143,7 @@ class NotificationSystem {
             
             // Send SMS notification if enabled
             if ($sms_enabled && !empty($appointment['phone_number'])) {
-                $sms_message = "IMMUCARE REMINDER: You have an appointment for {$purpose} on {$formatted_date} at {$formatted_time}. Location: {$location}";
+                $sms_message = "Reminder: Appointment for {$purpose} on " . $appointment_datetime->format('M j, Y') . " at {$formatted_time}. Location: {$location}";
                 
                 $sms_result = $this->sendSMS(
                     $appointment['phone_number'], 
@@ -251,7 +251,7 @@ class NotificationSystem {
             
             // Send SMS notification if enabled
             if ($sms_enabled && !empty($immunization['phone_number'])) {
-                $sms_message = "IMMUCARE ALERT: Your {$vaccine_name} vaccination is due on {$formatted_due_date}. Please schedule an appointment soon.";
+                $sms_message = "{$vaccine_name} vaccination due on " . $due_date->format('M j, Y') . ". Schedule your appointment.";
                 
                 $sms_result = $this->sendSMS(
                     $immunization['phone_number'], 
@@ -360,7 +360,8 @@ class NotificationSystem {
                 $phone_to_use = !empty($user['patient_phone']) ? $user['patient_phone'] : $user['user_phone'];
                 
                 if (!empty($phone_to_use)) {
-                    $sms_message = "IMMUCARE: $title - $message";
+                    // Keep SMS concise - title only for short messages, truncate if needed
+                    $sms_message = strlen($message) > 100 ? $title : "$title - $message";
                     error_log("NOTIFICATION_SYSTEM: Sending SMS to " . $phone_to_use);
                     if (!$this->sendSMS(
                         $phone_to_use, 
@@ -893,7 +894,7 @@ class NotificationSystem {
         
         // SMS notification
         if (!empty($appointment['phone_number'])) {
-            $sms_message = "IMMUCARE: Your appointment for {$purpose} on {$formatted_date} at {$formatted_time} {$status_message}.";
+            $sms_message = "Appointment for {$purpose} on " . $appointment_datetime->format('M j, Y') . " {$status_message}.";
             $sms_result = $this->sendSMS(
                 $appointment['phone_number'], 
                 $sms_message, 
@@ -975,7 +976,7 @@ class NotificationSystem {
         
         // SMS notification for patients only
         if ($user['user_type'] === 'patient' && !empty($user['phone_number'])) {
-            $sms_message = "Welcome to ImmuCare! Your account has been created successfully. You can now manage your immunization records and appointments through our platform.";
+            $sms_message = "Welcome to ImmuCare! Your account is ready. Manage your immunization records and appointments online.";
             $sms_result = $this->sendSMS(
                 $user['phone_number'], 
                 $sms_message, 
@@ -1088,9 +1089,9 @@ class NotificationSystem {
         
         // Send SMS notification
         if (!empty($immunization['phone_number'])) {
-            $sms_message = "IMMUCARE: {$immunization['vaccine_name']}{$dose_info} was administered on {$formatted_admin_date}.";
+            $sms_message = "{$immunization['vaccine_name']}{$dose_info} administered on " . $administered_date->format('M j, Y') . ".";
             if (!empty($immunization['next_dose_date'])) {
-                $sms_message .= " Next dose: " . $next_dose_date->format('M j, Y');
+                $sms_message .= " Next dose: " . $next_dose_date->format('M j, Y') . ".";
             }
             
             $sms_result = $this->sendSMS(
@@ -1281,7 +1282,7 @@ class NotificationSystem {
                     // Build unified message for both email and SMS
                     // Include credentials in email, simpler message for SMS
                     if ($patient_details) {
-                        $title = "IMMUCARE: Account and Profile Created";
+                        $title = "Account and Profile Created";
                         
                         // Email message (detailed with credentials if new account)
                         $email_message = "Dear " . $patient_details['first_name'] . ",\n\n";
@@ -1316,10 +1317,8 @@ class NotificationSystem {
                                        "Best regards,\nIMMUCARE Team";
                         
                         // SMS message (simple and concise)
-                        $sms_message = "Welcome to IMMUCARE! Your patient profile has been created. " .
-                                     "You can now schedule appointments and view your health records. " .
-                                     ($is_linking ? "" : "Check your email for login details. ") .
-                                     "Contact us: " . SUPPORT_PHONE;
+                        $sms_message = "Profile created. Schedule appointments and view health records online." .
+                                     ($is_linking ? "" : " Check email for login details.");
                         
                         // Send ONE unified notification via notification system
                         // This will send ONE email (detailed) and ONE SMS (concise)
@@ -1328,7 +1327,7 @@ class NotificationSystem {
                     return true;
 
                 case 'updated':
-                    $title = "IMMUCARE: Account Updated";
+                    $title = "Account Updated";
                     $message = "Dear " . $user['user_name'] . ",\n\n" .
                              "Your IMMUCARE account has been updated.\n\n" .
                              "Update Details:\n" .
